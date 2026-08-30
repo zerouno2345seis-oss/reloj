@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">القرآن الكريم</string>
+    <string name="quran">القرآن</string>
+    <string name="prayer_times">أوقات الصلاة</string>
+    <string name="locations">المواقع</string>
+    <string name="voice_notes">ملاحظات صوتية</string>
+    <string name="bookmarks">الإشارات المرجعية</string>
+    <string name="search">بحث صوتي</string>
+    <string name="font_size">حجم الخط</string>
+    <string name="next_prayer">الصلاة القادمة</string>
+    <string name="save_location">حفظ الموقع</string>
+    <string name="car_location">موقع السيارة</string>
+    <string name="record_note">تسجيل ملاحظة</string>
+    <string name="surah_list">قائمة السور</string>
+    <string name="go_to_start">بداية السورة</string>
+    <string name="go_to_end">نهاية السورة</string>
+    <string name="page">صفحة</string>
+    <string name="ayah">آية</string>
+    <string name="settings">الإعدادات</string>
+    <string name="prayer_alert">تنبيه الصلاة</string>
+    <string name="no_bookmarks">لا توجد إشارات مرجعية</string>
+    <string name="listening">جاري الاستماع...</string>
+    <string name="recording">جاري التسجيل...</string>
+    <string name="saved">تم الحفظ</string>
+    <string name="permissions_needed">الأذونات المطلوبة</string>
+    <string name="location_permission">الموقع لأوقات الصلاة وحفظ الأماكن</string>
+    <string name="audio_permission">الميكروفون للبحث الصوتي والملاحظات</string>
+    <string name="default_buenos_aires">الافتراضي: بوينس آيرس – الأرجنتين</string>
+    <string name="change_location">تغيير الموقع</string>
+    <string name="buenos_aires_province">محافظة بوينس آيرس</string>
+    <string name="use_gps">استخدام GPS</string>
+    <string name="calculation_method">طريقة الحساب</string>
+</resources>
