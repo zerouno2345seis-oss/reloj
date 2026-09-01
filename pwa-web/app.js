@@ -2611,12 +2611,15 @@ const COMPLICATION_TYPES = [
     { id: 'HIDDEN', name: 'إخفاء المعلومة (نقاء تام)', icon: '🚫' }
 ];
 
+// Kept in step with WatchFaceConfig.kt so a fresh install and the web studio
+// agree on the starting face. "bottom" is the slot the watch lets you swap by
+// tapping, so it defaults to something useful rather than hidden.
 let watchFaceConfig = {
-    selectedModel: 'ULTRA_DIGITAL_CLASSIC',
-    topSlot: 'GREGORIAN_DATE',
+    selectedModel: 'ULTRA_DIGITAL_LATIN_ALERT',
+    topSlot: 'HIJRI_DATE',
     leftSlot: 'BATTERY',
     rightSlot: 'NEXT_PRAYER',
-    bottomSlot: 'HIDDEN',
+    bottomSlot: 'QURAN_RESUME',
     useLatinDigits: true
 };
 

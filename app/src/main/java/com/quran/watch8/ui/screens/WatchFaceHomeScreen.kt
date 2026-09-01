@@ -46,11 +46,21 @@ import java.util.*
 import kotlin.math.*
 
 /**
+ * The one complication slot the user rewires by tapping the face. The other
+ * three are locked to what the web studio set, so an accidental tap on a corner
+ * can't quietly reshuffle the face. All four are still fully configurable from
+ * the web studio and via a long press on the slot itself.
+ */
+private const val FLEX_SLOT = "bottom"
+
+/**
  * 9-Model Watch Face Engine (Frameless Large Dial Carousel Edition)
  * - Single Tap Complication:
- *     • If visible -> Cycles to next complication.
- *     • If hidden -> Opens Complication Chooser Dialog to activate.
+ *     • Flex slot ("bottom"), if visible -> Cycles to the next complication.
+ *     • Locked slot, if visible -> Opens that slot's detail dialog.
+ *     • Any slot, if hidden -> Opens the Complication Chooser to activate it.
  * - Long Press Complication:
+ *     • Locked slot -> Opens the Complication Chooser to rewire it.
  *     • QURAN_RESUME -> Direct navigation to Quran Reader at the exact Ayah.
  *     • TASBIH -> Opens Circular Interactive Tasbih Popup Dialog.
  *     • NEXT_PRAYER / PRAYER_ALERT -> Opens Simplified Luxury Prayer Times Schedule Dialog.
@@ -1523,17 +1533,26 @@ private fun ComplicationSlotWrapper(
     content: @Composable () -> Unit
 ) {
     val isHidden = slotType == ComplicationType.HIDDEN
+    val isFlex = slotName == FLEX_SLOT
     Box(
         modifier = modifier
             .pointerInput(slotName, slotType) {
                 detectTapGestures(
                     onTap = {
                         vibrate(30)
-                        if (isHidden) onOpenChooser() else onCycle()
+                        when {
+                            isHidden -> onOpenChooser()
+                            isFlex -> onCycle()          // flex slot: tap rotates the type
+                            else -> onLongPress()        // locked slot: tap opens its detail
+                        }
                     },
                     onLongPress = {
                         vibrate(70)
-                        if (isHidden) onOpenChooser() else onLongPress()
+                        when {
+                            isHidden -> onOpenChooser()
+                            isFlex -> onLongPress()       // flex slot keeps detail on long press
+                            else -> onOpenChooser()       // locked slot: long press to rewire
+                        }
                     }
                 )
             }
@@ -1544,6 +1563,18 @@ private fun ComplicationSlotWrapper(
     ) {
         if (!isHidden) {
             content()
+        }
+        // A short amber underline marks the one slot that responds to a tap.
+        if (isFlex && !isHidden) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 1.dp)
+                    .width(14.dp)
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(AccentGold.copy(alpha = 0.7f))
+            )
         }
     }
 }
