@@ -9,3 +9,4 @@ app/build/
 *.aab
 .kotlin/
 .cxx/
+.restore-points/

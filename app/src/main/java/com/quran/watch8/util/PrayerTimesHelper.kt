@@ -1,22 +1,22 @@
 package com.quran.watch8.util
 
-import com.batoulapps.adhan2.CalculationMethod
-import com.batoulapps.adhan2.Coordinates
-import com.batoulapps.adhan2.Madhab
-import com.batoulapps.adhan2.PrayerTimes
-import com.batoulapps.adhan2.data.DateComponents
-import kotlinx.datetime.Clock
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
+import com.batoulapps.adhan.CalculationMethod
+import com.batoulapps.adhan.CalculationParameters
+import com.batoulapps.adhan.Coordinates
+import com.batoulapps.adhan.Madhab
+import com.batoulapps.adhan.PrayerTimes
+import com.batoulapps.adhan.data.DateComponents
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Date
 import java.util.Locale
 
 /**
- * Prayer times calculation using Adhan library (high precision, offline).
+ * Prayer times calculation using official Adhan library (high precision, offline).
  * Optimized for Argentina / Buenos Aires Province:
- * - Default method: ISNA (most commonly used in Argentina)
+ * - Default method: ISNA (North America - most commonly used in Argentina)
  * - Timezone: America/Argentina/Buenos_Aires (UTC-3)
  * - Madhab: Shafi (common) or Hanafi
  */
@@ -52,35 +52,30 @@ object PrayerTimesHelper {
         zoneId: String = "America/Argentina/Buenos_Aires"
     ): DayPrayers {
         val coords = Coordinates(latitude, longitude)
-        val method = getMethodFromName(methodName)
-        val now = Clock.System.now()
-        // Prefer Argentina timezone for correct local date when device is set elsewhere
-        val tz = try {
-            TimeZone.of(zoneId)
-        } catch (e: Exception) {
-            TimeZone.currentSystemDefault()
+        val params: CalculationParameters = getMethodFromName(methodName).parameters.apply {
+            this.madhab = madhab
         }
-        val localDate = now.toLocalDateTime(tz).date
-        val dateComponents = DateComponents(localDate.year, localDate.monthNumber, localDate.dayOfMonth)
-
-        val params = method.parameters.copy(madhab = madhab)
-        val prayerTimes = PrayerTimes(coords, dateComponents, params)
 
         val zone = try {
             ZoneId.of(zoneId)
         } catch (e: Exception) {
             ZoneId.systemDefault()
         }
+
+        val nowZoned = ZonedDateTime.now(zone)
+        val dateComponents = DateComponents(nowZoned.year, nowZoned.monthValue, nowZoned.dayOfMonth)
+
+        val prayerTimes = PrayerTimes(coords, dateComponents, params)
         val formatter = DateTimeFormatter.ofPattern("HH:mm", Locale("ar"))
 
-        fun toInfo(nameAr: String, nameEn: String, nameEs: String, instant: kotlinx.datetime.Instant): PrayerInfo {
-            val javaInstant = Instant.ofEpochMilli(instant.toEpochMilliseconds())
-            val local = javaInstant.atZone(zone)
+        fun toInfo(nameAr: String, nameEn: String, nameEs: String, date: Date?): PrayerInfo {
+            val instant = date?.toInstant() ?: Instant.now()
+            val local = instant.atZone(zone)
             return PrayerInfo(
                 nameAr = nameAr,
                 nameEn = nameEn,
                 nameEs = nameEs,
-                time = javaInstant,
+                time = instant,
                 formatted = local.format(formatter)
             )
         }

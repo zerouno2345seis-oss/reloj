@@ -1,0 +1,2398 @@
+
+// ════════════════ QURAN WATCH 8 - 12-UNIT CONSTRAINED INTELLIGENT GRID STUDIO ════════════════
+const API_URL = "https://app-sync.fly.dev";
+
+// Default State (Default is text only, font size 14, white text)
+let tileConfig = {
+    version: Date.now(),
+    canvasInsets: { top: 0, right: 0, bottom: 0, left: 0 },
+    rowWeights: {},
+    appearance: { tileShape: 'square-connected', pattern: 'star-eight', iconPalette: 'jewel' },
+    tiles: [
+        { id: 'clock_big', colorHex: '#7C3AED', isLive: true, colSpan: 6, rowIndex: 0, fontSize: 24, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'default', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'prayer_countdown', colorHex: '#10B981', isLive: true, colSpan: 6, rowIndex: 0, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'animated', iconType: 'hourglass', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'folder_islamic', colorHex: '#0284C7', colSpan: 4, rowIndex: 1, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'folder', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'quran_resume', colorHex: '#0E7490', isLive: true, colSpan: 8, rowIndex: 1, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'quran', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'folder_tools', colorHex: '#EA580C', colSpan: 4, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'folder', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'locations', colorHex: '#F59E0B', colSpan: 4, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'pin', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'settings', colorHex: '#334155', colSpan: 4, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'settings', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'cloud_sync_pull' }
+    ]
+};
+
+// Global Watch Settings
+let watchSettings = {
+    fontFamily: 'Uthmanic',
+    fontSize: 18,
+    ayahColor: 'yellow',
+    readerBgColor: 'black',
+    readerTextColor: 'white',
+    selectedLocationId: 'ba_caba',
+    selectedLocationName: 'بوينس آيرس (العاصمة)',
+    selectedLat: -34.6037,
+    selectedLng: -58.3816,
+    useGps: false,
+    calculationMethod: 'ISNA',
+    notificationsEnabled: true,
+    reminderFajr: 15,
+    reminderOthers: 10,
+    reminderDhuhr: 10,
+    reminderAsr: 10,
+    reminderMaghrib: 10,
+    reminderIsha: 10,
+    notificationVibration: true,
+    notificationFullScreen: false,
+    customAyahColor: '#ffd60a',
+    customReaderBgColor: '#111214',
+    customReaderTextColor: '#ffffff',
+    recentLocationIds: ['king_fahd_center', 'al_ahmad_mosque'],
+    tilesDefaultMode: 'text'
+};
+
+// Selection, History & Drag State
+let selectedIndices = new Set([0]);
+let primarySelectedIdx = 0;
+let undoStack = [];
+let redoStack = [];
+let clipboardTiles = [];
+
+let dragType = null; // 'grid-tile', 'scale-text', 'scale-icon', 'text', 'icon'
+let dragStartPointerX = 0;
+let dragStartPointerY = 0;
+let startTilesSnapshot = [];
+let ghostTargetSlot = null; // { rowIndex, insertIndex, colSpan }
+let lastHapticSlotKey = '';
+let dragResizeCorner = null;
+let interactionHistoryPushed = false;
+let recentAutoLayoutPatterns = [];
+let initialLayoutSnapshot = null;
+
+const AUTO_LAYOUT_PATTERNS = [
+    { id: 'balanced-halves', weight: 10, rows: [[6, 6], [4, 8], [4, 4, 4]] },
+    { id: 'hero-top', weight: 9, rows: [[12], [5, 7], [4, 4, 4]] },
+    { id: 'hero-middle', weight: 8, rows: [[4, 8], [12], [6, 6]] },
+    { id: 'reading-focus', weight: 9, rows: [[5, 7], [12], [3, 3, 6]] },
+    { id: 'prayer-focus', weight: 9, rows: [[6, 6], [12], [4, 4, 4]] },
+    { id: 'mosaic-left', weight: 7, rows: [[3, 9], [8, 4], [5, 3, 4]] },
+    { id: 'mosaic-right', weight: 7, rows: [[9, 3], [4, 8], [4, 3, 5]] },
+    { id: 'dense-tools', weight: 6, rows: [[4, 4, 4], [3, 3, 3, 3], [6, 6]] },
+    { id: 'quiet-clock', weight: 6, rows: [[12], [4, 4, 4], [6, 6]] },
+    { id: 'staggered', weight: 6, rows: [[7, 5], [3, 6, 3], [5, 7]] },
+    { id: 'four-rows', weight: 5, rows: [[6, 6], [4, 8], [8, 4], [6, 6]] },
+    { id: 'compact-five', weight: 4, rows: [[7, 5], [4, 4, 4], [12], [6, 6], [3, 3, 3, 3]] }
+];
+const RESIZE_EDGES = ['n', 'e', 's', 'w'];
+
+const surahNamesAr = [
+    "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة", "يونس",
+    "هود", "يوسف", "الرعد", "إبراهيم", "الحجر", "النحل", "الإسراء", "الكهف", "مريم", "طه",
+    "الأنبياء", "الحج", "المؤمنون", "النور", "الفرقان", "الشعراء", "النمل", "القصص", "العنكبوت", "الروم",
+    "لقمان", "السجدة", "الأحزاب", "سبأ", "فاطر", "يس", "الصافات", "ص", "الزمر", "غافر",
+    "فصلت", "الشورى", "الزخرف", "الدخان", "الجاثية", "الأحقاف", "محمد", "الفتح", "الحجرات", "ق",
+    "الذاريات", "الطور", "النجم", "القمر", "الرحمن", "الواقعة", "الحديد", "المجادلة", "الحشر", "الممتحنة",
+    "الصف", "الجمعة", "المنافقون", "التغابن", "الطلاق", "التحريم", "الملك", "القلم", "الحاقة", "المعارج",
+    "نوح", "الجن", "المزمل", "المدثر", "القيامة", "الإنسان", "المرسلات", "النبأ", "النازعات", "عبس",
+    "التكوير", "الانفطار", "المطففين", "الانشقاق", "البروج", "الطارق", "الأعلى", "الغاشية", "الفجر", "البلد",
+    "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", "البينة", "الزلزلة", "العاديات",
+    "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", "الكوثر", "الكافرون", "النصر",
+    "المسد", "الإخلاص", "الفلق", "الناس"
+];
+
+const iconLibrary = [
+    { id: 'default', title: 'الأيقونة الافتراضية', icon: '⭐' },
+    { id: 'quran', title: 'مصحف شريف', icon: '📖' },
+    { id: 'kaaba', title: 'الكعبة المشرفة', icon: '🕋' },
+    { id: 'mosque', title: 'مسجد ومئذنة', icon: '🕌' },
+    { id: 'tasbih', title: 'سبحة وتسبيح', icon: '📿' },
+    { id: 'crescent', title: 'هلال رمضان', icon: '🌙' },
+    { id: 'star_islamic', title: 'نجمة إسلامية', icon: '✨' },
+    { id: 'dua', title: 'دعاء وتضرع', icon: '🤲' },
+    { id: 'clock', title: 'ساعة يد / وقت', icon: '⏰' },
+    { id: 'stopwatch', title: 'ساعة إيقاف', icon: '⏱️' },
+    { id: 'hourglass', title: 'ساعة رملية / متبقي', icon: '⏳' },
+    { id: 'hourglass_done', title: 'ساعة رملية منتهية', icon: '⌛' },
+    { id: 'calendar', title: 'تقويم وتاريخ', icon: '📅' },
+    { id: 'battery', title: 'بطارية وطاقة', icon: '🔋' },
+    { id: 'settings', title: 'إعدادات وترس', icon: '⚙️' },
+    { id: 'pin', title: 'موقع ودبوس', icon: '📍' },
+    { id: 'compass', title: 'بوصلة اتجاه', icon: '🧭' },
+    { id: 'mic', title: 'ميكروفون وتسجيل', icon: '🎤' },
+    { id: 'bookmark', title: 'علامة مرجعية', icon: '🔖' },
+    { id: 'folder', title: 'مجلد ملفات', icon: '📁' },
+    { id: 'bolt', title: 'صاعقة وبرق', icon: '⚡' },
+    { id: 'bell', title: 'جرس وتنبيه', icon: '🔔' },
+    { id: 'heart', title: 'قلب ونبض', icon: '❤️' },
+    { id: 'sun', title: 'شمس ساطعة', icon: '☀️' },
+    { id: 'cloud_sun', title: 'غائم جزئياً', icon: '⛅' },
+    { id: 'rain', title: 'مطر', icon: '🌧️' },
+    { id: 'cloud', title: 'غيوم', icon: '☁️' }
+];
+
+// A complete local catalogue. It deliberately stays data-only so it is safe to sync and easy to replace with a custom SVG pack later.
+const expandedIconLibrary = [
+    ['quran_open','مصحف مفتوح','📖'],['quran_closed','مصحف مغلق','📕'],['quran_bookmark','علامة المصحف','🔖'],['quran_read','قراءة القرآن','📜'],['quran_audio','تلاوة صوتية','🎧'],['quran_search','بحث قرآني','🔎'],['quran_pages','صفحات المصحف','📄'],['quran_verse','آية','۝'],['bismillah','البسملة','﷽'],['kaaba','الكعبة','🕋'],['qibla_arrow','اتجاه القبلة','➤'],['qibla_compass','بوصلة القبلة','🧭'],['mosque','مسجد','🕌'],['minaret','مئذنة','🕌'],['crescent_moon','هلال','☪'],['tasbih_beads','مسبحة','📿'],['dua_hands','دعاء','🤲'],['prayer_mat','سجادة صلاة','🟫'],['adhan','الأذان','📣'],['fajr','الفجر','🌅'],['dhuhr','الظهر','☀️'],['asr','العصر','🌤️'],['maghrib','المغرب','🌇'],['isha','العشاء','🌙'],['ramadan','رمضان','🌙'],['eid','العيد','🎉'],['zakat','الزكاة','🤝'],['sadaqah','صدقة','💝'],['fasting','صيام','🍽️'],['hajj','الحج','🕋'],['umrah','العمرة','🕋'],['calendar_hijri','تقويم هجري','🗓️'],
+    ['time','الوقت','🕒'],['alarm','منبّه','⏰'],['timer','مؤقت','⏲️'],['stopwatch','ساعة إيقاف','⏱️'],['hourglass','ساعة رملية','⌛'],['date','التاريخ','📅'],['sunrise','شروق','🌄'],['sunset','غروب','🌆'],['night','ليل','🌃'],['star','نجمة','⭐'],['sparkles','بريق','✨'],['heart','قلب','♥'],['leaf','ورقة','🍃'],['flower','زهرة','🌸'],['water','ماء','💧'],['cloud','سحابة','☁️'],['rain','مطر','🌧️'],['wind','رياح','💨'],['temperature','حرارة','🌡️'],['weather','الطقس','⛅'],
+    ['location','موقع','📍'],['map','خريطة','🗺️'],['navigation','ملاحة','🧭'],['home','الرئيسية','⌂'],['folder','مجلد','📁'],['archive','أرشيف','🗃️'],['bookmark','علامة','🔖'],['note','ملاحظة','📝'],['microphone','ميكروفون','🎙️'],['headphones','سماعات','🎧'],['camera','كاميرا','📷'],['gallery','صور','🖼️'],['phone','هاتف','☎'],['message','رسائل','✉'],['bell','جرس','🔔'],['settings','إعدادات','⚙'],['sync','مزامنة','⇅'],['wifi','واي فاي','⌁'],['bluetooth','بلوتوث','ᛒ'],['battery','بطارية','🔋'],['charging','شحن','⚡'],['lock','قفل','🔒'],['shield','حماية','🛡️'],['key','مفتاح','🔑'],['check','تم','✓'],['plus','إضافة','＋'],['edit','تعديل','✎'],['delete','حذف','⌫'],['share','مشاركة','↗'],['download','تنزيل','⇩'],['upload','رفع','⇧'],['refresh','تحديث','↻'],['play','تشغيل','▶'],['pause','إيقاف','Ⅱ'],['next','التالي','›'],['back','السابق','‹'],['info','معلومات','ⓘ'],['help','مساعدة','?'],['eye','عرض','◉'],['filter','تصفية','≡'],['grid','شبكة','▦'],['list','قائمة','☷'],['palette','ألوان','🎨'],['pattern','زخرفة','✺'],['eight_star','نجمة ثمانية','✦'],['arabesque','أرابيسك','❈'],['andalusian','أندلسي','✥'],['damascene','دمشقي','❖'],['egyptian','مصري','𓂀'],['ottoman','عثماني','✤'],['persian','فارسي','❋'],['asian_islamic','آسيوي إسلامي','✹'],['world_pattern','زخرفة عالمية','◎']
+].map(([id, title, icon]) => ({ id, title, icon }));
+iconLibrary.push(...expandedIconLibrary.filter(item => !iconLibrary.some(existing => existing.id === item.id)));
+
+const tileActionsList = [
+    { id: 'color_only', title: '🎨 بلاطة لون فقط (تزيينية)' },
+    { id: 'clock_big', title: '⏰ الساعة الرقمية' },
+    { id: 'prayer_countdown', title: '⏳ متبقي الصلاة القادمة' },
+    { id: 'prayer_elapsed', title: '⌛ الوقت المنقضي على الصلاة' },
+    { id: 'prayer', title: '🕌 مواقيت الصلاة اليومية' },
+    { id: 'prayer_strip_5', title: '▤ صف مواقيت الصلاة الكامل' },
+    { id: 'quran_resume', title: '📖 موضع القراءة الأخير' },
+    { id: 'quran', title: '📖 المصحف الشريف (الفهرس)' },
+    { id: 'tasbih', title: '📿 السبحة الإلكترونية' },
+    { id: 'qibla', title: '🕋 بوصلة القبلة' },
+    { id: 'folder_islamic', title: '📁 مجلد إسلاميات' },
+    { id: 'folder_tools', title: '📁 مجلد الأدوات' },
+    { id: 'folder_custom', title: '📁 مجلد مخصص' },
+    { id: 'date_big', title: '📅 التاريخ الهجري والميلادي' },
+    { id: 'bookmarks', title: '🔖 العلامات المرجعية' },
+    { id: 'voice_notes', title: '🎤 استوديو التسجيل الصوتي' },
+    { id: 'locations', title: '📍 المواقع المحفوظة' },
+    { id: 'settings', title: '⚙️ الإعدادات والمزامنة' },
+    { id: 'battery', title: '🔋 نسبة شحن البطارية' },
+    { id: 'weather', title: '⛅ حالة الطقس' }
+    ,{ id: 'auto_layout', title: '✦ ترتيب تلقائي جديد' }
+];
+
+const featureActionCatalog = {
+    default: [{ id: '', title: 'بلا إجراء' }, { id: 'quick_edit', title: '✎ تحرير سريع' }],
+    locations: [
+        { id: 'locations_recent', title: '◷ المواقع الأخيرة' },
+        { id: 'locations_active', title: '⌖ الانتقال إلى الموقع النشط' },
+        { id: 'locations_navigate', title: '↗ فتح الملاحة' },
+        { id: 'locations_add_current', title: '＋ حفظ موقعي الحالي' }
+    ],
+    quran_resume: [
+        { id: 'reader_resume', title: '▶ متابعة القراءة' },
+        { id: 'reader_next_ayah', title: '› الآية التالية' },
+        { id: 'reader_bookmark', title: '🔖 إضافة علامة' },
+        { id: 'reader_last_surah', title: '☰ فهرس السورة' }
+    ],
+    quran: [{ id: 'reader_index', title: '☰ فهرس المصحف' }, { id: 'reader_search', title: '⌕ بحث في القرآن' }, { id: 'reader_bookmarks', title: '🔖 العلامات المرجعية' }],
+    tasbih: [{ id: 'tasbih_increment', title: '＋ تسبيحة واحدة' }, { id: 'tasbih_reset', title: '↺ تصفير العداد' }, { id: 'tasbih_select_dhikr', title: '☰ اختيار الذكر' }],
+    prayer_countdown: [{ id: 'prayer_schedule', title: '◫ المواقيت اليومية' }, { id: 'prayer_next', title: '› الصلاة التالية' }, { id: 'prayer_reminders', title: '🔔 التنبيهات' }],
+    qibla: [{ id: 'qibla_compass', title: '🕋 فتح البوصلة' }, { id: 'qibla_calibrate', title: '◌ معايرة البوصلة' }],
+    folder_islamic: [{ id: 'folder_islamic_open', title: '📁 فتح الإسلاميات' }, { id: 'folder_islamic_customize', title: '✎ تخصيص المجلد' }],
+    folder_tools: [{ id: 'folder_tools_open', title: '📁 فتح الأدوات' }, { id: 'folder_tools_customize', title: '✎ تخصيص المجلد' }],
+    weather: [{ id: 'weather_details', title: '⛅ تفاصيل الطقس' }, { id: 'weather_refresh', title: '↻ تحديث الطقس' }],
+    battery: [{ id: 'battery_status', title: '🔋 حالة البطارية' }, { id: 'battery_saver', title: '◐ وضع توفير الطاقة' }],
+    settings: [{ id: 'settings_open', title: '⚙ فتح الإعدادات' }, { id: 'cloud_sync_pull', title: '⇅ جلب المزامنة' }, { id: 'settings_notifications', title: '🔔 إعداد التنبيهات' }]
+    ,auto_layout: [{ id: 'auto_layout', title: '✦ ترتيب جديد' }, { id: 'auto_layout_restore', title: '↺ استعادة الترتيب الأول' }]
+};
+
+const argentinaLocations = [
+    { id: "ba_caba", name: "بوينس آيرس (العاصمة CABA)", lat: -34.6037, lng: -58.3816, qibla: "72° NE" },
+    { id: "king_fahd_center", name: "مركز الملك فهد الثقافي الإسلامي (Palermo)", lat: -34.5714, lng: -58.4253, qibla: "72° NE" },
+    { id: "al_ahmad_mosque", name: "مسجد الأحمد (San Cristóbal)", lat: -34.6247, lng: -58.3975, qibla: "72° NE" },
+    { id: "cordoba", name: "كوردوبا (Córdoba)", lat: -31.4201, lng: -64.1888, qibla: "73° NE" },
+    { id: "rosario", name: "روساريو (Rosario)", lat: -32.9468, lng: -60.6393, qibla: "73° NE" },
+    { id: "mendoza", name: "ميندوزا (Mendoza)", lat: -32.8895, lng: -68.8458, qibla: "74° NE" },
+    { id: "mar_del_plata", name: "مار ديل بلاتا (Mar del Plata)", lat: -38.0055, lng: -57.5560, qibla: "70° NE" },
+    { id: "salta", name: "سالتا (Salta)", lat: -24.7821, lng: -65.4232, qibla: "75° NE" },
+    { id: "tucuman", name: "سان ميغيل دي توكومان (Tucumán)", lat: -26.8083, lng: -65.2176, qibla: "75° NE" },
+    { id: "santa_fe", name: "سانتا في (Santa Fe)", lat: -31.6333, lng: -60.7000, qibla: "73° NE" }
+];
+
+let quranData = null;
+
+// ── FLEXIBLE 12-UNIT GRID, EDGE MARGINS & FREEFORM LAYERS ──
+const MAX_EDITOR_ROWS = 5;
+
+function getAppearance() {
+    const defaults = { tileShape: 'square-connected', pattern: 'star-eight', iconPalette: 'jewel' };
+    tileConfig.appearance = { ...defaults, ...(tileConfig.appearance || {}) };
+    return tileConfig.appearance;
+}
+
+function applyAppearanceControl(key, value) {
+    pushHistory();
+    tileConfig.appearance = { ...getAppearance(), [key]: value };
+    validateAndPackGrid();
+    renderCanvas();
+    saveLocalDraft();
+    updateSyncStatus('تم تطبيق مظهر الساعة', 'success');
+}
+
+function cycleTileShape() {
+    const shapes = ['square-connected', 'oval', 'mixed', 'circle'];
+    const currentIndex = shapes.indexOf(getAppearance().tileShape);
+    const nextShape = shapes[(currentIndex + 1) % shapes.length];
+    applyAppearanceControl('tileShape', nextShape);
+    const control = document.getElementById('settingTileShape');
+    if (control) control.value = nextShape;
+}
+
+function captureInitialLayout() {
+    initialLayoutSnapshot = JSON.parse(JSON.stringify(tileConfig));
+}
+
+function restoreInitialLayout() {
+    if (!initialLayoutSnapshot) return;
+    pushHistory();
+    tileConfig = JSON.parse(JSON.stringify(initialLayoutSnapshot));
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+    updateSyncStatus('تمت استعادة الترتيب الأول', 'success');
+}
+
+function getCanvasInsets() {
+    const defaults = { top: 0, right: 0, bottom: 0, left: 0 };
+    const saved = tileConfig.canvasInsets || {};
+    return Object.fromEntries(Object.entries(defaults).map(([edge, value]) => [
+        edge,
+        Math.max(0, Math.min(18, Number(saved[edge] ?? value) || 0))
+    ]));
+}
+
+function clampManualSlot(slot, insets) {
+    const minSize = 10;
+    const usableWidth = 100 - insets.left - insets.right;
+    const usableHeight = 100 - insets.top - insets.bottom;
+    slot.width = Math.max(minSize, Math.min(usableWidth, Number(slot.width) || minSize));
+    slot.height = Math.max(minSize, Math.min(usableHeight, Number(slot.height) || minSize));
+    slot.x = Math.max(insets.left, Math.min(100 - insets.right - slot.width, Number(slot.x) || insets.left));
+    slot.y = Math.max(insets.top, Math.min(100 - insets.bottom - slot.height, Number(slot.y) || insets.top));
+}
+
+function validateAndPackGrid() {
+    if (!tileConfig.tiles.length) return;
+    // The editor is now a collision-free grid. Legacy freeform drafts are safely returned to it.
+    tileConfig.tiles.forEach(tile => { tile.manualLayout = false; });
+    let rowsMap = {};
+    tileConfig.tiles.forEach((t, i) => {
+        let r = t.rowIndex !== undefined ? t.rowIndex : Math.floor(i / 2);
+        if (!rowsMap[r]) rowsMap[r] = [];
+        rowsMap[r].push(t);
+    });
+
+    let sortedRowKeys = Object.keys(rowsMap).map(Number).sort((a, b) => a - b);
+    const insets = getCanvasInsets();
+    const usableWidth = 100 - insets.left - insets.right;
+    const usableHeight = 100 - insets.top - insets.bottom;
+    const oldWeights = tileConfig.rowWeights || {};
+    const weights = sortedRowKeys.map((rowKey, index) => Math.max(.22, Number(oldWeights[rowKey] ?? oldWeights[index] ?? 1) || 1));
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    const normalizedWeights = {};
+    let currentY = insets.top;
+
+    sortedRowKeys.forEach((rKey, rIdx) => {
+        let rowTiles = rowsMap[rKey];
+        rowTiles.forEach(t => t.rowIndex = rIdx);
+        normalizedWeights[rIdx] = weights[rIdx];
+        const rowHeightPct = usableHeight * (weights[rIdx] / totalWeight);
+
+        // Normalize every row precisely to 12 units. This prevents both overlap and blank cells.
+        const minimum = rowTiles.length <= 6 ? 2 : 1;
+        const desiredTotal = rowTiles.reduce((sum, tile) => sum + Math.max(minimum, Number(tile.colSpan) || 4), 0);
+        let remainingUnits = 12;
+        rowTiles.forEach((tile, index) => {
+            const isLast = index === rowTiles.length - 1;
+            const remainingTiles = rowTiles.length - index - 1;
+            const requested = Math.max(minimum, Number(tile.colSpan) || 4);
+            const proportional = Math.round((requested / desiredTotal) * 12);
+            tile.colSpan = isLast
+                ? remainingUnits
+                : Math.max(minimum, Math.min(remainingUnits - (remainingTiles * minimum), proportional));
+            remainingUnits -= tile.colSpan;
+        });
+
+        // Pack all tiles left-to-right with a small visual gutter; no tile can cover another.
+        let currentX = 0;
+        rowTiles.forEach(t => {
+            t.x = insets.left + (currentX / 12) * usableWidth;
+            t.y = currentY;
+            t.width = ((t.colSpan || 4) / 12) * usableWidth;
+            t.height = rowHeightPct;
+            currentX += (t.colSpan || 4);
+        });
+        currentY += rowHeightPct;
+    });
+    tileConfig.canvasInsets = insets;
+    tileConfig.rowWeights = normalizedWeights;
+}
+
+// ── UNDO / REDO HISTORY ──
+function pushHistory() {
+    undoStack.push(JSON.parse(JSON.stringify({
+        tiles: tileConfig.tiles,
+        rowWeights: tileConfig.rowWeights,
+        canvasInsets: tileConfig.canvasInsets
+    })));
+    if (undoStack.length > 40) undoStack.shift();
+    redoStack = [];
+}
+
+function undo() {
+    if (undoStack.length === 0) return;
+    redoStack.push(JSON.parse(JSON.stringify({ tiles: tileConfig.tiles, rowWeights: tileConfig.rowWeights, canvasInsets: tileConfig.canvasInsets })));
+    const snapshot = undoStack.pop();
+    tileConfig.tiles = snapshot.tiles || snapshot;
+    if (snapshot.rowWeights) tileConfig.rowWeights = snapshot.rowWeights;
+    if (snapshot.canvasInsets) tileConfig.canvasInsets = snapshot.canvasInsets;
+    selectedIndices.clear();
+    primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
+    if (primarySelectedIdx >= 0) selectedIndices.add(primarySelectedIdx);
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    updateEditor();
+    scheduleAutoSync();
+}
+
+function redo() {
+    if (redoStack.length === 0) return;
+    undoStack.push(JSON.parse(JSON.stringify({ tiles: tileConfig.tiles, rowWeights: tileConfig.rowWeights, canvasInsets: tileConfig.canvasInsets })));
+    const snapshot = redoStack.pop();
+    tileConfig.tiles = snapshot.tiles || snapshot;
+    if (snapshot.rowWeights) tileConfig.rowWeights = snapshot.rowWeights;
+    if (snapshot.canvasInsets) tileConfig.canvasInsets = snapshot.canvasInsets;
+    selectedIndices.clear();
+    primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
+    if (primarySelectedIdx >= 0) selectedIndices.add(primarySelectedIdx);
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+}
+
+function copySelectedTiles() {
+    if (selectedIndices.size === 0) return;
+    clipboardTiles = Array.from(selectedIndices).map(idx => JSON.parse(JSON.stringify(tileConfig.tiles[idx])));
+}
+
+function pasteCopiedTiles() {
+    if (clipboardTiles.length === 0) return;
+    pushHistory();
+    selectedIndices.clear();
+    
+    clipboardTiles.forEach(t => {
+        let pasted = Object.assign({}, t, { rowIndex: tileConfig.tiles.length, colSpan: t.colSpan || 12 });
+        tileConfig.tiles.push(pasted);
+        let newIdx = tileConfig.tiles.length - 1;
+        selectedIndices.add(newIdx);
+        primarySelectedIdx = newIdx;
+    });
+
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+}
+
+function selectAllTiles() {
+    selectedIndices.clear();
+    tileConfig.tiles.forEach((_, i) => selectedIndices.add(i));
+    primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
+    renderCanvas();
+    updateEditor();
+}
+
+function deleteSelectedTiles() {
+    if (selectedIndices.size === 0) return;
+    pushHistory();
+    tileConfig.tiles = tileConfig.tiles.filter((_, i) => !selectedIndices.has(i));
+    selectedIndices.clear();
+    primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
+    if (primarySelectedIdx >= 0) selectedIndices.add(primarySelectedIdx);
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+}
+
+// ── KEYBOARD SHORTCUTS LISTENER ──
+function setupKeyboardShortcuts() {
+    window.addEventListener('keydown', (e) => {
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+
+        const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+        if (isCtrlOrCmd && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+        } else if ((isCtrlOrCmd && e.key.toLowerCase() === 'y') || (isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'z')) {
+            e.preventDefault();
+            redo();
+        } else if (isCtrlOrCmd && e.key.toLowerCase() === 'c') {
+            e.preventDefault();
+            copySelectedTiles();
+        } else if (isCtrlOrCmd && e.key.toLowerCase() === 'v') {
+            e.preventDefault();
+            pasteCopiedTiles();
+        } else if (isCtrlOrCmd && e.key.toLowerCase() === 'a') {
+            e.preventDefault();
+            selectAllTiles();
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            deleteSelectedTiles();
+        }
+    });
+}
+
+function initApp() {
+    restoreLocalDraft();
+    setupTabs();
+    populateSelects();
+    validateAndPackGrid();
+    captureInitialLayout();
+    renderCanvas();
+    setupCanvasEvents();
+    setupQuranSearch();
+    renderBookmarks();
+    renderLocations();
+    setupSettingsTab();
+    setupPresetsManager();
+    setupKeyboardShortcuts();
+    setupFinderControls();
+    
+    // Toolbar Buttons
+    document.getElementById('btnUndo')?.addEventListener('click', undo);
+    document.getElementById('btnRedo')?.addEventListener('click', redo);
+    document.getElementById('btnCopy')?.addEventListener('click', copySelectedTiles);
+    document.getElementById('btnPaste')?.addEventListener('click', pasteCopiedTiles);
+    document.getElementById('btnSelectAll')?.addEventListener('click', selectAllTiles);
+    document.getElementById('btnDeleteKey')?.addEventListener('click', deleteSelectedTiles);
+    
+    // Sync Buttons
+    document.getElementById('btnSaveTilesToWatch')?.addEventListener('click', () => syncAll(true));
+    document.getElementById('btnCloudPush')?.addEventListener('click', () => syncAll(true));
+    document.getElementById('btnCloudPull')?.addEventListener('click', () => pullFromCloud());
+    document.getElementById('btnLocalSync')?.addEventListener('click', () => syncLocalDirect());
+    
+    // Toggle Sync Banner
+    let syncBody = document.getElementById('syncBannerBody');
+    let syncIcon = document.getElementById('syncToggleIcon');
+    document.getElementById('btnToggleSync')?.addEventListener('click', () => {
+        if(syncBody.style.display === 'none') {
+            syncBody.style.display = 'grid';
+            syncIcon.textContent = '🔽';
+        } else {
+            syncBody.style.display = 'none';
+            syncIcon.textContent = '◀️';
+        }
+    });
+
+    // Add Tile (Appends to grid and packs)
+    document.getElementById('btnAddTile')?.addEventListener('click', () => addTile('new-row'));
+    
+    // Auto Layout Grid
+    document.getElementById('btnAutoLayout')?.addEventListener('click', () => {
+        pushHistory();
+        applySmartAutoLayout();
+        renderCanvas();
+        updateEditor();
+        scheduleAutoSync();
+    });
+    document.getElementById('btnCycleTileShape')?.addEventListener('click', cycleTileShape);
+
+    // Delete Tile
+    document.getElementById('btnDeleteTile')?.addEventListener('click', deleteSelectedTiles);
+
+    // Editor field listeners
+    ['tileAction', 'tileBgColor', 'tileFontColor', 'tileFontSize', 'tileFontFamily', 'tileDisplayStyle', 'tileIconStyle', 'tileIconColor', 'tileIconType', 'tileTapAction', 'tileLongPressAction'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => onEditorChange(id));
+            el.addEventListener('change', () => onEditorChange(id));
+        }
+    });
+}
+
+function setupFinderControls() {
+    document.querySelectorAll('[data-open-tab]').forEach(button => {
+        button.addEventListener('click', () => activateTab(button.dataset.openTab));
+    });
+    document.querySelectorAll('[data-col-span]').forEach(button => {
+        button.addEventListener('click', () => window.setTileColSpan(Number(button.dataset.colSpan)));
+    });
+    document.querySelectorAll('[data-text-align]').forEach(button => {
+        button.addEventListener('click', () => {
+            if (primarySelectedIdx < 0 || !tileConfig.tiles[primarySelectedIdx]) return;
+            pushHistory();
+            const align = button.dataset.textAlign;
+            selectedIndices.forEach(idx => {
+                const tile = tileConfig.tiles[idx];
+                if (tile) tile.textAlign = align;
+            });
+            document.querySelectorAll('[data-text-align]').forEach(b => b.classList.toggle('active', b === button));
+            renderCanvas();
+            scheduleAutoSync();
+        });
+    });
+    document.querySelectorAll('[data-align-x]').forEach(button => {
+        button.addEventListener('click', () => setTileAlignment('x', button.dataset.alignX));
+    });
+    document.querySelectorAll('[data-align-y]').forEach(button => {
+        button.addEventListener('click', () => setTileAlignment('y', button.dataset.alignY));
+    });
+    document.querySelectorAll('[data-font-size]').forEach(button => {
+        button.addEventListener('click', () => {
+            const field = document.getElementById('tileFontSize');
+            if (!field) return;
+            field.value = button.dataset.fontSize;
+            onEditorChange('tileFontSize');
+        });
+    });
+    document.querySelectorAll('[data-swatch]').forEach(button => {
+        button.style.background = button.dataset.swatch;
+        button.addEventListener('click', () => {
+            const field = document.getElementById('tileBgColor');
+            if (!field) return;
+            field.value = button.dataset.swatch;
+            onEditorChange('tileBgColor');
+        });
+    });
+    document.querySelectorAll('[data-web-preset]').forEach(card => {
+        card.querySelector('button')?.addEventListener('click', () => {
+            const aliases = { classic: 'default', prayer: 'prayer', quran: 'quran', minimal: 'minimal', day: 'default' };
+            window.loadBuiltInPreset(aliases[card.dataset.webPreset] || 'default');
+            activateTab('tiles');
+        });
+    });
+    document.querySelectorAll('[data-preset-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('[data-preset-filter]').forEach(item => item.classList.toggle('active', item === button));
+            document.querySelectorAll('[data-category]').forEach(card => {
+                card.hidden = button.dataset.presetFilter !== 'all' && card.dataset.category !== button.dataset.presetFilter;
+            });
+        });
+    });
+    document.getElementById('btnAddTileRight')?.addEventListener('click', () => addTile('right'));
+    document.getElementById('btnAddTileLeft')?.addEventListener('click', () => addTile('left'));
+    document.getElementById('btnAddRow')?.addEventListener('click', () => addTile('new-row'));
+    document.getElementById('btnAddPrayerStrip')?.addEventListener('click', addPrayerStripRow);
+    document.getElementById('btnCompactRow')?.addEventListener('click', () => setSelectedRowCompact(true));
+    document.getElementById('btnRestoreRow')?.addEventListener('click', () => setSelectedRowCompact(false));
+    document.querySelectorAll('[data-edge-inset]').forEach(button => {
+        button.addEventListener('click', () => toggleCanvasInset(button.dataset.edgeInset));
+    });
+    document.getElementById('btnExpandTile')?.addEventListener('click', () => window.setTileColSpan(12));
+    document.getElementById('btnApplyFromToolbar')?.addEventListener('click', () => syncAll(true));
+    document.getElementById('btnSaveCurrentPresetPrompt')?.addEventListener('click', saveCurrentPresetFromPrompt);
+    document.getElementById('safeAreaToggle')?.addEventListener('change', event => {
+        document.getElementById('watchScreenSimulator')?.classList.toggle('hide-safe-area', !event.target.checked);
+    });
+}
+
+function setTileAlignment(axis, value) {
+    if (selectedIndices.size === 0) return;
+    const mapped = { start: 22, center: 50, end: 78 }[value] || 50;
+    pushHistory();
+    selectedIndices.forEach(index => {
+        const tile = tileConfig.tiles[index];
+        if (!tile) return;
+        if (axis === 'x') {
+            tile.textX = mapped;
+            tile.iconX = mapped;
+        } else {
+            tile.textY = mapped;
+            tile.iconY = mapped;
+        }
+    });
+    renderCanvas();
+    scheduleAutoSync();
+}
+
+function onEditorChange(id) {
+    if(primarySelectedIdx < 0 || !tileConfig.tiles[primarySelectedIdx]) return;
+    pushHistory();
+
+    selectedIndices.forEach(idx => {
+        let slot = tileConfig.tiles[idx];
+        if(id === 'tileAction') {
+            slot.id = document.getElementById('tileAction').value;
+            const defaults = {
+                tasbih: ['tasbih_increment', 'tasbih_reset'],
+                qibla: ['qibla_compass', 'qibla_calibrate'],
+                quran_resume: ['reader_resume', 'reader_last_surah'],
+                prayer_strip_5: ['prayer_schedule', 'quick_edit'],
+                auto_layout: ['auto_layout', 'auto_layout_restore']
+            };
+            if (defaults[slot.id]) [slot.tapAction, slot.longPressAction] = defaults[slot.id];
+            if (slot.id.startsWith('folder') && !slot.folderItems?.length) {
+                slot.folderItems = slot.id === 'folder_tools'
+                    ? ['voice_notes', 'bookmarks', 'locations', 'settings']
+                    : ['quran', 'tasbih', 'qibla', 'prayer'];
+            }
+        }
+        if(id === 'tileBgColor') slot.colorHex = document.getElementById('tileBgColor').value;
+        if(id === 'tileFontColor') slot.fontColorHex = document.getElementById('tileFontColor').value;
+        if(id === 'tileFontSize') slot.fontSize = parseInt(document.getElementById('tileFontSize').value) || 14;
+        if(id === 'tileFontFamily') slot.fontFamily = document.getElementById('tileFontFamily').value;
+        if(id === 'tileDisplayStyle') slot.displayStyle = document.getElementById('tileDisplayStyle').value;
+        if(id === 'tileIconStyle') slot.iconStyle = document.getElementById('tileIconStyle').value;
+        if(id === 'tileIconColor') slot.iconColorHex = document.getElementById('tileIconColor').value;
+        if(id === 'tileIconType') slot.iconType = document.getElementById('tileIconType').value;
+        if(id === 'tileTapAction') slot.tapAction = document.getElementById('tileTapAction').value;
+        if(id === 'tileLongPressAction') slot.longPressAction = document.getElementById('tileLongPressAction').value;
+    });
+    
+    renderCanvas();
+    if (id === 'tileAction') updateEditor();
+    scheduleAutoSync();
+}
+
+window.setTileColSpan = function(span) {
+    if (primarySelectedIdx < 0 || !tileConfig.tiles[primarySelectedIdx]) return;
+    pushHistory();
+    let target = tileConfig.tiles[primarySelectedIdx];
+    let r = target.rowIndex !== undefined ? target.rowIndex : 0;
+    
+    rebalanceRowWidths(r, target, span);
+
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+};
+
+function rebalanceRowWidths(rowIndex, target, requestedSpan) {
+    const rowTiles = tileConfig.tiles.filter(tile => tile.rowIndex === rowIndex);
+    const otherTiles = rowTiles.filter(tile => tile !== target);
+    if (!otherTiles.length) {
+        target.colSpan = 12;
+        target.manualLayout = false;
+        return;
+    }
+
+    const minForOthers = otherTiles.length * 2;
+    const targetSpan = Math.max(2, Math.min(12 - minForOthers, Math.round(requestedSpan)));
+    const remaining = 12 - targetSpan;
+    const oldTotal = otherTiles.reduce((sum, tile) => sum + Math.max(1, Number(tile.colSpan) || 4), 0);
+    let allocated = 0;
+    target.colSpan = targetSpan;
+    target.manualLayout = false;
+    otherTiles.forEach((tile, index) => {
+        const isLast = index === otherTiles.length - 1;
+        const proportional = Math.max(2, Math.round((Math.max(1, Number(tile.colSpan) || 4) / oldTotal) * remaining));
+        tile.colSpan = isLast ? Math.max(2, remaining - allocated) : proportional;
+        allocated += tile.colSpan;
+        tile.manualLayout = false;
+    });
+    // Rounding can leave one or two units. Put them into the final neighbour.
+    const finalSum = rowTiles.reduce((sum, tile) => sum + tile.colSpan, 0);
+    otherTiles[otherTiles.length - 1].colSpan += 12 - finalSum;
+}
+
+function rebalanceRowHeights(rowIndex, requestedWeight) {
+    const rows = [...new Set(tileConfig.tiles.map(tile => tile.rowIndex || 0))].sort((a, b) => a - b);
+    const nextWeights = { ...(tileConfig.rowWeights || {}) };
+    nextWeights[rowIndex] = Math.max(.22, Math.min(4, requestedWeight));
+    rows.forEach(row => {
+        if (row !== rowIndex && !Number.isFinite(Number(nextWeights[row]))) nextWeights[row] = 1;
+    });
+    tileConfig.rowWeights = nextWeights;
+    validateAndPackGrid();
+}
+
+function pickWeightedLayoutPattern() {
+    const available = AUTO_LAYOUT_PATTERNS.filter(pattern => !recentAutoLayoutPatterns.includes(pattern.id));
+    const pool = available.length ? available : AUTO_LAYOUT_PATTERNS;
+    const totalWeight = pool.reduce((sum, pattern) => sum + pattern.weight, 0);
+    let cursor = Math.random() * totalWeight;
+    const selected = pool.find(pattern => (cursor -= pattern.weight) <= 0) || pool[pool.length - 1];
+    recentAutoLayoutPatterns = [...recentAutoLayoutPatterns, selected.id].slice(-4);
+    return selected;
+}
+
+function applySmartAutoLayout() {
+    const appearanceConfig = getAppearance();
+    if (appearanceConfig.tileShape === 'circle') {
+        applyCircularAutoLayout();
+        updateSyncStatus('تم إنشاء ترتيب دائري شعاعي', 'success');
+        return;
+    }
+    const pattern = pickWeightedLayoutPattern();
+    const importance = { clock_big: 1, quran_resume: 2, prayer_countdown: 3, prayer: 4, qibla: 5, locations: 6, folder_islamic: 7, folder_tools: 8, settings: 9 };
+    const appearance = {
+        clock_big: ['#0A84FF', 26], quran_resume: ['#087E8B', 15], quran: ['#0B7285', 16],
+        prayer_strip_5: ['#1F8A5B', 12], prayer: ['#1F8A5B', 15], prayer_countdown: ['#34A853', 16],
+        qibla: ['#9C5B12', 15], tasbih: ['#7A5AF8', 16], locations: ['#E38B18', 14],
+        folder_islamic: ['#1479C9', 14], folder_tools: ['#E87516', 14], settings: ['#455468', 14]
+    };
+    const intrinsicSpan = tile => {
+        // A verse opening and five prayer times need readable breathing room.
+        if (['quran_resume', 'prayer_strip_5', 'prayer'].includes(tile.id)) return 12;
+        if (tile.id === 'clock_big') return 6;
+        if (tile.id === 'prayer_countdown') return 6;
+        const labelLength = getPreviewLabel(tile).length;
+        return labelLength > 19 ? 9 : labelLength > 13 ? 6 : 4;
+    };
+    tileConfig.tiles.sort((a, b) => (importance[a.id] ?? 50) - (importance[b.id] ?? 50));
+    const patternSlots = pattern.rows.flatMap((spans, rowIndex) => spans.map(colSpan => ({ rowIndex, colSpan })));
+    tileConfig.tiles.forEach((tile, index) => {
+        delete tile.radialLayout;
+        const natural = intrinsicSpan(tile);
+        const planned = patternSlots[index % patternSlots.length];
+        const cycle = Math.floor(index / patternSlots.length);
+        tile.rowIndex = Math.min(MAX_EDITOR_ROWS - 1, planned.rowIndex + cycle * pattern.rows.length);
+        tile.colSpan = natural === 12 && index < pattern.rows.length ? 12 : planned.colSpan;
+        tile.manualLayout = false;
+        const [color, fontSize] = appearance[tile.id] || ['#4B5563', 14];
+        tile.colorHex = color;
+        tile.fontSize = natural === 12 ? Math.max(13, fontSize) : Math.max(10, Math.min(fontSize, 16));
+        tile.fontColorHex = '#ffffff';
+        tile.iconColorHex = '#ffffff';
+    });
+    tileConfig.rowWeights = {};
+    validateAndPackGrid();
+    updateSyncStatus(`تم إنشاء ترتيب تلقائي ذكي جديد: ${pattern.id}`, 'success');
+}
+
+function applyCircularAutoLayout() {
+    const importance = { qibla: 0, clock_big: 1, quran_resume: 2, prayer_countdown: 3, tasbih: 4, quran: 5, locations: 6 };
+    tileConfig.tiles.sort((a, b) => (importance[a.id] ?? 50) - (importance[b.id] ?? 50));
+    const center = tileConfig.tiles.find(tile => tile.id === 'qibla') || tileConfig.tiles[0];
+    const ring = tileConfig.tiles.filter(tile => tile !== center);
+    const centerSide = ring.length > 7 ? 26 : 31;
+    center.radialLayout = { x: 50 - centerSide / 2, y: 50 - centerSide / 2, width: centerSide, height: centerSide };
+    center.colSpan = 4;
+    center.rowIndex = 1;
+    center.fontSize = 15;
+    center.colorHex = '#0D5B62';
+
+    const ringSide = ring.length > 8 ? 15 : ring.length > 5 ? 17 : 20;
+    const radius = ring.length > 8 ? 34 : ring.length > 5 ? 31 : 29;
+    ring.forEach((tile, index) => {
+        const angle = (-Math.PI / 2) + ((Math.PI * 2 * index) / ring.length);
+        const centerX = 50 + Math.cos(angle) * radius;
+        const centerY = 50 + Math.sin(angle) * radius;
+        tile.radialLayout = {
+            x: Math.max(2, Math.min(98 - ringSide, centerX - ringSide / 2)),
+            y: Math.max(2, Math.min(98 - ringSide, centerY - ringSide / 2)),
+            width: ringSide,
+            height: ringSide
+        };
+        tile.colSpan = 3;
+        tile.rowIndex = index % 3;
+        tile.fontSize = Math.min(13, tile.fontSize || 13);
+        tile.manualLayout = false;
+    });
+    tileConfig.rowWeights = {};
+    validateAndPackGrid();
+}
+
+window.quickAlignText = function(x, y) {
+    if (primarySelectedIdx < 0) return;
+    pushHistory();
+    selectedIndices.forEach(idx => {
+        let slot = tileConfig.tiles[idx];
+        slot.textX = x;
+        slot.textY = y;
+    });
+    renderCanvas();
+    scheduleAutoSync();
+};
+
+window.quickSetFontSize = function(sz) {
+    if (primarySelectedIdx < 0) return;
+    pushHistory();
+    selectedIndices.forEach(idx => {
+        tileConfig.tiles[idx].fontSize = sz;
+    });
+    if (document.getElementById('tileFontSize')) document.getElementById('tileFontSize').value = sz;
+    renderCanvas();
+    scheduleAutoSync();
+};
+
+window.quickSetBgColor = function(color) {
+    if (primarySelectedIdx < 0) return;
+    pushHistory();
+    selectedIndices.forEach(idx => {
+        tileConfig.tiles[idx].colorHex = color;
+    });
+    if (document.getElementById('tileBgColor')) document.getElementById('tileBgColor').value = color;
+    renderCanvas();
+    scheduleAutoSync();
+};
+
+window.quickSetFontColor = function(color) {
+    if (primarySelectedIdx < 0) return;
+    pushHistory();
+    selectedIndices.forEach(idx => {
+        tileConfig.tiles[idx].fontColorHex = color;
+    });
+    if (document.getElementById('tileFontColor')) document.getElementById('tileFontColor').value = color;
+    renderCanvas();
+    scheduleAutoSync();
+};
+
+window.quickSetIconColor = function(color) {
+    if (primarySelectedIdx < 0) return;
+    pushHistory();
+    selectedIndices.forEach(idx => {
+        tileConfig.tiles[idx].iconColorHex = color;
+    });
+    if (document.getElementById('tileIconColor')) document.getElementById('tileIconColor').value = color;
+    renderCanvas();
+    scheduleAutoSync();
+};
+
+function populateSelects() {
+    const sel = document.getElementById('tileAction');
+    sel.innerHTML = '';
+    tileActionsList.forEach(a => {
+        let opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.title;
+        sel.appendChild(opt);
+    });
+
+    populateFeatureActions('clock_big');
+
+    const iconSel = document.getElementById('tileIconType');
+    if (iconSel) {
+        iconSel.innerHTML = '';
+        iconLibrary.forEach(ic => {
+            let opt = document.createElement('option');
+            opt.value = ic.id;
+            opt.textContent = `${ic.icon} ${ic.title}`;
+            iconSel.appendChild(opt);
+        });
+    }
+}
+
+function populateFeatureActions(tileId) {
+    const actions = [...featureActionCatalog.default, ...(featureActionCatalog[tileId] || [])];
+    ['tileTapAction', 'tileLongPressAction'].forEach(id => {
+        const actionSelect = document.getElementById(id);
+        if (!actionSelect) return;
+        actionSelect.replaceChildren();
+        actions.forEach(action => {
+            const option = document.createElement('option');
+            option.value = action.id;
+            option.textContent = action.title;
+            actionSelect.appendChild(option);
+        });
+    });
+}
+
+function setupTabs() {
+    document.querySelectorAll('[data-tab-target]').forEach(button => {
+        button.addEventListener('click', () => activateTab(button.dataset.tabTarget));
+    });
+}
+
+const tabMetadata = {
+    overview: ['نظرة عامة', 'كل ما تحتاجه لإدارة ساعتك في مكان واحد'],
+    tiles: ['تصميم الساعة', 'رتّب الطبقات وعاين النتيجة قبل إرسالها'],
+    presets: ['القوالب', 'تكوينات جاهزة ونُسخ محفوظة من تصاميمك'],
+    quran: ['القرآن الكريم', 'البحث والورد وموضع القراءة'],
+    locations: ['المواقيت والموقع', 'الصلاة القادمة والمواقع المحفوظة'],
+    settings: ['الإعدادات', 'مظهر القارئ والتنبيهات وطريقة الحساب'],
+    sync: ['المزامنة', 'الاتصال السحابي والمحلي مع الساعة']
+};
+
+function activateTab(tabName) {
+    if (!document.getElementById(`tab-${tabName}`)) return;
+    document.querySelectorAll('[data-tab-target]').forEach(button => {
+        const active = button.dataset.tabTarget === tabName;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+    });
+    document.querySelectorAll('.tab-page').forEach(page => page.classList.toggle('active', page.dataset.tab === tabName));
+    const [title, subtitle] = tabMetadata[tabName] || tabMetadata.overview;
+    const titleNode = document.getElementById('currentPageTitle');
+    const subtitleNode = document.getElementById('currentPageSubtitle');
+    if (titleNode) titleNode.textContent = title;
+    if (subtitleNode) subtitleNode.textContent = subtitle;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function getPreviewLabel(slot) {
+    const now = new Date();
+    const labels = {
+        clock_big: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        date_big: now.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }),
+        prayer_countdown: 'المغرب · 01:24',
+        prayer_elapsed: 'منذ الصلاة 00:18',
+        prayer: 'مواقيت الصلاة',
+        prayer_strip_5: 'مواقيت اليوم',
+        quran_resume: 'الكهف 18',
+        quran: 'القرآن الكريم',
+        tasbih: 'التسبيح · 33',
+        battery: 'البطارية · 78%',
+        weather: '18° · غائم جزئيًا',
+        qibla: 'القبلة · 72°',
+        locations: 'بوينس آيرس',
+        auto_layout: 'ترتيب جديد'
+    };
+    if (labels[slot.id]) return labels[slot.id];
+    const definition = tileActionsList.find(action => action.id === slot.id);
+    return definition ? definition.title.replace(/^[^\s]+\s+/, '') : slot.id;
+}
+
+function renderTileLayers() {
+    const container = document.getElementById('tileLayersList');
+    if (!container) return;
+    container.replaceChildren();
+    tileConfig.tiles.forEach((slot, index) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = `layer-row${selectedIndices.has(index) ? ' selected' : ''}`;
+        const handle = document.createElement('span');
+        handle.textContent = '⠿';
+        const icon = document.createElement('span');
+        icon.className = 'layer-icon';
+        icon.textContent = getIcon(slot.id, slot.iconType);
+        const label = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = getPreviewLabel(slot);
+        const meta = document.createElement('small');
+        meta.textContent = `الصف ${Number(slot.rowIndex || 0) + 1} · ${slot.colSpan || 4}/12`;
+        label.append(title, meta);
+        row.append(handle, icon, label);
+        row.addEventListener('click', () => {
+            selectedIndices = new Set([index]);
+            primarySelectedIdx = index;
+            renderCanvas();
+            updateEditor();
+        });
+        container.appendChild(row);
+    });
+}
+
+function renderOverviewPreview() {
+    const preview = document.getElementById('overviewWatchPreview');
+    if (!preview) return;
+    const clock = tileConfig.tiles.find(tile => tile.id === 'clock_big');
+    const secondary = tileConfig.tiles.find(tile => tile.id !== 'clock_big' && tile.id !== 'color_only');
+    preview.replaceChildren();
+    const time = document.createElement('span');
+    time.textContent = getPreviewLabel(clock || { id: 'clock_big' });
+    const detail = document.createElement('small');
+    detail.textContent = secondary ? getPreviewLabel(secondary) : 'تصميم هادئ ومركّز';
+    preview.append(time, detail);
+}
+
+// ── CANVAS ENGINE ──
+function appendResizeHandles(tileElement, tileIndex) {
+    [...RESIZE_EDGES, 'nw', 'ne', 'sw', 'se'].forEach(edge => {
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = `tile-resize-handle tile-resize-${edge}`;
+        handle.dataset.handle = 'resize-tile';
+        handle.dataset.edge = edge;
+        handle.dataset.corner = edge;
+        handle.dataset.index = tileIndex;
+        handle.setAttribute('aria-label', `تغيير الحجم من جهة ${edge}`);
+        tileElement.appendChild(handle);
+    });
+}
+
+function renderCanvas() {
+    const canvas = document.getElementById('watchScreenSimulator');
+    if (!canvas) return;
+    const appearance = getAppearance();
+    canvas.className = `watch-screen watch-pattern-${appearance.pattern} icon-palette-${appearance.iconPalette}`;
+    canvas.innerHTML = '<div class="safe-area-ring" aria-hidden="true"></div>';
+    const insets = getCanvasInsets();
+    Object.entries(insets).forEach(([edge, size]) => {
+        if (!size) return;
+        const guide = document.createElement('div');
+        guide.className = `edge-margin-guide edge-${edge}`;
+        guide.style.setProperty(`--edge-size`, `${size}%`);
+        canvas.appendChild(guide);
+    });
+    
+    // Render Ghost Placeholder if dragging
+    if (ghostTargetSlot && dragType === 'grid-tile') {
+        const ghost = document.createElement('div');
+        ghost.className = 'canvas-ghost-placeholder';
+        ghost.style.left = ghostTargetSlot.x + '%';
+        ghost.style.top = ghostTargetSlot.y + '%';
+        ghost.style.width = ghostTargetSlot.width + '%';
+        ghost.style.height = ghostTargetSlot.height + '%';
+        canvas.appendChild(ghost);
+    }
+
+    tileConfig.tiles.forEach((slot, idx) => {
+        const isSelected = selectedIndices.has(idx);
+        const isDragging = (dragType === 'grid-tile' && primarySelectedIdx === idx);
+
+        const t = document.createElement('div');
+        t.className = 'canvas-tile tile-shape-square-connected' + (isSelected ? ' selected' : '') + (isDragging ? ' is-dragging' : '');
+        t.style.left = slot.x + '%';
+        t.style.top = slot.y + '%';
+        t.style.width = slot.width + '%';
+        t.style.height = slot.height + '%';
+        t.style.backgroundColor = slot.colorHex;
+        t.dataset.index = idx;
+
+        const isFolder = slot.id.startsWith('folder') || Array.isArray(slot.folderItems);
+        if (isFolder) {
+            t.classList.add('folder-launcher');
+            const orb = document.createElement('div');
+            orb.className = 'folder-preview-orb';
+            const items = (slot.folderItems?.length ? slot.folderItems : ['quran', 'tasbih', 'qibla', 'prayer']).slice(0, 6);
+            items.forEach(actionId => {
+                const item = document.createElement('span');
+                item.className = 'folder-preview-item';
+                item.innerHTML = `<i>${getIcon(actionId)}</i><small>${getPreviewLabel({ id: actionId })}</small>`;
+                orb.appendChild(item);
+            });
+            t.appendChild(orb);
+            if (isSelected && idx === primarySelectedIdx) appendResizeHandles(t, idx);
+            canvas.appendChild(t);
+            return;
+        }
+        
+        // ── 5-Prayer Full Strip Specialized Mode ──
+        if (slot.displayStyle === 'prayer_strip_5' || slot.id === 'prayer_strip_5') {
+            t.innerHTML = `<div class="prayer-strip-container"><div class="prayer-strip-names"><span>فجر</span><span>ظهر</span><span>عصر</span><span>مغرب</span><span>عشاء</span></div><div class="prayer-strip-times"><span>05:30</span><span>13:00</span><span>16:30</span><span>19:15</span><span>20:45</span></div></div>`;
+            if (isSelected && idx === primarySelectedIdx) appendResizeHandles(t, idx);
+            canvas.appendChild(t);
+            return;
+        }
+
+        // Icon
+        if((slot.displayStyle === 'both' || slot.displayStyle === 'icon') && slot.displayStyle !== 'color_only' && slot.id !== 'color_only') {
+            const i = document.createElement('div');
+            i.className = 'canvas-icon' + (slot.iconStyle === 'animated' ? ' animated-icon-pulse' : '');
+            i.style.left = (slot.iconX !== undefined ? slot.iconX : 50) + '%';
+            i.style.top = (slot.iconY !== undefined ? slot.iconY : 30) + '%';
+            i.style.fontSize = (slot.iconSize || 24) + 'px';
+            i.textContent = getIcon(slot.id, slot.iconType);
+            i.style.color = slot.iconColorHex || '#ffffff';
+            i.dataset.index = idx;
+            i.dataset.role = 'icon';
+
+            // Scale knob for icon
+            if (isSelected && idx === primarySelectedIdx) {
+                const knob = document.createElement('div');
+                knob.className = 'icon-scale-knob';
+                knob.dataset.handle = 'scale-icon';
+                knob.dataset.index = idx;
+                knob.setAttribute('aria-label', 'تغيير حجم الأيقونة');
+                i.appendChild(knob);
+            }
+            t.appendChild(i);
+        }
+        
+        // Text
+        if((slot.displayStyle === 'both' || slot.displayStyle === 'text' || !slot.displayStyle) && slot.displayStyle !== 'color_only' && slot.id !== 'color_only') {
+            if (slot.id === 'quran_resume') {
+                const resume = document.createElement('div');
+                resume.className = 'quran-resume-content quran-resume-line';
+                resume.style.color = slot.fontColorHex || '#ffffff';
+                resume.style.fontFamily = "'Amiri', serif";
+                resume.style.fontSize = Math.max(9, slot.fontSize || 13) + 'px';
+                const meta = document.createElement('strong');
+                meta.className = 'quran-resume-meta';
+                meta.textContent = 'سورة الكهف · 18 ';
+                const textSnippet = document.createTextNode('وَتَحْسَبُهُمْ أَيْقَاظًا وَهُمْ رُقُودٌ وَنُقَلِّبُهُمْ ذَاتَ الْيَمِينِ وَذَاتَ الشِّمَالِ…');
+                resume.append(meta, textSnippet);
+                t.appendChild(resume);
+            } else {
+                const txt = document.createElement('div');
+                const textAlign = slot.textAlign || 'center';
+                txt.className = 'canvas-text align-' + textAlign;
+                txt.style.left = (slot.textX !== undefined ? slot.textX : 50) + '%';
+                txt.style.top = (slot.textY !== undefined ? slot.textY : 50) + '%';
+                txt.style.fontSize = Math.max(9, (slot.fontSize || 14)) + 'px';
+                txt.style.color = slot.fontColorHex || '#ffffff';
+                txt.style.textAlign = textAlign;
+                
+                if (slot.fontFamily === 'Uthmanic' || slot.fontFamily === 'Amiri') txt.style.fontFamily = "'Amiri', serif";
+                else if (slot.fontFamily === 'Cairo') txt.style.fontFamily = "'Cairo', sans-serif";
+                else if (slot.fontFamily === 'Noto Naskh Arabic') txt.style.fontFamily = "'Noto Naskh Arabic', serif";
+                else if (slot.fontFamily === 'Noto Kufi Arabic') txt.style.fontFamily = "'Noto Kufi Arabic', sans-serif";
+                else if (slot.fontFamily === 'Aref Ruqaa') txt.style.fontFamily = "'Aref Ruqaa', cursive";
+                else txt.style.fontFamily = "'Tajawal', sans-serif";
+
+                txt.textContent = getPreviewLabel(slot);
+                txt.dataset.index = idx;
+                txt.dataset.role = 'text';
+
+                // Scale knob for text
+                if (isSelected && idx === primarySelectedIdx) {
+                    const knob = document.createElement('div');
+                    knob.className = 'text-scale-knob';
+                    knob.dataset.handle = 'scale-text';
+                    knob.dataset.index = idx;
+                    knob.setAttribute('aria-label', 'تغيير حجم الخط');
+                    txt.appendChild(knob);
+                }
+                t.appendChild(txt);
+            }
+        }
+
+        if (isSelected && idx === primarySelectedIdx) appendResizeHandles(t, idx);
+        
+        canvas.appendChild(t);
+    });
+    renderTileLayers();
+    renderOverviewPreview();
+}
+
+function getIcon(id, iconType) {
+    if (iconType && iconType !== 'default') {
+        const found = iconLibrary.find(ic => ic.id === iconType);
+        if (found) return found.icon;
+    }
+    if(id.startsWith('folder')) return '📁';
+    if(id === 'clock_big') return '⏰';
+    if(id === 'date_big') return '📅';
+    if(id === 'prayer_countdown') return '⏳';
+    if(id === 'prayer_elapsed') return '⌛';
+    if(id === 'prayer') return '🕌';
+    if(id === 'prayer_strip_5') return '▤';
+    if(id === 'tasbih') return '📿';
+    if(id === 'weather') return '⛅';
+    if(id === 'qibla') return '🕋';
+    if(id === 'quran' || id === 'quran_resume') return '📖';
+    if(id === 'bookmarks') return '🔖';
+    if(id === 'voice_notes') return '🎤';
+    if(id === 'locations') return '📍';
+    if(id === 'settings') return '⚙️';
+    if(id === 'battery') return '🔋';
+    if(id === 'auto_layout') return '✦';
+    return '⭐';
+}
+
+function updateEditor() {
+    const rightPanel = document.getElementById('selectedTileEditorRight');
+    const leftPanel = document.getElementById('selectedTileEditorLeft');
+    const noMsg = document.getElementById('noTileSelectedMsg');
+    
+    if(primarySelectedIdx >= 0 && primarySelectedIdx < tileConfig.tiles.length) {
+        if (rightPanel) rightPanel.style.display = 'block';
+        if (leftPanel) leftPanel.style.display = 'block';
+        if (noMsg) noMsg.style.display = 'none';
+        
+        let slot = tileConfig.tiles[primarySelectedIdx];
+        populateFeatureActions(slot.id);
+        const selectedName = document.getElementById('selectedTileName');
+        if (selectedName) selectedName.textContent = getPreviewLabel(slot);
+        document.getElementById('tileAction').value = slot.id;
+        document.getElementById('tileBgColor').value = slot.colorHex || '#334155';
+        document.getElementById('tileFontColor').value = slot.fontColorHex || '#FFFFFF';
+        document.getElementById('tileFontSize').value = slot.fontSize || 14;
+        if(document.getElementById('tileFontFamily')) document.getElementById('tileFontFamily').value = slot.fontFamily || 'Uthmanic';
+        document.getElementById('tileDisplayStyle').value = slot.displayStyle || 'text';
+        document.getElementById('tileIconStyle').value = slot.iconStyle || 'static';
+        document.getElementById('tileIconType').value = slot.iconType || 'default';
+        document.getElementById('tileIconColor').value = slot.iconColorHex || '#FFFFFF';
+        if(document.getElementById('tileTapAction')) document.getElementById('tileTapAction').value = [...document.getElementById('tileTapAction').options].some(option => option.value === (slot.tapAction || '')) ? slot.tapAction || '' : '';
+        if(document.getElementById('tileLongPressAction')) document.getElementById('tileLongPressAction').value = [...document.getElementById('tileLongPressAction').options].some(option => option.value === (slot.longPressAction || 'quick_edit')) ? slot.longPressAction || 'quick_edit' : 'quick_edit';
+        
+        const textAlign = slot.textAlign || 'center';
+        document.querySelectorAll('[data-text-align]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.textAlign === textAlign);
+        });
+
+        renderFolderItemsEditor(slot);
+    } else {
+        if (rightPanel) rightPanel.style.display = 'none';
+        if (leftPanel) leftPanel.style.display = 'none';
+        if (noMsg) noMsg.style.display = 'block';
+        document.getElementById('folderItemsEditor')?.setAttribute('hidden', '');
+    }
+}
+
+function renderFolderItemsEditor(slot) {
+    const editor = document.getElementById('folderItemsEditor');
+    const choices = document.getElementById('folderItemsChoices');
+    if (!editor || !choices) return;
+    const isFolder = slot.id.startsWith('folder');
+    editor.toggleAttribute('hidden', !isFolder);
+    if (!isFolder) return;
+
+    const defaults = slot.id === 'folder_tools'
+        ? ['voice_notes', 'bookmarks', 'locations', 'settings']
+        : ['quran', 'tasbih', 'qibla', 'prayer'];
+    if (!Array.isArray(slot.folderItems) || !slot.folderItems.length) slot.folderItems = [...defaults];
+    const available = ['quran', 'quran_resume', 'tasbih', 'qibla', 'prayer', 'prayer_strip_5', 'bookmarks', 'voice_notes', 'locations', 'settings'];
+    choices.replaceChildren();
+    available.forEach(actionId => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = slot.folderItems.includes(actionId);
+        input.addEventListener('change', () => {
+            const current = new Set(slot.folderItems);
+            if (input.checked && current.size >= 6) {
+                input.checked = false;
+                updateSyncStatus('يمكن وضع ستة عناصر كحد أقصى داخل المجلد', 'error');
+                return;
+            }
+            if (input.checked) current.add(actionId); else current.delete(actionId);
+            slot.folderItems = [...current];
+            renderCanvas();
+            scheduleAutoSync();
+        });
+        const text = document.createElement('span');
+        text.textContent = `${getIcon(actionId)} ${getPreviewLabel({ id: actionId })}`;
+        label.append(input, text);
+        choices.appendChild(label);
+    });
+}
+
+window.addTile = function(side = 'right') {
+    pushHistory();
+    let newSlot = {
+        id: 'prayer', colorHex: '#0E7490', isLive: false,
+        colSpan: 4, rowIndex: 0,
+        fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24,
+        displayStyle: 'text', iconStyle: 'static', iconType: 'default',
+        textX: 50, textY: 50, iconX: 50, iconY: 30, fontFamily: 'Uthmanic',
+        tapAction: '', longPressAction: 'quick_edit'
+    };
+
+    if (side === 'new-row') {
+        const maxRow = tileConfig.tiles.reduce((max, tile) => Math.max(max, tile.rowIndex || 0), -1);
+        if (maxRow + 1 >= MAX_EDITOR_ROWS) {
+            updateSyncStatus('وصلت إلى الحد الأقصى: خمسة صفوف', 'error');
+            return;
+        }
+        newSlot.rowIndex = maxRow + 1;
+        newSlot.colSpan = 12;
+        tileConfig.tiles.push(newSlot);
+    } else if (primarySelectedIdx >= 0 && tileConfig.tiles[primarySelectedIdx]) {
+        let selTile = tileConfig.tiles[primarySelectedIdx];
+        let r = selTile.rowIndex !== undefined ? selTile.rowIndex : 0;
+        newSlot.rowIndex = r;
+        
+        let rowTiles = tileConfig.tiles.filter(t => t.rowIndex === r);
+        let insertPos = tileConfig.tiles.indexOf(selTile);
+        if (side === 'right') {
+            insertPos += 1;
+        }
+        tileConfig.tiles.splice(insertPos, 0, newSlot);
+
+        let count = rowTiles.length + 1;
+        let perTile = Math.floor(12 / count);
+        let extra = 12 % count;
+        tileConfig.tiles.filter(t => t.rowIndex === r).forEach((t, i) => {
+            t.colSpan = Math.max(3, perTile + (i < extra ? 1 : 0));
+        });
+    } else {
+        let maxRow = tileConfig.tiles.reduce((max, t) => Math.max(max, t.rowIndex || 0), -1);
+        newSlot.rowIndex = maxRow + 1;
+        newSlot.colSpan = 12;
+        tileConfig.tiles.push(newSlot);
+    }
+
+    let newIdx = tileConfig.tiles.indexOf(newSlot);
+    selectedIndices.clear();
+    primarySelectedIdx = newIdx >= 0 ? newIdx : tileConfig.tiles.length - 1;
+    selectedIndices.add(primarySelectedIdx);
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+};
+function addTile(side) { window.addTile(side); }
+
+function addPrayerStripRow() {
+    const maxRow = tileConfig.tiles.reduce((max, tile) => Math.max(max, tile.rowIndex || 0), -1);
+    if (maxRow + 1 >= MAX_EDITOR_ROWS) {
+        updateSyncStatus('لا توجد مساحة لصف جديد؛ احذف صفًا أو ادمج العناصر', 'error');
+        return;
+    }
+    pushHistory();
+    tileConfig.tiles.push({
+        id: 'prayer_strip_5', colorHex: '#047857', isLive: true,
+        colSpan: 12, rowIndex: maxRow + 1, fontSize: 12,
+        fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 18,
+        textX: 50, textY: 50, iconX: 50, iconY: 24,
+        displayStyle: 'prayer_strip_5', iconStyle: 'static', iconType: 'mosque',
+        fontFamily: 'Uthmanic', tapAction: 'prayer_schedule', longPressAction: 'quick_edit'
+    });
+    primarySelectedIdx = tileConfig.tiles.length - 1;
+    selectedIndices = new Set([primarySelectedIdx]);
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+}
+
+function setSelectedRowCompact(compact) {
+    if (primarySelectedIdx < 0 || !tileConfig.tiles[primarySelectedIdx]) return;
+    pushHistory();
+    const row = tileConfig.tiles[primarySelectedIdx].rowIndex || 0;
+    tileConfig.rowWeights = { ...(tileConfig.rowWeights || {}), [row]: compact ? .28 : 1 };
+    validateAndPackGrid();
+    renderCanvas();
+    scheduleAutoSync();
+}
+
+function toggleCanvasInset(edge) {
+    pushHistory();
+    const current = getCanvasInsets();
+    current[edge] = current[edge] > 0 ? 0 : 8;
+    tileConfig.canvasInsets = current;
+    validateAndPackGrid();
+    renderCanvas();
+    scheduleAutoSync();
+}
+
+// ── 12-UNIT REFLOW DRAGGING & SIZING ENGINE ──
+function setupCanvasEvents() {
+    const canvas = document.getElementById('watchScreenSimulator');
+    if (!canvas) return;
+
+    function handleStart(clientX, clientY, target, isShift, isCtrl) {
+        if (target.dataset.handle === 'resize-tile') {
+            dragType = 'resize-tile';
+            dragResizeCorner = target.dataset.edge || target.dataset.corner || 'se';
+            primarySelectedIdx = parseInt(target.dataset.index);
+            selectedIndices = new Set([primarySelectedIdx]);
+        } else if (target.dataset.handle === 'scale-text') {
+            dragType = 'scale-text';
+            primarySelectedIdx = parseInt(target.dataset.index);
+        } else if (target.dataset.handle === 'scale-icon') {
+            dragType = 'scale-icon';
+            primarySelectedIdx = parseInt(target.dataset.index);
+        } else if (target.dataset.role === 'text') {
+            dragType = 'text';
+            primarySelectedIdx = parseInt(target.dataset.index);
+        } else if (target.dataset.role === 'icon') {
+            dragType = 'icon';
+            primarySelectedIdx = parseInt(target.dataset.index);
+        } else if (target.dataset.index !== undefined) {
+            dragType = 'grid-tile';
+            let clickedIdx = parseInt(target.dataset.index);
+            
+            if (isShift || isCtrl) {
+                if (selectedIndices.has(clickedIdx)) {
+                    selectedIndices.delete(clickedIdx);
+                    if (primarySelectedIdx === clickedIdx) {
+                        primarySelectedIdx = selectedIndices.size > 0 ? Array.from(selectedIndices)[0] : -1;
+                    }
+                } else {
+                    selectedIndices.add(clickedIdx);
+                    primarySelectedIdx = clickedIdx;
+                }
+            } else {
+                if (!selectedIndices.has(clickedIdx)) {
+                    selectedIndices.clear();
+                    selectedIndices.add(clickedIdx);
+                }
+                primarySelectedIdx = clickedIdx;
+            }
+        } else {
+            selectedIndices.clear();
+            primarySelectedIdx = -1;
+            dragType = null;
+            updateEditor();
+            renderCanvas();
+            return;
+        }
+        
+        updateEditor();
+        renderCanvas();
+        
+        dragStartPointerX = clientX;
+        dragStartPointerY = clientY;
+        startTilesSnapshot = JSON.parse(JSON.stringify(tileConfig.tiles));
+        ghostTargetSlot = null;
+        interactionHistoryPushed = false;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        handleStart(e.clientX, e.clientY, e.target, e.shiftKey, e.ctrlKey || e.metaKey);
+        document.addEventListener('mousemove', onPointerMove);
+        document.addEventListener('mouseup', onPointerUp);
+        e.preventDefault();
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 0) {
+            let t = e.touches[0];
+            handleStart(t.clientX, t.clientY, e.target, false, false);
+            document.addEventListener('touchmove', onTouchMove, { passive: false });
+            document.addEventListener('touchend', onTouchEnd);
+        }
+    }, { passive: false });
+}
+
+function onTouchMove(e) {
+    if (e.touches.length > 0) {
+        onPointerMove(e.touches[0]);
+        e.preventDefault();
+    }
+}
+
+function onTouchEnd() {
+    onPointerUp();
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend', onTouchEnd);
+}
+
+function resizeTileWithRatio(slot, original, corner, dx, dy) {
+    // Grid tiles resize as a coordinated row: there are never empty cells after a drag.
+    if (!original.manualLayout) {
+        const isWidthGesture = Math.abs(dx) >= Math.abs(dy);
+        if (isWidthGesture) {
+            const usableWidth = 100 - getCanvasInsets().left - getCanvasInsets().right;
+            const direction = corner.includes('e') ? 1 : -1;
+            const desired = (original.width + (dx * direction)) / usableWidth * 12;
+            rebalanceRowWidths(original.rowIndex || 0, slot, desired);
+        } else {
+            const row = original.rowIndex || 0;
+            const currentWeight = Math.max(.22, Number(tileConfig.rowWeights?.[row]) || 1);
+            const direction = corner.includes('s') ? 1 : -1;
+            // Changing one tile's height changes its whole row; the other rows receive the freed space.
+            tileConfig.rowWeights = { ...(tileConfig.rowWeights || {}), [row]: Math.max(.22, currentWeight + (dy * direction * .045)) };
+        }
+        validateAndPackGrid();
+        return;
+    }
+    const insets = getCanvasInsets();
+    const ratio = Math.max(.2, (original.width || 20) / Math.max(1, original.height || 20));
+    const horizontalDirection = corner.includes('e') ? 1 : -1;
+    const verticalDirection = corner.includes('s') ? 1 : -1;
+    const delta = Math.abs(dx) > Math.abs(dy) ? dx * horizontalDirection : dy * verticalDirection * ratio;
+    const minWidth = 10;
+    let width = Math.max(minWidth, original.width + delta);
+    let height = width / ratio;
+
+    const maxWidth = corner.includes('e')
+        ? 100 - insets.right - original.x
+        : original.x + original.width - insets.left;
+    const maxHeight = corner.includes('s')
+        ? 100 - insets.bottom - original.y
+        : original.y + original.height - insets.top;
+    width = Math.min(width, maxWidth, maxHeight * ratio);
+    height = width / ratio;
+
+    slot.width = Math.round(width * 2) / 2;
+    slot.height = Math.round(height * 2) / 2;
+    slot.x = corner.includes('w') ? original.x + original.width - slot.width : original.x;
+    slot.y = corner.includes('n') ? original.y + original.height - slot.height : original.y;
+    slot.manualLayout = true;
+    clampManualSlot(slot, insets);
+}
+
+function resizeTileFromEdge(slot, original, edge, dx, dy) {
+    if (!original.manualLayout) {
+        if (edge === 'e' || edge === 'w') {
+            const usableWidth = 100 - getCanvasInsets().left - getCanvasInsets().right;
+            const direction = edge === 'e' ? 1 : -1;
+            const desiredSpan = (original.width + dx * direction) / usableWidth * 12;
+            rebalanceRowWidths(original.rowIndex || 0, slot, desiredSpan);
+        } else {
+            const row = original.rowIndex || 0;
+            const currentWeight = Math.max(.22, Number(tileConfig.rowWeights?.[row]) || 1);
+            const direction = edge === 's' ? 1 : -1;
+            rebalanceRowHeights(row, currentWeight + dy * direction * .045);
+        }
+        validateAndPackGrid();
+        return;
+    }
+
+    const insets = getCanvasInsets();
+    if (edge === 'e') slot.width = Math.max(10, Math.min(100 - insets.right - original.x, original.width + dx));
+    if (edge === 'w') {
+        slot.width = Math.max(10, Math.min(original.x + original.width - insets.left, original.width - dx));
+        slot.x = original.x + original.width - slot.width;
+    }
+    if (edge === 's') slot.height = Math.max(10, Math.min(100 - insets.bottom - original.y, original.height + dy));
+    if (edge === 'n') {
+        slot.height = Math.max(10, Math.min(original.y + original.height - insets.top, original.height - dy));
+        slot.y = original.y + original.height - slot.height;
+    }
+    slot.manualLayout = true;
+    clampManualSlot(slot, insets);
+}
+
+function onPointerMove(e) {
+    if(primarySelectedIdx < 0 || !dragType || !startTilesSnapshot[primarySelectedIdx]) return;
+    const canvasRect = document.getElementById('watchScreenSimulator').getBoundingClientRect();
+    
+    let orig = startTilesSnapshot[primarySelectedIdx];
+    let slot = tileConfig.tiles[primarySelectedIdx];
+    
+    let dx = ((e.clientX - dragStartPointerX) / canvasRect.width) * 100;
+    let dy = ((e.clientY - dragStartPointerY) / canvasRect.height) * 100;
+
+    if (!interactionHistoryPushed) {
+        pushHistory();
+        interactionHistoryPushed = true;
+    }
+
+    // ── Interactive Scale Knobs ──
+    if (dragType === 'scale-text') {
+        let newSize = Math.round(Math.max(8, Math.min(36, (orig.fontSize || 14) + (dx * 0.4))));
+        slot.fontSize = newSize;
+        if (document.getElementById('tileFontSize')) document.getElementById('tileFontSize').value = newSize;
+        renderCanvas();
+        return;
+    }
+    if (dragType === 'scale-icon') {
+        let newSize = Math.round(Math.max(14, Math.min(48, (orig.iconSize || 24) + (dx * 0.4))));
+        slot.iconSize = newSize;
+        renderCanvas();
+        return;
+    }
+
+    if (dragType === 'resize-tile') {
+        if (['n', 'e', 's', 'w'].includes(dragResizeCorner)) {
+            resizeTileFromEdge(slot, orig, dragResizeCorner, dx, dy);
+        } else {
+            resizeTileWithRatio(slot, orig, dragResizeCorner, dx, dy);
+        }
+        renderCanvas();
+        return;
+    }
+
+    // ── Direct Text and Icon Dragging ──
+    if (dragType === 'text') {
+        let tileWidthPx = (orig.width / 100) * canvasRect.width;
+        let tileHeightPx = (orig.height / 100) * canvasRect.height;
+        let dTx = ((e.clientX - dragStartPointerX) / tileWidthPx) * 100;
+        let dTy = ((e.clientY - dragStartPointerY) / tileHeightPx) * 100;
+        slot.textX = Math.round(Math.max(20, Math.min(80, (orig.textX || 50) + dTx)));
+        slot.textY = Math.round(Math.max(20, Math.min(80, (orig.textY || 50) + dTy)));
+        renderCanvas();
+        return;
+    }
+    if (dragType === 'icon') {
+        let tileWidthPx = (orig.width / 100) * canvasRect.width;
+        let tileHeightPx = (orig.height / 100) * canvasRect.height;
+        let dIx = ((e.clientX - dragStartPointerX) / tileWidthPx) * 100;
+        let dIy = ((e.clientY - dragStartPointerY) / tileHeightPx) * 100;
+        slot.iconX = Math.round(Math.max(20, Math.min(80, (orig.iconX || 50) + dIx)));
+        slot.iconY = Math.round(Math.max(20, Math.min(80, (orig.iconY || 30) + dIy)));
+        renderCanvas();
+        return;
+    }
+
+    // ── Direct tile dragging reorders the grid; it never permits overlapping layers. ──
+    if (dragType === 'grid-tile') {
+        const rows = [...new Set(tileConfig.tiles.map(tile => tile.rowIndex || 0))].sort((a, b) => a - b);
+        const targetRow = rows.reduce((closest, row) => {
+            const rowY = tileConfig.tiles.find(tile => tile.rowIndex === row)?.y ?? 0;
+            const closestY = tileConfig.tiles.find(tile => tile.rowIndex === closest)?.y ?? 0;
+            return Math.abs((orig.y + dy) - rowY) < Math.abs((orig.y + dy) - closestY) ? row : closest;
+        }, rows[0] ?? 0);
+        slot.rowIndex = Math.max(0, Math.min(MAX_EDITOR_ROWS - 1, targetRow));
+        slot.manualLayout = false;
+        validateAndPackGrid();
+        renderCanvas();
+    }
+}
+
+function onPointerUp() {
+    if (dragType) {
+        validateAndPackGrid();
+        if (navigator.vibrate && interactionHistoryPushed) navigator.vibrate(20);
+
+        dragType = null;
+        dragResizeCorner = null;
+        ghostTargetSlot = null;
+        lastHapticSlotKey = '';
+        interactionHistoryPushed = false;
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        renderCanvas();
+        scheduleAutoSync();
+    }
+}
+
+// ── PRESETS / LAYOUT PROFILES ENGINE ──
+const builtInPresets = {
+    'default': [
+        { id: 'clock_big', colorHex: '#7C3AED', isLive: true, colSpan: 6, rowIndex: 0, fontSize: 24, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'default', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'prayer_countdown', colorHex: '#10B981', isLive: true, colSpan: 6, rowIndex: 0, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'animated', iconType: 'hourglass', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'folder_islamic', colorHex: '#0284C7', colSpan: 4, rowIndex: 1, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'folder', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'quran_resume', colorHex: '#0E7490', isLive: true, colSpan: 8, rowIndex: 1, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'quran', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'folder_tools', colorHex: '#EA580C', colSpan: 4, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'folder', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'locations', colorHex: '#F59E0B', colSpan: 4, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'pin', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'settings', colorHex: '#334155', colSpan: 4, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'settings', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'cloud_sync_pull' }
+    ],
+    'prayer': [
+        { id: 'clock_big', colorHex: '#7C3AED', isLive: true, colSpan: 6, rowIndex: 0, fontSize: 26, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'default', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'prayer_countdown', colorHex: '#10B981', isLive: true, colSpan: 6, rowIndex: 0, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'animated', iconType: 'hourglass', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'prayer_strip_5', colorHex: '#0E7490', isLive: false, colSpan: 12, rowIndex: 1, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'prayer_strip_5', iconStyle: 'static', iconType: 'mosque', fontFamily: 'Uthmanic', tapAction: 'prayer', longPressAction: 'quick_edit' },
+        { id: 'qibla', colorHex: '#0284C7', isLive: false, colSpan: 6, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'kaaba', fontFamily: 'Uthmanic', tapAction: 'qibla', longPressAction: 'quick_edit' },
+        { id: 'tasbih', colorHex: '#F59E0B', isLive: true, colSpan: 6, rowIndex: 2, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'tasbih', fontFamily: 'Uthmanic', tapAction: 'quick_tasbih_increment', longPressAction: 'quick_edit' }
+    ],
+    'quran': [
+        { id: 'quran_resume', colorHex: '#0E7490', isLive: true, colSpan: 12, rowIndex: 0, fontSize: 20, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'quran', fontFamily: 'Uthmanic', tapAction: 'quran_resume', longPressAction: 'quick_edit' },
+        { id: 'bookmarks', colorHex: '#7C3AED', isLive: false, colSpan: 6, rowIndex: 1, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'bookmark', fontFamily: 'Uthmanic', tapAction: 'bookmarks', longPressAction: 'quick_edit' },
+        { id: 'tasbih', colorHex: '#10B981', isLive: true, colSpan: 6, rowIndex: 1, fontSize: 14, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'tasbih', fontFamily: 'Uthmanic', tapAction: 'quick_tasbih_increment', longPressAction: 'quick_edit' }
+    ],
+    'minimal': [
+        { id: 'clock_big', colorHex: '#7C3AED', isLive: true, colSpan: 12, rowIndex: 0, fontSize: 32, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'static', iconType: 'default', fontFamily: 'Uthmanic', tapAction: '', longPressAction: 'quick_edit' },
+        { id: 'prayer_countdown', colorHex: '#10B981', isLive: true, colSpan: 12, rowIndex: 1, fontSize: 20, fontColorHex: '#ffffff', iconColorHex: '#ffffff', iconSize: 24, textX: 50, textY: 50, iconX: 50, iconY: 30, displayStyle: 'text', iconStyle: 'animated', iconType: 'hourglass', fontFamily: 'Uthmanic', tapAction: 'prayer', longPressAction: 'quick_edit' }
+    ]
+};
+
+window.loadBuiltInPreset = function(name) {
+    if (builtInPresets[name]) {
+        pushHistory();
+        tileConfig.tiles = JSON.parse(JSON.stringify(builtInPresets[name]));
+        selectedIndices.clear();
+        primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
+        if (primarySelectedIdx >= 0) selectedIndices.add(primarySelectedIdx);
+        validateAndPackGrid();
+        renderCanvas();
+        updateEditor();
+        scheduleAutoSync();
+    }
+};
+
+function saveCustomPreset(name) {
+    const cleanName = name?.trim();
+    if (!cleanName) return false;
+    const customPresets = JSON.parse(localStorage.getItem('quran_watch_presets') || '{}');
+    customPresets[cleanName] = JSON.parse(JSON.stringify(tileConfig));
+    localStorage.setItem('quran_watch_presets', JSON.stringify(customPresets));
+    renderCustomPresets();
+    updateSyncStatus(`تم حفظ القالب: ${cleanName}`, 'success');
+    return true;
+}
+
+function saveCurrentPresetFromPrompt() {
+    activateTab('presets');
+    const suggested = `تصميم ${new Date().toLocaleDateString('ar-EG')}`;
+    const name = prompt('اكتب اسم القالب الجديد:', suggested);
+    if (saveCustomPreset(name)) alert(`✓ تم حفظ القالب "${name.trim()}" بنجاح`);
+}
+
+function setupPresetsManager() {
+    renderCustomPresets();
+    const btnSave = document.getElementById('btnSaveNewPreset');
+    if (btnSave) {
+        btnSave.addEventListener('click', () => {
+            const input = document.getElementById('newPresetName');
+            const name = input?.value.trim();
+            if (!name) {
+                alert("يرجى كتابة اسم للوضع الجديد أولاً.");
+                return;
+            }
+            saveCustomPreset(name);
+            if (input) input.value = '';
+            alert(`✓ تم حفظ الوضع باسم "${name}" بنجاح!`);
+        });
+    }
+}
+
+function renderCustomPresets() {
+    const container = document.getElementById('customPresetsList');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    let customPresets = JSON.parse(localStorage.getItem('quran_watch_presets') || '{}');
+    let keys = Object.keys(customPresets);
+    if (keys.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-custom-presets';
+        empty.textContent = 'لا توجد قوالب مخصصة بعد.';
+        container.appendChild(empty);
+        return;
+    }
+
+    keys.forEach(k => {
+        const row = document.createElement('div');
+        row.className = 'custom-preset-row';
+        const title = document.createElement('strong');
+        title.textContent = k;
+        const apply = document.createElement('button');
+        apply.className = 'button';
+        apply.textContent = 'تطبيق';
+        apply.addEventListener('click', () => window.applyCustomPreset(k));
+        const remove = document.createElement('button');
+        remove.className = 'icon-button';
+        remove.setAttribute('aria-label', `حذف ${k}`);
+        remove.textContent = '×';
+        remove.addEventListener('click', () => window.deleteCustomPreset(k));
+        row.append(title, apply, remove);
+        container.appendChild(row);
+    });
+}
+
+window.applyCustomPreset = function(name) {
+    let customPresets = JSON.parse(localStorage.getItem('quran_watch_presets') || '{}');
+    if (customPresets[name]) {
+        pushHistory();
+        const saved = JSON.parse(JSON.stringify(customPresets[name]));
+        tileConfig = Array.isArray(saved) ? { ...tileConfig, tiles: saved } : { ...tileConfig, ...saved };
+        selectedIndices.clear();
+        primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
+        if (primarySelectedIdx >= 0) selectedIndices.add(primarySelectedIdx);
+        validateAndPackGrid();
+        renderCanvas();
+        updateEditor();
+        scheduleAutoSync();
+    }
+};
+
+window.deleteCustomPreset = function(name) {
+    if (confirm(`هل أنت متأكد من حذف القالب "${name}"؟`)) {
+        let customPresets = JSON.parse(localStorage.getItem('quran_watch_presets') || '{}');
+        delete customPresets[name];
+        localStorage.setItem('quran_watch_presets', JSON.stringify(customPresets));
+        renderCustomPresets();
+    }
+};
+
+// ── QURAN SEARCH ENGINE ──
+function normalizeArabic(text) {
+    if (!text) return '';
+    return text
+        .replace(/[ؐ-ًؚ-ٰٟۖ-ۜ۟-۪ۨ-ۭ]/g, '')
+        .replace(/[إأآٱ]/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/ى/g, 'ي')
+        .replace(/[^ء-ي0-9a-zA-Z ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+async function setupQuranSearch() {
+    const resDiv = document.getElementById('quranSearchResults');
+    const input = document.getElementById('quranSearchInput');
+    if (!input || !resDiv) return;
+
+    try {
+        const res = await fetch('quran_uthmani.min.json');
+        quranData = await res.json();
+        showSearchMessage(resDiv, 'المصحف جاهز للبحث. اكتب كلمة للبدء…');
+    } catch(e) {
+        console.error("Failed to load Quran JSON:", e);
+        showSearchMessage(resDiv, 'تعذر تحميل بيانات المصحف محليًا.');
+    }
+
+    input.addEventListener('input', (e) => {
+        let q = e.target.value.trim();
+        if (q.length < 2) {
+            showSearchMessage(resDiv, 'اكتب للبحث في المصحف الشريف…');
+            return;
+        }
+
+        if (!quranData) {
+            showSearchMessage(resDiv, 'جاري تجهيز المصحف…');
+            return;
+        }
+
+        let searchQ = normalizeArabic(q);
+        let matches = [];
+        const verses = Array.isArray(quranData.quran)
+            ? quranData.quran
+            : (quranData.chapters || []).flatMap(chapter =>
+                (chapter.verses || []).map(verse => ({ ...verse, chapter: chapter.chapter }))
+            );
+
+        for (const verse of verses) {
+            const surahName = surahNamesAr[verse.chapter - 1] || `سورة ${verse.chapter}`;
+            const normSurah = normalizeArabic(surahName);
+            const normVerse = normalizeArabic(verse.text);
+            if (normVerse.includes(searchQ) || (normSurah.includes(searchQ) && verse.verse === 1)) {
+                matches.push({
+                    chapter: verse.chapter,
+                    surahName,
+                    ayah: verse.verse,
+                    text: verse.text
+                });
+                if (matches.length >= 60) break;
+            }
+        }
+
+        resDiv.innerHTML = '';
+        if (matches.length === 0) {
+            showSearchMessage(resDiv, 'لا توجد آيات مطابقة لكلمة البحث.');
+            return;
+        }
+
+        matches.forEach(m => {
+            const el = document.createElement('article');
+            el.className = 'search-result-item';
+            
+            const headRow = document.createElement('div');
+            headRow.className = 'result-header-row';
+            
+            const header = document.createElement('strong');
+            header.className = 'result-header';
+            header.textContent = `سورة ${m.surahName} · آية ${m.ayah}`;
+            
+            const btnBookmark = document.createElement('button');
+            btnBookmark.type = 'button';
+            btnBookmark.className = 'btn-bookmark-action';
+            btnBookmark.innerHTML = '<span>🔖</span> إضافة علامة';
+            btnBookmark.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                addBookmark(m.chapter, m.surahName, m.ayah, m.text);
+            });
+            
+            headRow.append(header, btnBookmark);
+            
+            const verse = document.createElement('p');
+            verse.className = 'result-text';
+            verse.textContent = m.text;
+            
+            el.append(headRow, verse);
+            resDiv.appendChild(el);
+        });
+    });
+}
+
+// ── BOOKMARKS MANAGER ──
+function getBookmarks() {
+    try {
+        return JSON.parse(localStorage.getItem('quran_bookmarks') || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveBookmarks(list) {
+    localStorage.setItem('quran_bookmarks', JSON.stringify(list));
+    renderBookmarks();
+    scheduleAutoSync();
+}
+
+function addBookmark(chapter, surahName, ayah, textSnippet) {
+    const list = getBookmarks();
+    const existing = list.find(b => b.surah === chapter && b.ayah === ayah);
+    if (existing) {
+        alert(`الآية ${ayah} من سورة ${surahName} محفوظة مسبقاً في الإشارات المرجعية.`);
+        return;
+    }
+    const defaultName = `سورة ${surahName} - آية ${ayah}`;
+    const customName = prompt('أدخل اسماً أو ملاحظة لهذه الإشارة المرجعية:', defaultName);
+    if (customName === null) return;
+    
+    const newBm = {
+        id: 'bm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        name: customName.trim() || defaultName,
+        surah: chapter,
+        surahName: surahName,
+        ayah: ayah,
+        textSnippet: textSnippet.substring(0, 100),
+        timestamp: Date.now()
+    };
+    list.unshift(newBm);
+    saveBookmarks(list);
+    updateSyncStatus(`تمت إضافة إشارة مرجعية: ${newBm.name} 🔖`, 'success');
+}
+
+function deleteBookmark(id) {
+    if (!confirm('هل أنت متأكد من حذف هذه الإشارة المرجعية؟')) return;
+    const list = getBookmarks().filter(b => b.id !== id);
+    saveBookmarks(list);
+    updateSyncStatus('تم حذف الإشارة المرجعية', 'success');
+}
+
+function editBookmark(id) {
+    const list = getBookmarks();
+    const bm = list.find(b => b.id === id);
+    if (!bm) return;
+    const newName = prompt('تعديل اسم الإشارة المرجعية:', bm.name);
+    if (newName !== null && newName.trim()) {
+        bm.name = newName.trim();
+        saveBookmarks(list);
+        updateSyncStatus('تم تعديل اسم الإشارة المرجعية', 'success');
+    }
+}
+
+function applyBookmarkToReading(surah, surahName, ayah, snippet) {
+    const continueSurah = document.getElementById('quranContinueSurah');
+    const continueAyah = document.getElementById('quranContinueAyah');
+    if (continueSurah) continueSurah.textContent = `سورة ${surahName}`;
+    if (continueAyah) continueAyah.textContent = `الآية ${ayah}`;
+    updateSyncStatus(`تم تحديد سورة ${surahName} آية ${ayah} للمتابعة على الساعة 📖`, 'success');
+    scheduleAutoSync();
+}
+
+function renderBookmarks() {
+    const container = document.getElementById('bookmarksList');
+    const badge = document.getElementById('bookmarksCountBadge');
+    if (!container) return;
+    
+    const list = getBookmarks();
+    if (badge) badge.textContent = list.length;
+    
+    if (list.length === 0) {
+        container.innerHTML = `<div class="empty-state compact"><span>🔖</span><small>لا توجد إشارات بعد. اضغط «إضافة علامة» من نتائج البحث.</small></div>`;
+        return;
+    }
+    
+    container.innerHTML = '';
+    list.forEach(bm => {
+        const card = document.createElement('div');
+        card.className = 'bookmark-card';
+        
+        const top = document.createElement('div');
+        top.className = 'bookmark-card-top';
+        
+        const title = document.createElement('span');
+        title.className = 'bookmark-title';
+        title.textContent = bm.name || `سورة ${bm.surahName} [${bm.ayah}]`;
+        
+        const meta = document.createElement('span');
+        meta.className = 'bookmark-meta';
+        meta.textContent = `سورة ${bm.surahName} · آية ${bm.ayah}`;
+        
+        top.append(title, meta);
+        
+        const snippet = document.createElement('p');
+        snippet.className = 'bookmark-snippet';
+        snippet.textContent = `﴿ ${bm.textSnippet} ﴾`;
+        
+        const actions = document.createElement('div');
+        actions.className = 'bookmark-actions';
+        
+        const btnRead = document.createElement('button');
+        btnRead.type = 'button';
+        btnRead.className = 'bookmark-btn';
+        btnRead.textContent = '📖 متابعة القراءة';
+        btnRead.addEventListener('click', () => applyBookmarkToReading(bm.surah, bm.surahName, bm.ayah, bm.textSnippet));
+        
+        const btnEdit = document.createElement('button');
+        btnEdit.type = 'button';
+        btnEdit.className = 'bookmark-btn';
+        btnEdit.textContent = '✎ تعديل الاسم';
+        btnEdit.addEventListener('click', () => editBookmark(bm.id));
+        
+        const btnDel = document.createElement('button');
+        btnDel.type = 'button';
+        btnDel.className = 'bookmark-btn danger';
+        btnDel.textContent = '⌫ حذف';
+        btnDel.addEventListener('click', () => deleteBookmark(bm.id));
+        
+        actions.append(btnRead, btnEdit, btnDel);
+        card.append(top, snippet, actions);
+        container.appendChild(card);
+    });
+}
+
+function showSearchMessage(container, message) {
+    container.replaceChildren();
+    const node = document.createElement('div');
+    node.className = 'text-muted';
+    node.textContent = message;
+    container.appendChild(node);
+}
+
+// ── LOCATIONS TAB ──
+function renderLocations() {
+    const list = document.getElementById('locationsList');
+    if (!list) return;
+    list.replaceChildren();
+
+    const recent = document.getElementById('recentLocations');
+    if (recent) {
+        recent.replaceChildren();
+        const title = document.createElement('small');
+        title.textContent = 'آخر المواقع';
+        recent.appendChild(title);
+        (watchSettings.recentLocationIds || []).slice(0, 3).forEach(id => {
+            const loc = argentinaLocations.find(location => location.id === id);
+            if (!loc) return;
+            const shortcut = document.createElement('button');
+            shortcut.type = 'button';
+            shortcut.className = 'recent-location-chip';
+            shortcut.textContent = loc.name.split(' (')[0];
+            shortcut.addEventListener('click', () => selectLocation(loc));
+            recent.appendChild(shortcut);
+        });
+    }
+
+    argentinaLocations.forEach(loc => {
+        const card = document.createElement('div');
+        card.className = `location-row${loc.id === watchSettings.selectedLocationId ? ' active' : ''}`;
+        const pin = document.createElement('span');
+        pin.textContent = '⌖';
+        const info = document.createElement('div');
+        const name = document.createElement('strong');
+        name.textContent = loc.name;
+        const meta = document.createElement('small');
+        meta.textContent = `${loc.lat.toFixed(3)}, ${loc.lng.toFixed(3)} · القبلة ${loc.qibla}`;
+        info.append(name, meta);
+        const map = document.createElement('a');
+        map.className = 'button';
+        map.href = `https://maps.google.com/?q=${loc.lat},${loc.lng}`;
+        map.target = '_blank';
+        map.rel = 'noopener noreferrer';
+        map.textContent = 'الخريطة';
+        const select = document.createElement('button');
+        select.type = 'button';
+        select.className = 'button';
+        select.textContent = loc.id === watchSettings.selectedLocationId ? 'نشط' : 'تفعيل';
+        select.addEventListener('click', () => selectLocation(loc));
+        card.append(pin, info, select, map);
+        list.appendChild(card);
+    });
+}
+
+function selectLocation(loc) {
+    watchSettings.selectedLocationId = loc.id;
+    watchSettings.selectedLocationName = loc.name;
+    watchSettings.selectedLat = loc.lat;
+    watchSettings.selectedLng = loc.lng;
+    watchSettings.recentLocationIds = [loc.id, ...(watchSettings.recentLocationIds || []).filter(id => id !== loc.id)].slice(0, 3);
+    const city = document.getElementById('settingActiveCity');
+    if (city) city.value = loc.id;
+    renderLocations();
+    scheduleAutoSync();
+}
+
+// ── SETTINGS TAB ──
+function setupSettingsTab() {
+    const readerFonts = new Set(['default', 'uthmani', 'amiri', 'naskh', 'kufi', 'tajawal', 'cairo', 'sansserif', 'serif']);
+    if (!readerFonts.has(watchSettings.fontFamily)) watchSettings.fontFamily = 'uthmani';
+    const range = document.getElementById('settingReaderFontSize');
+    const disp = document.getElementById('fontSizeDisplay');
+    const prev = document.getElementById('readerFontPreview');
+
+    if (range && disp && prev) {
+        range.addEventListener('input', (e) => {
+            disp.textContent = e.target.value;
+            prev.style.fontSize = e.target.value + 'px';
+            watchSettings.fontSize = parseInt(e.target.value);
+            scheduleAutoSync();
+        });
+    }
+
+    const binds = [
+        ['settingQuranFont', 'fontFamily'],
+        ['settingAyahColor', 'ayahColor'],
+        ['settingReaderBg', 'readerBgColor'],
+        ['settingReaderTextColor', 'readerTextColor'],
+        ['settingAyahCustom', 'customAyahColor'],
+        ['settingReaderBgCustom', 'customReaderBgColor'],
+        ['settingReaderTextCustom', 'customReaderTextColor'],
+        ['settingActiveCity', 'selectedLocationId'],
+        ['settingCalcMethod', 'calculationMethod'],
+        ['settingNotifications', 'notificationsEnabled'],
+        ['settingNotificationVibration', 'notificationVibration'],
+        ['settingNotificationFullScreen', 'notificationFullScreen'],
+        ['reminderFajr', 'reminderFajr'],
+        ['reminderDhuhr', 'reminderDhuhr'],
+        ['reminderAsr', 'reminderAsr'],
+        ['reminderMaghrib', 'reminderMaghrib'],
+        ['reminderIsha', 'reminderIsha'],
+        ['settingTilesDefaultMode', 'tilesDefaultMode']
+    ];
+
+    binds.forEach(([elemId, propKey]) => {
+        const el = document.getElementById(elemId);
+        if (el) {
+            const applySetting = (e) => {
+                let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                if (val === 'true') val = true;
+                if (val === 'false') val = false;
+                if (propKey.startsWith('reminder')) val = parseInt(val);
+                watchSettings[propKey] = val;
+                if (['fontFamily', 'ayahColor', 'readerBgColor', 'readerTextColor', 'customAyahColor', 'customReaderBgColor', 'customReaderTextColor'].includes(propKey)) applyReaderPreviewTheme();
+                scheduleAutoSync();
+            };
+            el.addEventListener('change', applySetting);
+            if (el.type === 'color') el.addEventListener('input', applySetting);
+        }
+    });
+
+    const appearance = getAppearance();
+    [['settingTileShape', 'tileShape'], ['settingWatchPattern', 'pattern'], ['settingIconPalette', 'iconPalette']].forEach(([id, key]) => {
+        const control = document.getElementById(id);
+        if (!control) return;
+        control.value = appearance[key];
+        control.addEventListener('change', event => applyAppearanceControl(key, event.target.value));
+    });
+
+    Object.entries({
+        settingQuranFont: watchSettings.fontFamily,
+        settingReaderFontSize: watchSettings.fontSize,
+        settingAyahColor: watchSettings.ayahColor,
+        settingReaderBg: watchSettings.readerBgColor,
+        settingReaderTextColor: watchSettings.readerTextColor,
+        settingAyahCustom: watchSettings.customAyahColor,
+        settingReaderBgCustom: watchSettings.customReaderBgColor,
+        settingReaderTextCustom: watchSettings.customReaderTextColor,
+        settingNotifications: watchSettings.notificationsEnabled,
+        settingNotificationVibration: watchSettings.notificationVibration,
+        settingNotificationFullScreen: watchSettings.notificationFullScreen,
+        reminderFajr: watchSettings.reminderFajr,
+        reminderDhuhr: watchSettings.reminderDhuhr,
+        reminderAsr: watchSettings.reminderAsr,
+        reminderMaghrib: watchSettings.reminderMaghrib,
+        reminderIsha: watchSettings.reminderIsha
+    }).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.type === 'checkbox') el.checked = Boolean(value);
+        else el.value = value;
+    });
+    if (range && disp && prev) {
+        disp.textContent = watchSettings.fontSize;
+        prev.style.fontSize = watchSettings.fontSize + 'px';
+    }
+    applyReaderPreviewTheme();
+
+    const btnSave = document.getElementById('btnSaveSettingsToWatch');
+    if (btnSave) {
+        btnSave.addEventListener('click', () => syncAll(true));
+    }
+
+    const btnReset = document.getElementById('btnResetSettings');
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            if (confirm("هل تريد استعادة جميع الإعدادات إلى الوضع الافتراضي؟")) {
+                localStorage.removeItem(LOCAL_DRAFT_KEY);
+                location.reload();
+            }
+        });
+    }
+}
+
+function applyReaderPreviewTheme() {
+    const preview = document.getElementById('readerFontPreview');
+    if (!preview) return;
+    const backgrounds = { black: '#111214', navy: '#10233f', sepia: '#f2e4c9', forest: '#143d31', slate: '#263341', custom: watchSettings.customReaderBgColor };
+    const texts = { white: '#ffffff', ivory: '#fff4d6', mint: '#c8ffe8', golden: '#ffd56a', cyan: '#9ee7ff', custom: watchSettings.customReaderTextColor };
+    const ayahs = { yellow: '#ffd60a', green: '#34c759', cyan: '#5ac8fa', rose: '#ff6b9a', custom: watchSettings.customAyahColor };
+    const fonts = { uthmani: "'Amiri', serif", amiri: "'Amiri', serif", naskh: "'Noto Naskh Arabic', serif", kufi: "'Noto Kufi Arabic', sans-serif", tajawal: "'Tajawal', sans-serif", cairo: "'Cairo', sans-serif", sansserif: 'sans-serif', serif: 'serif', default: 'inherit' };
+    const textColor = texts[watchSettings.readerTextColor] || texts.white;
+    const ayahColor = ayahs[watchSettings.ayahColor] || ayahs.yellow;
+    preview.style.background = backgrounds[watchSettings.readerBgColor] || backgrounds.black;
+    preview.style.color = textColor;
+    preview.style.borderColor = ayahColor;
+    preview.style.fontFamily = fonts[watchSettings.fontFamily] || fonts.default;
+    preview.innerHTML = `<strong style="color:${ayahColor}">سورة الكهف · 18</strong> وَتَحْسَبُهُمْ أَيْقَاظًا وَهُمْ رُقُودٌ`;
+}
+
+// ── SYNC ENGINE ──
+let autoSyncTimeout = null;
+const LOCAL_DRAFT_KEY = 'quran_watch_finder_draft';
+
+function saveLocalDraft() {
+    try {
+        localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({ tileConfig, watchSettings, savedAt: Date.now() }));
+        updateSyncStatus('تم حفظ المسودة محليًا', 'success');
+    } catch (error) {
+        console.error('Local draft save failed:', error);
+        updateSyncStatus('تعذر حفظ المسودة في المتصفح', 'error');
+    }
+}
+
+function restoreLocalDraft() {
+    try {
+        const draft = JSON.parse(localStorage.getItem(LOCAL_DRAFT_KEY) || 'null');
+        if (draft?.tileConfig?.tiles?.length) tileConfig = draft.tileConfig;
+        if (draft?.watchSettings) watchSettings = { ...watchSettings, ...draft.watchSettings };
+    } catch (error) {
+        console.warn('Ignoring an invalid local draft:', error);
+    }
+}
+
+function updateSyncStatus(message, tone = '') {
+    const pill = document.getElementById('syncStatus');
+    const feedback = document.getElementById('syncFeedback');
+    const sidebar = document.getElementById('sidebarSyncStatus');
+    if (pill) pill.lastChild.textContent = ` ${message}`;
+    if (feedback) {
+        feedback.textContent = message;
+        feedback.className = `sync-feedback ${tone}`.trim();
+    }
+    if (sidebar) sidebar.textContent = message;
+}
+
+function scheduleAutoSync() {
+    clearTimeout(autoSyncTimeout);
+    saveLocalDraft();
+    autoSyncTimeout = setTimeout(() => {
+        syncAll(false);
+    }, 1200);
+}
+
+async function syncAll(isManual = false) {
+    const pin = document.getElementById('syncPinCode')?.value || '41331';
+    const localIp = document.getElementById('watchIp')?.value || '192.168.1.224';
+    
+    tileConfig.version = Date.now();
+    const syncedSettings = {
+        ...watchSettings,
+        prayerReminders: {
+            fajr: watchSettings.reminderFajr,
+            dhuhr: watchSettings.reminderDhuhr,
+            asr: watchSettings.reminderAsr,
+            maghrib: watchSettings.reminderMaghrib,
+            isha: watchSettings.reminderIsha,
+            vibration: watchSettings.notificationVibration,
+            fullScreen: watchSettings.notificationFullScreen
+        }
+    };
+    const payload = {
+        type: 'FULL_SYNC',
+        version: tileConfig.version,
+        tilesConfig: tileConfig,
+        settings: syncedSettings
+    };
+    
+    saveLocalDraft();
+    updateSyncStatus('جاري الاتصال…');
+
+    const post = async (url) => {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(`Sync failed with ${response.status}`);
+        return response;
+    };
+
+    const results = await Promise.allSettled([
+        post(`/api/sync?code=${encodeURIComponent(pin)}`),
+        post(`http://${localIp}:41331/api/sync`)
+    ]);
+    const cloudOk = results[0].status === 'fulfilled';
+    const localOk = results[1].status === 'fulfilled';
+
+    if (cloudOk && localOk) updateSyncStatus('تمت المزامنة سحابيًا ومحليًا', 'success');
+    else if (cloudOk) updateSyncStatus('تم الحفظ سحابيًا؛ الساعة المحلية غير متاحة', 'success');
+    else if (localOk) updateSyncStatus('تم الإرسال للساعة؛ السحابة غير متاحة', 'success');
+    else updateSyncStatus('حُفظت المسودة محليًا؛ تعذر الوصول إلى الساعة والسحابة', 'error');
+
+    if (isManual && !cloudOk && !localOk) {
+        const feedback = document.getElementById('syncFeedback');
+        feedback?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return { cloudOk, localOk };
+}
+
+function unwrapSyncPayload(response) {
+    if (!response || typeof response !== 'object') return null;
+    return response.data && typeof response.data === 'object' ? response.data : response;
+}
+
+async function pullFromCloud() {
+    const pin = document.getElementById('syncPinCode')?.value || '41331';
+    updateSyncStatus('جاري جلب النسخة السحابية…');
+    try {
+        const response = await fetch(`/api/sync?code=${encodeURIComponent(pin)}`);
+        if (!response.ok) throw new Error(`Cloud pull failed with ${response.status}`);
+        const data = unwrapSyncPayload(await response.json());
+        if (!data?.tilesConfig?.tiles) throw new Error('Cloud response has no tile configuration');
+        pushHistory();
+        tileConfig = data.tilesConfig;
+        if (data.settings) watchSettings = { ...watchSettings, ...data.settings };
+        selectedIndices.clear();
+        primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
+        if (primarySelectedIdx >= 0) selectedIndices.add(primarySelectedIdx);
+        validateAndPackGrid();
+        renderCanvas();
+        updateEditor();
+        saveLocalDraft();
+        updateSyncStatus('تم جلب التصميم والإعدادات من السحابة', 'success');
+    } catch (error) {
+        console.error('Cloud pull error:', error);
+        updateSyncStatus('تعذر جلب النسخة السحابية؛ تحقق من الاتصال والرمز', 'error');
+    }
+}
+
+function syncLocalDirect() {
+    return syncAll(true);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(error => console.warn('PWA registration failed:', error));
+    }
+});
+
+
+// ── PRESET MODES WEB ENGINE ──
+const WEB_PRESETS = {
+    'preset_prayer_strip': {
+        tiles: [
+            { id: 'clock_big', colorHex: '#6366F1', colSpan: 6, rowIndex: 0, fontSize: 20, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 6, rowIndex: 0, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_strip_5', colorHex: '#047857', colSpan: 12, rowIndex: 1, fontSize: 12, displayStyle: 'prayer_strip_5', fontColorHex: '#ffffff' },
+            { id: 'folder_islamic', colorHex: '#0284C7', folderItems: ['quran', 'tasbih', 'qibla', 'prayer'], colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'qibla', colorHex: '#D97706', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'preset_quran_focus': {
+        tiles: [
+            { id: 'clock_big', colorHex: '#4F46E5', colSpan: 4, rowIndex: 0, fontSize: 16, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'quran_resume', colorHex: '#0E7490', colSpan: 8, rowIndex: 0, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_islamic', colorHex: '#0284C7', folderItems: ['quran', 'tasbih', 'qibla', 'prayer'], colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'tasbih', colorHex: '#059669', colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'bookmarks', colorHex: '#D97706', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'settings', colorHex: '#334155', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'preset_big_clock': {
+        tiles: [
+            { id: 'clock_big', colorHex: '#7C3AED', colSpan: 12, rowIndex: 0, fontSize: 24, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'date_big', colorHex: '#0284C7', colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_islamic', colorHex: '#0E7490', folderItems: ['quran', 'tasbih', 'qibla', 'prayer'], colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'settings', colorHex: '#334155', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'preset_smart_tools': {
+        tiles: [
+            { id: 'clock_big', colorHex: '#6366F1', colSpan: 6, rowIndex: 0, fontSize: 18, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 6, rowIndex: 0, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_islamic', colorHex: '#0284C7', folderItems: ['quran', 'tasbih', 'qibla', 'prayer'], colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_tools', colorHex: '#EA580C', folderItems: ['voice_notes', 'bookmarks', 'locations', 'settings'], colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'voice_notes', colorHex: '#E11D48', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'settings', colorHex: '#334155', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'preset_color_accent': {
+        tiles: [
+            { id: 'color_only', colorHex: '#EC4899', colSpan: 4, rowIndex: 0, displayStyle: 'color_only' },
+            { id: 'clock_big', colorHex: '#8B5CF6', colSpan: 8, rowIndex: 0, fontSize: 20, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'quran_resume', colorHex: '#06B6D4', colSpan: 8, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'color_only', colorHex: '#F59E0B', colSpan: 4, rowIndex: 1, displayStyle: 'color_only' },
+            { id: 'tasbih', colorHex: '#10B981', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'settings', colorHex: '#334155', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    }
+};
+
+window.applyPresetWeb = function(presetId) {
+    if (!WEB_PRESETS[presetId]) return;
+    pushHistory();
+    let template = WEB_PRESETS[presetId];
+    tileConfig.tiles = JSON.parse(JSON.stringify(template.tiles));
+    tileConfig.tiles.forEach(t => {
+        if (!t.fontColorHex) t.fontColorHex = '#ffffff';
+        if (!t.iconColorHex) t.iconColorHex = '#ffffff';
+        if (!t.iconSize) t.iconSize = 24;
+        if (!t.iconStyle) t.iconStyle = 'static';
+        if (!t.iconType) t.iconType = 'default';
+        if (!t.fontFamily) t.fontFamily = 'Uthmanic';
+        if (!t.textX) t.textX = 50;
+        if (!t.textY) t.textY = 50;
+        if (!t.iconX) t.iconX = 50;
+        if (!t.iconY) t.iconY = 30;
+    });
+    primarySelectedIdx = 0;
+    selectedIndices.clear();
+    selectedIndices.add(0);
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    scheduleAutoSync();
+};
+
+window.saveCurrentAsCustomPresetWeb = function() {
+    let name = prompt('أدخل اسم القالب المخصص:', 'قالب مخصص ' + (new Date().toLocaleTimeString('ar-EG')));
+    if (!name) return;
+    let customPresets = JSON.parse(localStorage.getItem('quran_watch_web_custom_presets') || '[]');
+    let newCustom = {
+        id: 'custom_' + Date.now(),
+        title: name,
+        icon: '⭐',
+        tiles: JSON.parse(JSON.stringify(tileConfig.tiles))
+    };
+    customPresets.push(newCustom);
+    localStorage.setItem('quran_watch_web_custom_presets', JSON.stringify(customPresets));
+    alert('تم حفظ القالب بنجاح!');
+};

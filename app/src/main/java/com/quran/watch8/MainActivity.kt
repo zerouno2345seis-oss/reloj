@@ -17,6 +17,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.wear.compose.material.*
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
@@ -33,13 +35,25 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        if (::viewModelRef.isInitialized) {
-            viewModelRef.onPermissionsResult(results)
+        if (::viewModelRef.isInitialized) viewModelRef.onPermissionsResult(results)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handlePresetIntent(intent)
+    }
+
+    private fun handlePresetIntent(intent: android.content.Intent?) {
+        val presetId = intent?.getStringExtra("apply_preset")
+        if (!presetId.isNullOrBlank()) {
+            com.quran.watch8.data.model.PresetManager.applyPreset(applicationContext, presetId)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handlePresetIntent(intent)
+        com.quran.watch8.util.LocalSyncServer.start(applicationContext)
 
         setContent {
             QuranWatchTheme {
@@ -50,7 +64,6 @@ class MainActivity : ComponentActivity() {
                 var permissionsHandled by remember { mutableStateOf(false) }
                 var showPermissionScreen by remember { mutableStateOf(false) }
 
-                // On first launch: request ALL needed permissions automatically
                 LaunchedEffect(Unit) {
                     viewModel.loadQuran()
                     viewModel.checkPermissions()
@@ -60,16 +73,12 @@ class MainActivity : ComponentActivity() {
                         Manifest.permission.ACCESS_COARSE_LOCATION,
                         Manifest.permission.RECORD_AUDIO
                     )
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-                    }
+                    if (Build.VERSION.SDK_INT >= 33) permissions.add(Manifest.permission.POST_NOTIFICATIONS)
 
                     val missing = permissions.filter {
                         ContextCompat.checkSelfPermission(this@MainActivity, it) != PackageManager.PERMISSION_GRANTED
                     }
-
                     if (missing.isNotEmpty()) {
-                        // Request immediately (default for location + audio)
                         showPermissionScreen = true
                         requestPermissionLauncher.launch(missing.toTypedArray())
                     } else {
@@ -78,7 +87,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // After permission dialog closes
                 LaunchedEffect(viewModel.hasLocationPermission, viewModel.hasAudioPermission) {
                     if (viewModel.hasLocationPermission || viewModel.hasAudioPermission) {
                         permissionsHandled = true
@@ -87,80 +95,90 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (showPermissionScreen && !permissionsHandled) {
-                    // Simple permission rationale screen while system dialog is up
                     PermissionRationaleScreen(
                         onContinue = {
-                            // User may have denied; still continue with defaults (Buenos Aires)
                             permissionsHandled = true
                             showPermissionScreen = false
                             if (!viewModel.hasLocationPermission) {
-                                viewModel.selectPreset(
-                                    com.quran.watch8.data.model.ArgentinaLocations.BUENOS_AIRES_CABA
-                                )
+                                viewModel.selectPreset(com.quran.watch8.data.model.ArgentinaLocations.BUENOS_AIRES_CABA)
                             }
                         }
                     )
                 } else {
+                    LaunchedEffect(intent) {
+                        val route = intent.getStringExtra("targetRoute")
+                        if (!route.isNullOrBlank()) {
+                            navController.navigate(route)
+                        }
+                    }
+
                     SwipeDismissableNavHost(
-                        navController = navController,
+                        navController    = navController,
                         startDestination = "home"
                     ) {
                         composable("home") {
                             HomeScreen(
                                 onNavigate = { route -> navController.navigate(route) },
-                                viewModel = viewModel
+                                viewModel  = viewModel
                             )
                         }
+
                         composable("quran") {
                             QuranScreen(
-                                onBack = { navController.popBackStack() },
-                                onNavigateToReader = { surah ->
-                                    navController.navigate("reader/$surah")
-                                },
+                                onBack               = { navController.popBackStack() },
+                                onNavigateToReader   = { surah -> navController.navigate("reader/$surah") },
                                 onNavigateToBookmarks = { navController.navigate("bookmarks") },
-                                viewModel = viewModel
+                                viewModel            = viewModel
                             )
                         }
-                        composable("reader/{surahNumber}") { backStackEntry ->
-                            val surah = backStackEntry.arguments?.getString("surahNumber")?.toIntOrNull() ?: 1
+
+                        // ── Reader  supports two optional params:
+                        //    startAyah  → 1-based ayah number (from search/bookmark)
+                        //    listIndex  → raw ScalingLazyColumn index (from resume)
+                        composable(
+                            route = "reader/{surahNumber}?startAyah={startAyah}&listIndex={listIndex}",
+                            arguments = listOf(
+                                navArgument("surahNumber") { type = NavType.IntType },
+                                navArgument("startAyah")  { type = NavType.IntType; defaultValue = -1 },
+                                navArgument("listIndex")  { type = NavType.IntType; defaultValue = -1 }
+                            )
+                        ) { back ->
+                            val surah     = back.arguments?.getInt("surahNumber") ?: 1
+                            val startAyah = back.arguments?.getInt("startAyah")   ?: -1
+                            val listIndex = back.arguments?.getInt("listIndex")   ?: -1
                             QuranReaderScreen(
                                 surahNumber = surah,
-                                onBack = { navController.popBackStack() },
-                                viewModel = viewModel
+                                startAyah   = startAyah,
+                                listIndex   = listIndex,
+                                onBack      = { navController.popBackStack() },
+                                viewModel   = viewModel
                             )
                         }
+
                         composable("bookmarks") {
                             BookmarksScreen(
                                 onBack = { navController.popBackStack() },
                                 onOpenAyah = { surah, ayah ->
-                                    navController.navigate("reader/$surah")
+                                    navController.navigate("reader/$surah?startAyah=$ayah")
                                 },
                                 viewModel = viewModel
                             )
                         }
+
                         composable("prayer") {
-                            PrayerTimesScreen(
-                                onBack = { navController.popBackStack() },
-                                viewModel = viewModel
-                            )
+                            PrayerTimesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                        }
+                        composable("qibla") {
+                            QiblaCompassScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
                         composable("locations") {
-                            LocationsScreen(
-                                onBack = { navController.popBackStack() },
-                                viewModel = viewModel
-                            )
+                            LocationsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
                         composable("notes") {
-                            VoiceNotesScreen(
-                                onBack = { navController.popBackStack() },
-                                viewModel = viewModel
-                            )
+                            VoiceNotesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
                         composable("settings") {
-                            SettingsScreen(
-                                onBack = { navController.popBackStack() },
-                                viewModel = viewModel
-                            )
+                            SettingsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
                     }
                 }
@@ -172,9 +190,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PermissionRationaleScreen(onContinue: () -> Unit) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black),
+        modifier = Modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -182,7 +198,7 @@ fun PermissionRationaleScreen(onContinue: () -> Unit) {
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "الأذونات المطلوبة",
+                text  = "الأذونات المطلوبة",
                 style = MaterialTheme.typography.title3,
                 color = AccentGold,
                 textAlign = TextAlign.Center
@@ -190,10 +206,10 @@ fun PermissionRationaleScreen(onContinue: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "يحتاج التطبيق إلى:\n\n" +
-                        "📍 الموقع → أوقات الصلاة وحفظ المواقع\n" +
-                        "🎤 الميكروفون → البحث الصوتي والملاحظات\n" +
-                        "🔔 الإشعارات → تنبيهات الصلاة\n\n" +
-                        "الافتراضي عند الرفض: بوينس آيرس (الأرجنتين)",
+                       "📍 الموقع → أوقات الصلاة وحفظ المواقع\n" +
+                       "🎤 الميكروفون → البحث الصوتي والملاحظات\n" +
+                       "🔔 الإشعارات → تنبيهات الصلاة\n\n" +
+                       "الافتراضي عند الرفض: بوينس آيرس",
                 style = MaterialTheme.typography.caption1,
                 color = Color.White,
                 textAlign = TextAlign.Center
@@ -201,11 +217,8 @@ fun PermissionRationaleScreen(onContinue: () -> Unit) {
             Spacer(modifier = Modifier.height(20.dp))
             Chip(
                 onClick = onContinue,
-                label = { Text("متابعة / Continuar") },
-                colors = ChipDefaults.primaryChipColors(
-                    backgroundColor = AccentGold,
-                    contentColor = Color.Black
-                )
+                label   = { Text("متابعة / Continuar") },
+                colors  = ChipDefaults.primaryChipColors(backgroundColor = AccentGold, contentColor = Color.Black)
             )
         }
     }

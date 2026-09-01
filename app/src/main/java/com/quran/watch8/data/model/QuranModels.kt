@@ -37,6 +37,7 @@ data class Bookmark(
 data class SavedLocation(
     val id: String = "${System.currentTimeMillis()}",
     val name: String,
+    val address: String = "",
     val latitude: Double,
     val longitude: Double,
     val timestamp: Long = System.currentTimeMillis(),
@@ -51,7 +52,8 @@ data class VoiceNote(
     val id: String = "${System.currentTimeMillis()}",
     val title: String,
     val filePath: String,
-    val durationMs: Long,
+    val transcription: String = "",
+    val durationMs: Long = 0L,
     val timestamp: Long = System.currentTimeMillis()
 )
 

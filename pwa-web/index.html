@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f5f7">
+  <meta name="description" content="إدارة ساعة رِواق ومحتواها من المتصفح">
+  <title>رِواق — إدارة الساعة</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell" data-finder-shell>
+    <aside class="finder-sidebar" aria-label="التنقل الرئيسي">
+      <div class="brand-lockup">
+        <div class="brand-icon" aria-hidden="true">ر</div>
+        <div><strong>رِواق</strong><span>إدارة الساعة</span></div>
+      </div>
+
+      <nav class="finder-nav" aria-label="أقسام التطبيق">
+        <p class="sidebar-label">المفضلة</p>
+        <button class="nav-item active" data-tab-target="overview" aria-selected="true"><span>▦</span>نظرة عامة</button>
+        <button class="nav-item" data-tab-target="tiles" aria-selected="false"><span>◫</span>تصميم الساعة</button>
+        <button class="nav-item" data-tab-target="presets" aria-selected="false"><span>✦</span>القوالب</button>
+        <p class="sidebar-label">المحتوى</p>
+        <button class="nav-item" data-tab-target="quran" aria-selected="false"><span>☰</span>القرآن الكريم</button>
+        <button class="nav-item" data-tab-target="locations" aria-selected="false"><span>⌖</span>المواقيت والموقع</button>
+        <p class="sidebar-label">النظام</p>
+        <button class="nav-item" data-tab-target="settings" aria-selected="false"><span>⚙</span>الإعدادات</button>
+        <button class="nav-item" data-tab-target="sync" aria-selected="false"><span>⇅</span>المزامنة</button>
+      </nav>
+
+      <div class="sidebar-status">
+        <span class="status-dot"></span>
+        <div><strong>الساعة جاهزة</strong><span id="sidebarSyncStatus">آخر مزامنة: محليًا</span></div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="finder-toolbar">
+        <div class="traffic-lights" aria-hidden="true"><i class="traffic-close"></i><i class="traffic-minimize"></i><i class="traffic-maximize"></i></div>
+        <div class="toolbar-heading"><h1 id="currentPageTitle">نظرة عامة</h1><p id="currentPageSubtitle">كل ما تحتاجه لإدارة ساعتك في مكان واحد</p></div>
+        <div class="toolbar-actions">
+          <span class="sync-pill" id="syncStatus"><i></i> محفوظ محليًا</span>
+          <button class="button primary compact" id="btnApplyFromToolbar">تطبيق على الساعة</button>
+        </div>
+      </header>
+
+      <div class="workspace-scroll">
+        <section class="tab-page active" id="tab-overview" data-tab="overview">
+          <div class="section-heading"><div><span class="eyebrow">اليوم</span><h2>مساء الخير</h2><p>هذه أهم معلومات ساعتك ومحتواها الآن.</p></div><button class="button" data-open-tab="tiles">تخصيص الواجهة</button></div>
+          <div class="overview-grid">
+            <article class="panel overview-watch-card">
+              <div class="panel-title"><div><span class="icon-box blue">◷</span><div><h3>واجهة الساعة</h3><p>معاينة مباشرة للتصميم الحالي</p></div></div><button class="icon-button" data-open-tab="tiles" aria-label="فتح المصمم">›</button></div>
+              <div class="mini-watch"><div id="overviewWatchPreview" class="mini-watch-screen"><span>12:45</span><small>الجمعة، 31 أغسطس</small></div></div>
+              <div class="card-footer"><span>القالب الحالي</span><strong id="overviewPresetName">تصميمي الحالي</strong></div>
+            </article>
+            <div class="overview-metrics">
+              <article class="metric-card"><span class="metric-icon indigo">☾</span><div><small>الصلاة القادمة</small><strong id="overviewNextPrayer">المغرب</strong><span id="overviewPrayerCountdown">بعد 01:24</span></div></article>
+              <article class="metric-card"><span class="metric-icon green">✓</span><div><small>ورد اليوم</small><strong id="overviewReading">12 آية</strong><span>من سورة الكهف</span></div></article>
+              <article class="metric-card"><span class="metric-icon orange">⌁</span><div><small>بطارية الساعة</small><strong id="overviewBattery">78%</strong><span>تكفي حتى المساء</span></div></article>
+              <article class="metric-card"><span class="metric-icon blue">⇅</span><div><small>حالة المزامنة</small><strong id="overviewSync">متصلة</strong><span>كل التغييرات محفوظة</span></div></article>
+            </div>
+          </div>
+          <div class="quick-actions">
+            <button class="quick-card" data-open-tab="tiles"><span>◫</span><div><strong>رتّب عناصر الساعة</strong><small>اسحب، كبّر، وغيّر الألوان</small></div><b>›</b></button>
+            <button class="quick-card" data-open-tab="quran"><span>☰</span><div><strong>تابع وردك القرآني</strong><small>ابحث وانتقل إلى موضع القراءة</small></div><b>›</b></button>
+            <button class="quick-card" data-open-tab="locations"><span>⌖</span><div><strong>حدّث موقع الصلاة</strong><small>مواقيت أدق حسب موقعك</small></div><b>›</b></button>
+          </div>
+        </section>
+
+        <section class="tab-page" id="tab-tiles" data-tab="tiles">
+          <div class="section-heading compact-heading"><div><span class="eyebrow">المصمم</span><h2>تصميم واجهة الساعة</h2><p>رتّب الطبقات بصريًا ثم أرسل النتيجة إلى الساعة.</p></div><button class="button primary" id="btnSaveTilesToWatch">حفظ وإرسال</button></div>
+          <div class="designer-grid">
+            <aside class="panel layers-panel">
+              <div class="panel-title"><div><h3>الطبقات</h3><p>ترتيب العناصر على الشاشة</p></div><button class="icon-button" id="btnAddTile" aria-label="إضافة عنصر">＋</button></div>
+              <div id="tileLayersList" class="layers-list"></div>
+              <div class="add-menu">
+                <button id="btnAddTileRight"><span>＋</span>عنصر يمين</button>
+                <button id="btnAddTileLeft"><span>＋</span>عنصر يسار</button>
+                <button id="btnAddRow"><span>＋</span>إضافة صف (حتى 5)</button>
+                <button id="btnAddPrayerStrip"><span>▤</span>صف مواقيت كامل</button>
+              </div>
+              <div class="layout-tools">
+                <span>هامش رفيع داخل الساعة</span>
+                <div class="edge-inset-controls"><button data-edge-inset="top">أعلى</button><button data-edge-inset="bottom">أسفل</button><button data-edge-inset="right">يمين</button><button data-edge-inset="left">يسار</button></div>
+              </div>
+              <div class="tip-box"><strong>تلميح</strong><p>اختر عنصرًا من القائمة أو مباشرة من الساعة لتعديل خصائصه.</p></div>
+            </aside>
+
+            <div class="canvas-column">
+              <div class="canvas-sticky">
+              <div class="canvas-toolbar">
+                <div class="canvas-toolbar-row"><div class="segmented"><button id="btnUndo" title="تراجع">↶</button><button id="btnRedo" title="إعادة">↷</button></div><label class="switch-label"><input type="checkbox" id="safeAreaToggle" checked><span></span>المنطقة الآمنة</label></div>
+                <div class="canvas-toolbar-row canvas-toolbar-actions"><div class="segmented"><button id="btnCopy">نسخ</button><button id="btnPaste">لصق</button><button id="btnSelectAll">الكل</button><button id="btnDeleteKey">حذف</button></div><button class="button" id="btnCycleTileShape"><span>◉</span> تبديل الشكل</button><button class="button primary smart-layout-button" id="btnAutoLayout"><span>✦</span> ترتيب تلقائي ذكي</button></div>
+              </div>
+              <div class="watch-stage">
+                <div class="watch-frame">
+                  <div class="watch-crown" aria-hidden="true"></div>
+                  <div class="watch-screen" id="watchScreenSimulator"><div class="safe-area-ring" aria-hidden="true"></div></div>
+                </div>
+              </div>
+              <p class="canvas-help">اسحب العناصر داخل الساعة، أو استخدم مقابض الحجم للمحاذاة الدقيقة.</p>
+              </div>
+            </div>
+
+            <aside class="panel inspector-panel">
+              <div class="panel-title"><div><h3>خصائص العنصر</h3><p id="selectedTileName">اختر عنصرًا للتعديل</p></div></div>
+              <div id="selectedTileEditorRight" class="inspector-content">
+                <label class="field"><span>المحتوى</span><select id="tileAction"></select></label>
+                <div class="field-row"><label class="field"><span>طريقة العرض</span><select id="tileDisplayStyle"><option value="both">أيقونة ونص</option><option value="icon">أيقونة</option><option value="text">نص</option></select></label><label class="field"><span>النقر</span><select id="tileTapAction"></select></label></div>
+                <label class="field"><span>الضغط المطوّل</span><select id="tileLongPressAction"></select></label>
+                <div class="control-group"><span>العرض</span><div class="segmented full"><button data-col-span="3">¼</button><button data-col-span="6">½</button><button data-col-span="9">¾</button><button data-col-span="12">كامل</button></div></div>
+                <div class="control-group"><span>محاذاة النص</span><div class="segmented full"><button data-text-align="right">يمين</button><button data-text-align="center">وسط</button><button data-text-align="left">يسار</button></div></div>
+                <div class="control-group"><span>المحاذاة الرأسية</span><div class="segmented full"><button data-align-y="start">أعلى</button><button data-align-y="center">وسط</button><button data-align-y="end">أسفل</button></div></div>
+                <button class="button full-width" id="btnExpandTile">توسيع العنصر</button>
+                <div class="field-row"><button class="button" id="btnCompactRow">تصغير صف العنصر</button><button class="button" id="btnRestoreRow">استعادة حجم الصف</button></div>
+                <div class="field-row"><label class="field"><span>الخط</span><select id="tileFontFamily"><option value="Uthmanic">عثماني</option><option value="Cairo">Cairo</option><option value="Noto Naskh Arabic">Noto Naskh</option><option value="Noto Kufi Arabic">Noto Kufi</option><option value="Aref Ruqaa">Aref Ruqaa</option></select></label><label class="field"><span>الحجم</span><input id="tileFontSize" type="number" min="8" max="48"></label></div>
+                <div class="segmented full"><button data-font-size="12">S</button><button data-font-size="16">M</button><button data-font-size="22">L</button><button data-font-size="30">XL</button></div>
+                <div class="field-row"><label class="field"><span>نوع الأيقونة</span><select id="tileIconType"></select></label><label class="field"><span>نمطها</span><select id="tileIconStyle"><option value="outline">خطية</option><option value="filled">ممتلئة</option></select></label></div>
+                <div id="folderItemsEditor" class="folder-items-editor" hidden><span>عناصر المجلد</span><div id="folderItemsChoices" class="folder-items-choices"></div><small>اختر حتى ستة عناصر؛ تظهر كأيقونات وشارات أنيقة داخل المجلد.</small></div>
+              </div>
+              <div id="selectedTileEditorLeft" class="inspector-colors">
+                <div class="control-group"><span>ألوان سريعة</span><div class="swatch-grid"><button data-swatch="#007aff" aria-label="أزرق"></button><button data-swatch="#34c759" aria-label="أخضر"></button><button data-swatch="#ff9f0a" aria-label="برتقالي"></button><button data-swatch="#af52de" aria-label="بنفسجي"></button><button data-swatch="#ff375f" aria-label="وردي"></button><button data-swatch="#1c1c1e" aria-label="أسود"></button><button data-swatch="#0E7490" aria-label="فيروزي"></button><button data-swatch="#7C3AED" aria-label="بنفسجي داكن"></button><button data-swatch="#DC2626" aria-label="أحمر"></button><button data-swatch="#D97706" aria-label="ذهبي"></button><button data-swatch="#334155" aria-label="أردوازي"></button><button data-swatch="#F8FAFC" aria-label="فاتح"></button></div></div>
+                <div class="color-fields"><label><span>الخلفية</span><input type="color" id="tileBgColor"></label><label><span>النص</span><input type="color" id="tileFontColor"></label><label><span>الأيقونة</span><input type="color" id="tileIconColor"></label></div>
+                <button class="button danger full-width" id="btnDeleteTile">حذف العنصر</button>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tab-page" id="tab-presets" data-tab="presets">
+          <div class="section-heading"><div><span class="eyebrow">المعرض</span><h2>قوالب جاهزة</h2><p>ابدأ بتكوين مدروس ثم عدّله ليناسب يومك.</p></div><button class="button" id="btnSaveCurrentPresetPrompt">حفظ التصميم الحالي</button></div>
+          <div class="filter-bar"><button class="active" data-preset-filter="all">الكل</button><button data-preset-filter="focus">تركيز</button><button data-preset-filter="worship">عبادة</button><button data-preset-filter="daily">يومي</button></div>
+          <div class="preset-gallery">
+            <article class="preset-card" data-web-preset="classic" data-category="daily"><div class="preset-preview preset-classic"><b>12:45</b><span>المغرب · 18:34</span><small>الجمعة، 31 أغسطس</small></div><div><h3>الكلاسيكي</h3><p>الوقت والصلاة والتاريخ بتوازن هادئ.</p></div><button class="button full-width">استخدام القالب</button></article>
+            <article class="preset-card" data-web-preset="prayer" data-category="worship"><div class="preset-preview preset-prayer"><small>الصلاة القادمة</small><b>المغرب</b><span>بعد 01:24</span></div><div><h3>الصلاة أولًا</h3><p>تركيز واضح على الصلاة القادمة والعدّ التنازلي.</p></div><button class="button full-width">استخدام القالب</button></article>
+            <article class="preset-card" data-web-preset="quran" data-category="worship"><div class="preset-preview preset-quran"><span>﴿</span><b>وَقُل رَّبِّ زِدْنِي عِلْمًا</b><small>طه: 114</small></div><div><h3>الورد القرآني</h3><p>آية اليوم مع اختصار سريع للقارئ.</p></div><button class="button full-width">استخدام القالب</button></article>
+            <article class="preset-card" data-web-preset="minimal" data-category="focus"><div class="preset-preview preset-minimal"><b>12:45</b><small>31 أغسطس</small></div><div><h3>الحد الأدنى</h3><p>واجهة صافية للوقت والتاريخ فقط.</p></div><button class="button full-width">استخدام القالب</button></article>
+            <article class="preset-card" data-web-preset="day" data-category="daily"><div class="preset-preview preset-day"><b>صباح الخير</b><span>3 مهام · 12 آية</span><small>المغرب 18:34</small></div><div><h3>يومي المتوازن</h3><p>مؤشرات اليوم المهمة في نظرة واحدة.</p></div><button class="button full-width">استخدام القالب</button></article>
+          </div>
+          <article class="panel custom-presets-panel"><div class="panel-title"><div><h3>قوالبي</h3><p>نسخ محفوظة من تصاميمك الخاصة</p></div></div><div class="new-preset-row"><input id="newPresetName" type="text" placeholder="اسم القالب الجديد"><button class="button primary" id="btnSaveNewPreset">حفظ</button></div><div id="customPresetsList" class="custom-presets-list"></div></article>
+        </section>
+
+        <section class="tab-page" id="tab-quran" data-tab="quran">
+          <div class="section-heading"><div><span class="eyebrow">المكتبة</span><h2>القرآن الكريم</h2><p>ابحث في السور والآيات، وأدر إشاراتك المرجعية، واستكمل وردك بسهولة.</p></div></div>
+          <div class="quran-layout">
+            <div class="panel search-panel"><label class="search-box"><span>⌕</span><input id="quranSearchInput" type="search" placeholder="ابحث باسم السورة أو بكلمة من الآية"></label><div id="quranSearchResults" class="search-results"><div class="empty-state"><span>☰</span><strong>ابدأ البحث</strong><p>ستظهر السور والآيات المطابقة هنا مع زر لإضافتها إلى الإشارات المرجعية.</p></div></div></div>
+            <aside class="quran-side">
+              <article class="continue-card"><small>متابعة القراءة</small><h3 id="quranContinueSurah">سورة الكهف</h3><p id="quranContinueAyah">الآية 18 من 110</p><div class="progress"><i id="quranContinueBar" style="width:36%"></i></div><button class="button primary full-width" id="btnApplyReadingToWatch">متابعة على الساعة</button></article>
+              <article class="panel bookmarks-panel"><div class="panel-title"><div><h3>الإشارات المرجعية</h3><p>تحكم بالآيات المحفوظة والملاحظات</p></div><span class="badge" id="bookmarksCountBadge">0</span></div><div id="bookmarksList" class="bookmarks-list"><div class="empty-state compact"><span>🔖</span><small>لا توجد إشارات بعد. اضغط «إضافة علامة» من نتائج البحث.</small></div></div></article>
+              <article class="panel daily-ayah"><span>آية اليوم</span><blockquote>﴿ وَقُل رَّبِّ زِدْنِي عِلْمًا ﴾</blockquote><small>سورة طه — 114</small></article>
+            </aside>
+          </div>
+        </section>
+
+        <section class="tab-page" id="tab-locations" data-tab="locations">
+          <div class="section-heading"><div><span class="eyebrow">بوينس آيرس</span><h2>المواقيت والموقع</h2><p>مواقيت الصلاة المحسوبة للموقع النشط.</p></div><button class="button">تحديث الموقع</button></div>
+          <article class="prayer-hero"><div><small>الصلاة القادمة</small><h3>المغرب</h3><p>متبقٍ 01:24:16</p></div><strong>18:34</strong></article>
+          <div class="prayer-timeline"><div><span>الفجر</span><b>05:42</b></div><div><span>الشروق</span><b>07:08</b></div><div><span>الظهر</span><b>12:58</b></div><div><span>العصر</span><b>16:09</b></div><div class="active"><span>المغرب</span><b>18:34</b></div><div><span>العشاء</span><b>19:56</b></div></div>
+          <div class="locations-grid"><article class="map-card"><div class="map-pin">⌖</div><div><strong>Buenos Aires</strong><span>Argentina · GMT−3</span></div></article><article class="panel"><div class="panel-title"><div><h3>المواقع المحفوظة</h3><p>بدّل بينها أو افتح الملاحة مباشرة</p></div><button class="icon-button">＋</button></div><div id="recentLocations" class="recent-locations" aria-label="المواقع الأخيرة"></div><div id="locationsList" class="locations-list"><button class="location-row active"><span>⌖</span><div><strong>بوينس آيرس</strong><small>الموقع النشط</small></div><b>✓</b></button></div></article></div>
+        </section>
+
+        <section class="tab-page" id="tab-settings" data-tab="settings">
+          <div class="section-heading"><div><span class="eyebrow">التفضيلات</span><h2>الإعدادات</h2><p>خصّص القراءة، التنبيهات، والحساب.</p></div></div>
+          <div class="settings-layout">
+            <div class="settings-stack">
+              <details class="settings-card" open><summary><span class="icon-box blue">أ</span><div><strong>مظهر القارئ</strong><small>كل الخطوط والألوان المتاحة على الساعة</small></div><b>⌄</b></summary><div class="settings-content"><div class="field-row"><label class="field"><span>خط القرآن</span><select id="settingQuranFont"><option value="default">الافتراضي</option><option value="uthmani">عثماني</option><option value="amiri">أميري</option><option value="naskh">نسخ عربي</option><option value="kufi">كوفي</option><option value="tajawal">تجوال</option><option value="cairo">كايرو</option><option value="sansserif">بدون زوائد</option><option value="serif">تقليدي</option></select></label><label class="field"><span>حجم النص: <b id="fontSizeDisplay">18</b></span><input id="settingReaderFontSize" type="range" min="8" max="48" step="1" value="18"></label></div><div id="readerFontPreview" class="reader-preview">سورة الكهف · 18 وَتَحْسَبُهُمْ أَيْقَاظًا وَهُمْ رُقُودٌ</div><div class="color-fields"><label class="field"><span>لون رقم الآية</span><select id="settingAyahColor"><option value="yellow">أصفر</option><option value="green">أخضر</option><option value="cyan">سماوي</option><option value="rose">وردي</option><option value="custom">مخصص</option></select><input id="settingAyahCustom" type="color" value="#ffd60a" aria-label="لون رقم الآية المخصص"></label><label class="field"><span>خلفية القارئ</span><select id="settingReaderBg"><option value="black">أسود</option><option value="navy">كحلي</option><option value="sepia">بني ورقي</option><option value="forest">أخضر داكن</option><option value="slate">رمادي أردوازي</option><option value="custom">مخصص</option></select><input id="settingReaderBgCustom" type="color" value="#111214" aria-label="خلفية القارئ المخصصة"></label><label class="field"><span>لون النص</span><select id="settingReaderTextColor"><option value="white">أبيض</option><option value="ivory">عاجي</option><option value="mint">نعناعي</option><option value="golden">ذهبي</option><option value="cyan">سماوي</option><option value="custom">مخصص</option></select><input id="settingReaderTextCustom" type="color" value="#ffffff" aria-label="لون النص المخصص"></label></div></div></details>
+              <details class="settings-card"><summary><span class="icon-box green">◫</span><div><strong>واجهة الساعة</strong><small>الأشكال والخلفيات ومكتبة الأيقونات</small></div><b>⌄</b></summary><div class="settings-content"><label class="field"><span>الوضع الافتراضي للعناصر</span><select id="settingTilesDefaultMode"><option value="custom">التصميم المخصص</option><option value="classic">الكلاسيكي</option></select></label><div class="field-row"><label class="field"><span>شكل البلاطات</span><select id="settingTileShape"><option value="square-connected">بلاطات متصلة (الافتراضي)</option></select></label><label class="field"><span>ألوان الأيقونات</span><select id="settingIconPalette"><option value="jewel">جواهر ملونة</option><option value="monochrome">أحادي هادئ</option><option value="night">ليل داكن</option><option value="warm">دفء ذهبي</option></select></label></div><label class="field"><span>خلفية زخرفية</span><select id="settingWatchPattern"><option value="none">سادة</option><option value="star-eight">نجمة ثمانية</option><option value="geometric">شبكة هندسية</option><option value="arabesque">أرابيسك</option><option value="moroccan">مغربي</option><option value="andalusian">أندلسي</option><option value="damascene">دمشقي</option><option value="egyptian">مصري</option><option value="ottoman">عثماني</option><option value="persian">فارسي</option><option value="central-asian">آسيوي إسلامي</option><option value="indonesian">إندونيسي</option><option value="indian">هندي إسلامي</option><option value="african">إفريقي إسلامي</option><option value="global">عالمي هندسي</option></select></label><p class="appearance-help">تُطبّق الخيارات مباشرة على المعاينة وعلى التصميم المُرسل للساعة.</p></div></details>
+              <details class="settings-card"><summary><span class="icon-box orange">♟</span><div><strong>التنبيهات</strong><small>الأذان وتذكير مستقل لكل صلاة</small></div><b>⌄</b></summary><div class="settings-content"><label class="setting-toggle"><div><strong>تفعيل التنبيهات</strong><small>إشعارات الصلاة على الساعة</small></div><input id="settingNotifications" type="checkbox" checked></label><div class="field-row"><label class="setting-toggle"><div><strong>اهتزاز</strong><small>نبضة عند التذكير</small></div><input id="settingNotificationVibration" type="checkbox" checked></label><label class="setting-toggle"><div><strong>ملء الشاشة</strong><small>إظهار التنبيه فوق الواجهة</small></div><input id="settingNotificationFullScreen" type="checkbox"></label></div><div class="field-row"><label class="field"><span>الفجر قبل</span><select id="reminderFajr"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label><label class="field"><span>الظهر قبل</span><select id="reminderDhuhr"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label></div><div class="field-row"><label class="field"><span>العصر قبل</span><select id="reminderAsr"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label><label class="field"><span>المغرب قبل</span><select id="reminderMaghrib"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label></div><label class="field"><span>العشاء قبل</span><select id="reminderIsha"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label></div></details>
+              <details class="settings-card"><summary><span class="icon-box purple">⌖</span><div><strong>الموقع والحساب</strong><small>المدينة وطريقة حساب المواقيت</small></div><b>⌄</b></summary><div class="settings-content"><label class="field"><span>المدينة النشطة</span><select id="settingActiveCity"><option value="buenos-aires">بوينس آيرس</option></select></label><label class="field"><span>طريقة الحساب</span><select id="settingCalcMethod"><option value="mwl">رابطة العالم الإسلامي</option><option value="isna">ISNA</option><option value="egypt">الهيئة المصرية</option></select></label></div></details>
+            </div>
+            <aside class="settings-actions panel"><div class="icon-box blue large">⚙</div><h3>تطبيق التغييرات</h3><p>تُحفظ إعدادات الويب تلقائيًا. أرسلها إلى الساعة عندما تصبح جاهزًا.</p><button class="button primary full-width" id="btnSaveSettingsToWatch">حفظ وإرسال</button><button class="button danger-text full-width" id="btnResetSettings">استعادة الافتراضي</button></aside>
+          </div>
+        </section>
+
+        <section class="tab-page" id="tab-sync" data-tab="sync">
+          <div class="section-heading"><div><span class="eyebrow">الاتصال</span><h2>المزامنة</h2><p>انقل التصميم والإعدادات بين المتصفح والساعة.</p></div></div>
+          <article class="sync-banner" id="syncBannerSection"><div class="sync-illustration">⇅</div><div><small>مزامنة آمنة</small><h3>احتفظ بالساعة والويب على النسخة نفسها</h3><p id="syncBannerBody">اختر المزامنة السحابية عن بُعد أو الاتصال المحلي الأسرع داخل الشبكة.</p></div><button class="button" id="btnToggleSync"><span id="syncToggleIcon">⌄</span> خيارات الاتصال</button></article>
+          <div class="sync-grid">
+            <article class="panel sync-method"><span class="method-icon blue">☁</span><h3>المزامنة السحابية</h3><p>استخدم رمز الربط للوصول إلى الساعة من أي مكان.</p><label class="field"><span>رمز الربط</span><input id="syncPinCode" inputmode="numeric" maxlength="8" placeholder="000000"></label><div class="button-row"><button class="button primary" id="btnCloudPush">إرسال للسحابة</button><button class="button" id="btnCloudPull">جلب من السحابة</button></div></article>
+            <article class="panel sync-method"><span class="method-icon green">⌁</span><h3>الشبكة المحلية</h3><p>اتصال مباشر وسريع عندما يكون الجهازان على Wi‑Fi نفسه.</p><label class="field"><span>عنوان الساعة</span><input id="watchIp" dir="ltr" placeholder="192.168.1.25:8080"></label><button class="button primary full-width" id="btnLocalSync">مزامنة محلية</button></article>
+          </div>
+          <div id="syncFeedback" class="sync-feedback" role="status" aria-live="polite"></div>
+          <article class="panel sync-log"><div class="panel-title"><div><h3>حالة الاتصال</h3><p>آخر العمليات المعروفة</p></div></div><div class="sync-log-row"><span class="status-dot"></span><div><strong>التخزين المحلي</strong><small>يحفظ كل تعديل مباشرة في هذا المتصفح</small></div><b>نشط</b></div><div class="sync-log-row"><span class="status-dot muted"></span><div><strong>الساعة</strong><small>أرسل التغييرات عند جاهزية الاتصال</small></div><b>بانتظار الاتصال</b></div></article>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

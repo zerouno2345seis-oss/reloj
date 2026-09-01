@@ -1,15 +1,25 @@
 package com.quran.watch8.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -19,83 +29,189 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.itemsIndexed
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
+import com.quran.watch8.data.model.Ayah
 import com.quran.watch8.data.model.SurahMetadata
-import com.quran.watch8.ui.components.rememberRotaryFontSizeModifier
-import com.quran.watch8.ui.components.rememberRotaryScrollModifier
+import com.quran.watch8.ui.components.WatchIcons
+import com.quran.watch8.ui.components.rememberUltraRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahGreen
 import com.quran.watch8.ui.theme.AyahYellow
-import com.quran.watch8.ui.theme.QuranBlack
-import com.quran.watch8.ui.theme.QuranWhite
 import com.quran.watch8.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 /**
- * Quran Reader with full physical rotating bezel (الإطار الدوار) support.
+ * Enhanced Quran Reader Screen for Galaxy Watch Circular Screen
  *
- * - Bezel rotation → scroll through ayahs smoothly
- * - Double-tap → hide/show controls
- * - Long-press ayah → bookmark
- * - When "font mode" is active (via button), bezel changes font size
- * - PositionIndicator shows scroll progress (works with bezel)
+ * Features:
+ *  1. Double Tap on any Ayah -> Instant floating badge with "SurahName (AyahNum)" auto-hiding after 2 seconds.
+ *  2. Long Press -> Context menu (+ font size, - font size, bookmark).
+ *  3. Dynamic Circular text padding maximizing screen width without clipping edge text.
+ *  4. Single Tap -> Toggle header/footer navigation controls.
  */
 @Composable
 fun QuranReaderScreen(
     surahNumber: Int,
+    startAyah: Int = -1,
+    listIndex: Int = -1,
     onBack: () -> Unit,
     viewModel: MainViewModel
 ) {
     val listState = rememberScalingLazyListState()
     val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+
     val fontSize by viewModel.fontSize.collectAsState()
     val ayahColorName by viewModel.ayahColor.collectAsState()
-    val ayahs by remember(surahNumber) {
-        derivedStateOf {
-            viewModel.loadSurah(surahNumber)
-            viewModel.currentSurahAyahs
-        }
-    }
-    val surahInfo = SurahMetadata.getSurah(surahNumber)
-    val ayahNumberColor = if (ayahColorName == "green") AyahGreen else AyahYellow
+    val readerBgColorName by viewModel.readerBgColor.collectAsState()
+    val readerTextColorName by viewModel.readerTextColor.collectAsState()
+    val fontFamilyName by viewModel.fontFamily.collectAsState()
+    val customAyahColorHex by viewModel.customAyahColor.collectAsState()
+    val customReaderBgColorHex by viewModel.customReaderBgColor.collectAsState()
+    val customReaderTextColorHex by viewModel.customReaderTextColor.collectAsState()
 
-    var showControls by remember { mutableStateOf(true) }
-    // When true, rotating the bezel changes font size instead of scrolling
-    var fontMode by remember { mutableStateOf(false) }
-
-    // Primary rotary: scroll the list (always preferred unless fontMode)
-    val rotaryScrollMod = rememberRotaryScrollModifier(
-        listState = listState,
-        enabled = !fontMode
-    )
-    // Secondary rotary: font size when fontMode is active
-    val rotaryFontMod = rememberRotaryFontSizeModifier(
-        currentSize = fontSize,
-        onSizeChange = { viewModel.setFontSize(it) },
-        enabled = fontMode
-    )
-
+    // ── Load ayahs ────────────────────────────────────────────────────────────
     LaunchedEffect(surahNumber) {
         viewModel.loadSurah(surahNumber)
     }
+    val ayahs = viewModel.currentSurahAyahs
+
+    val surahInfo = SurahMetadata.getSurah(surahNumber)
+    val ayahNumberColor = when (ayahColorName) {
+        "green" -> AyahGreen
+        "cyan" -> Color(0xFF5AC8FA)
+        "rose" -> Color(0xFFFF6B9A)
+        "custom" -> parseHexColor(customAyahColorHex, AyahYellow)
+        else -> AyahYellow
+    }
+
+    val screenBgColor = when (readerBgColorName) {
+        "navy"   -> Color(0xFF070F1E)
+        "sepia"  -> Color(0xFF1B140B)
+        "forest" -> Color(0xFF05170F)
+        "slate"  -> Color(0xFF263341)
+        "custom" -> parseHexColor(customReaderBgColorHex, Color.Black)
+        else     -> Color(0xFF000000)
+    }
+
+    val quranTextColor = when (readerTextColorName) {
+        "ivory"  -> Color(0xFFF6EADB)
+        "mint"   -> Color(0xFFA7F3D0)
+        "golden" -> Color(0xFFFEF08A)
+        "cyan"   -> Color(0xFF9EE7FF)
+        "custom" -> parseHexColor(customReaderTextColorHex, Color.White)
+        else     -> Color(0xFFFFFFFF)
+    }
+
+    val selectedFont = when (fontFamilyName) {
+        "sansserif" -> FontFamily.SansSerif
+        "serif"     -> FontFamily.Serif
+        "kufi"      -> FontFamily.Cursive
+        "uthmani"   -> FontFamily.Serif
+        "amiri", "naskh" -> FontFamily.Serif
+        "tajawal", "cairo" -> FontFamily.SansSerif
+        else        -> FontFamily.Default
+    }
+
+    val headerCount = 2
+    val bismillahOffset = if (surahNumber != 1 && surahNumber != 9) 1 else 0
+    val ayahStartIndex = headerCount + bismillahOffset
+
+    var showControls by remember { mutableStateOf(false) }
+    var showScrollIndicator by remember { mutableStateOf(false) }
+    var selectedAyahForAction by remember { mutableStateOf<Ayah?>(null) }
+    var actionToastText by remember { mutableStateOf<String?>(null) }
+    var doubleTapInfoText by remember { mutableStateOf<String?>(null) }
+
+    // Instant Rotary focus on screen load
+    LaunchedEffect(Unit) {
+        delay(80)
+        focusRequester.requestFocus()
+    }
+
+    // Auto-hide scroll indicator
+    LaunchedEffect(showScrollIndicator) {
+        if (showScrollIndicator) {
+            delay(3000L)
+            showScrollIndicator = false
+        }
+    }
+
+    // Auto-hide action toast text
+    LaunchedEffect(actionToastText) {
+        if (actionToastText != null) {
+            delay(1600L)
+            actionToastText = null
+            selectedAyahForAction = null
+        }
+    }
+
+    // Auto-hide Double-Tap Surah Info badge after 2 seconds
+    LaunchedEffect(doubleTapInfoText) {
+        if (doubleTapInfoText != null) {
+            delay(2000L)
+            doubleTapInfoText = null
+        }
+    }
+
+    // Scroll to target ayah or listIndex
+    LaunchedEffect(startAyah, listIndex, ayahs.size) {
+        if (listIndex >= 0 && ayahs.isNotEmpty()) {
+            listState.animateScrollToItem(listIndex.coerceIn(0, ayahStartIndex + ayahs.size - 1))
+        } else if (startAyah > 0 && ayahs.isNotEmpty()) {
+            val exactAyahIndex = ayahs.indexOfFirst { it.verse == startAyah }
+            val targetIndex = if (exactAyahIndex >= 0) {
+                ayahStartIndex + exactAyahIndex
+            } else {
+                (ayahStartIndex + startAyah - 1).coerceIn(0, ayahStartIndex + ayahs.size - 1)
+            }
+            listState.animateScrollToItem(targetIndex)
+        }
+    }
+
+    // Save reading position instantaneously
+    LaunchedEffect(listState, ayahs) {
+        snapshotFlow { listState.centerItemIndex }
+            .distinctUntilChanged()
+            .collect { centerIndex ->
+                if (ayahs.isEmpty()) return@collect
+                val ayahIdx = (centerIndex - ayahStartIndex).coerceIn(0, ayahs.size - 1)
+                val ayah = ayahs.getOrNull(ayahIdx) ?: ayahs.first()
+                val snippet = ayah.text.take(90)
+                viewModel.saveReadingPosition(
+                    surah       = surahNumber,
+                    ayahIndex   = centerIndex,
+                    ayahNumber  = ayah.verse,
+                    surahNameAr = surahInfo?.nameAr ?: "سورة $surahNumber",
+                    ayahSnippet = snippet
+                )
+            }
+    }
+
+    val ultraRotaryMod = rememberUltraRotaryScrollModifier(
+        listState = listState,
+        focusRequester = focusRequester,
+        enabled = selectedAyahForAction == null
+    )
 
     Scaffold(
-        timeText = { if (showControls) TimeText() },
+        timeText = { if (showControls && selectedAyahForAction == null) TimeText() },
         vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-        positionIndicator = {
-            // This indicator updates when scrolling via bezel or finger
-            PositionIndicator(scalingLazyListState = listState)
-        }
+        positionIndicator = { if (showScrollIndicator) PositionIndicator(scalingLazyListState = listState) }
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(QuranBlack)
-                .then(if (fontMode) rotaryFontMod else rotaryScrollMod)
+                .background(screenBgColor)
+                .then(ultraRotaryMod)
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onDoubleTap = {
-                            showControls = !showControls
-                            if (!showControls) fontMode = false
+                        onTap = {
+                            if (selectedAyahForAction == null) {
+                                showControls = !showControls
+                                showScrollIndicator = true
+                            }
                         }
                     )
                 }
@@ -105,39 +221,29 @@ fun QuranReaderScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(
-                    top = if (showControls) 48.dp else 16.dp,
-                    bottom = if (showControls) 90.dp else 24.dp,
-                    start = 12.dp,
-                    end = 12.dp
+                    top = if (showControls) 48.dp else 28.dp,
+                    bottom = if (showControls) 80.dp else 36.dp,
+                    start = 10.dp,
+                    end = 10.dp
                 )
             ) {
-                // Header
+                // Surah Name Header
                 item {
                     Text(
                         text = surahInfo?.nameAr ?: "سورة $surahNumber",
                         style = MaterialTheme.typography.title3,
+                        fontFamily = selectedFont,
                         color = AccentGold,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        textAlign = TextAlign.Center
                     )
                 }
+                // Info
                 item {
                     Text(
                         text = "${surahInfo?.nameEn ?: ""} • ${surahInfo?.versesCount ?: 0} آية",
-                        style = MaterialTheme.typography.caption2,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-
-                // Hint for bezel
-                item {
-                    Text(
-                        text = if (fontMode) "🔄 الإطار يغيّر حجم الخط" else "🔄 حرّك الإطار للتمرير",
                         style = MaterialTheme.typography.caption3,
-                        color = if (fontMode) AyahYellow else Color.DarkGray,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        color = Color.Gray
                     )
                 }
 
@@ -146,148 +252,236 @@ fun QuranReaderScreen(
                     item {
                         Text(
                             text = "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ",
-                            color = QuranWhite,
-                            fontSize = (fontSize + 2).sp,
+                            color = quranTextColor,
+                            fontFamily = selectedFont,
+                            fontSize = (fontSize + 1).sp,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         )
                     }
                 }
 
-                // Ayahs
-                itemsIndexed(ayahs) { index, ayah ->
+                // Ayahs with Double-Tap detection and safe circular text container
+                itemsIndexed(ayahs) { _, ayah ->
                     val annotated = buildAnnotatedString {
                         withStyle(
-                            style = SpanStyle(
+                            SpanStyle(
                                 color = ayahNumberColor,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = (fontSize - 2).sp
                             )
-                        ) {
-                            append("﴿${ayah.verse}﴾ ")
-                        }
+                        ) { append("﴿${ayah.verse}﴾ ") }
                         withStyle(
-                            style = SpanStyle(
-                                color = QuranWhite,
+                            SpanStyle(
+                                color = quranTextColor,
+                                fontFamily = selectedFont,
                                 fontSize = fontSize.sp
                             )
-                        ) {
-                            append(ayah.text)
-                        }
+                        ) { append(ayah.text) }
                     }
-                    Text(
-                        text = annotated,
-                        textAlign = TextAlign.Right,
-                        lineHeight = (fontSize * 1.6f).sp,
+
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                            .pointerInput(Unit) {
+                            .fillMaxWidth(0.95f)
+                            .padding(vertical = 3.dp)
+                            .pointerInput(ayah.verse) {
                                 detectTapGestures(
+                                    onDoubleTap = {
+                                        doubleTapInfoText = "${surahInfo?.nameAr ?: "سورة $surahNumber"} (${ayah.verse})"
+                                    },
                                     onLongPress = {
-                                        viewModel.addBookmark(
-                                            ayah.chapter,
-                                            ayah.verse,
-                                            ayah.text
-                                        )
+                                        selectedAyahForAction = ayah
+                                        actionToastText = null
+                                    },
+                                    onTap = {
+                                        if (selectedAyahForAction == null) {
+                                            showControls = !showControls
+                                            showScrollIndicator = true
+                                        }
                                     }
                                 )
-                            }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = annotated,
+                            textAlign = TextAlign.Center,
+                            lineHeight = (fontSize * 1.45f).sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+
+            // ── Floating Double-Tap Quick Info Overlay (Auto-Hides) ───────────
+            AnimatedVisibility(
+                visible = doubleTapInfoText != null,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 22.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xF00F766E))
+                        .border(1.2.dp, Color(0xFFFDE047), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "📖 ${doubleTapInfoText.orEmpty()}",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
 
-            // Bottom controls
-            if (showControls) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(Color(0xEE000000))
-                        .padding(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Font size + mode toggle
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+            // ── Interactive Long-Press Context Menu (3 Icons: +, -, 🔖) ────────
+            AnimatedVisibility(
+                visible = selectedAyahForAction != null,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                if (selectedAyahForAction != null) {
+                    val ayah = selectedAyahForAction!!
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.88f))
+                            .clickable { selectedAyahForAction = null },
+                        contentAlignment = Alignment.Center
                     ) {
-                        CompactChip(
-                            onClick = { viewModel.setFontSize(fontSize - 2f) },
-                            label = { Text("أ-", color = Color.White) }
-                        )
-                        Text(
-                            text = "${fontSize.toInt()}",
-                            color = AyahYellow,
-                            style = MaterialTheme.typography.caption1
-                        )
-                        CompactChip(
-                            onClick = { viewModel.setFontSize(fontSize + 2f) },
-                            label = { Text("أ+", color = Color.White) }
-                        )
-                        // Toggle: bezel = font size
-                        CompactChip(
-                            onClick = { fontMode = !fontMode },
-                            label = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxWidth(0.88f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF1E293B))
+                                .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(16.dp))
+                                .clickable(enabled = false) {}
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "الآية (${ayah.verse}) من ${surahInfo?.nameAr ?: ""}",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                // 1. Decrease Font Size
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF334155))
+                                        .clickable {
+                                            viewModel.setFontSize((fontSize - 2f).coerceAtLeast(8f))
+                                            actionToastText = "حجم الخط: ${(fontSize - 2f).toInt()} sp"
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("−", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+
+                                // 2. Add Bookmark
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF0F766E))
+                                        .clickable {
+                                            viewModel.addBookmark(surahNumber, ayah.verse, ayah.text)
+                                            actionToastText = "تمت إضافة إشارة مرجعية ✓"
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    WatchIcons.Bookmark(
+                                        modifier = Modifier.size(24.dp),
+                                        color = Color.White,
+                                        starColor = Color(0xFFFDE047)
+                                    )
+                                }
+
+                                // 3. Increase Font Size
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF334155))
+                                        .clickable {
+                                            viewModel.setFontSize((fontSize + 2f).coerceAtMost(48f))
+                                            actionToastText = "حجم الخط: ${(fontSize + 2f).toInt()} sp"
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("+", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (actionToastText != null) {
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    if (fontMode) "Aa✓" else "Aa",
-                                    color = if (fontMode) Color.Black else Color.White
-                                )
-                            },
-                            colors = if (fontMode)
-                                ChipDefaults.primaryChipColors(backgroundColor = AyahYellow)
-                            else
-                                ChipDefaults.secondaryChipColors()
-                        )
-                        CompactChip(
-                            onClick = {
-                                val newColor = if (ayahColorName == "yellow") "green" else "yellow"
-                                viewModel.setAyahColor(newColor)
-                            },
-                            label = {
-                                Text(
-                                    if (ayahColorName == "yellow") "🟡" else "🟢",
-                                    color = Color.White
+                                    text = actionToastText!!,
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFFDE047),
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
                                 )
                             }
-                        )
+                        }
                     }
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Jump to start / end (also usable with bezel + buttons)
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        CompactChip(
-                            onClick = {
-                                scope.launch {
-                                    listState.animateScrollToItem(0)
-                                }
-                            },
-                            label = { Text("⤒ بداية", color = Color.White) }
-                        )
-                        CompactChip(
-                            onClick = {
-                                scope.launch {
-                                    listState.animateScrollToItem(ayahs.size.coerceAtLeast(0))
-                                }
-                            },
-                            label = { Text("⤓ نهاية", color = Color.White) }
-                        )
-                    }
-
-                    Text(
-                        text = "الإطار الدوار للتمرير • ضغط مطول = إشارة • دبل تاب = إخفاء",
-                        style = MaterialTheme.typography.caption3,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp)
+            // ── Floating Navigation Controls Bar ───────────────────────────────
+            AnimatedVisibility(
+                visible = showControls && selectedAyahForAction == null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xEE1E293B))
+                        .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CompactChip(
+                        onClick = onBack,
+                        label = { Text("‹ خروج", fontSize = 10.sp) },
+                        colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
                     )
+                    if (surahNumber > 1) {
+                        CompactChip(
+                            onClick = { viewModel.loadSurah(surahNumber - 1); scope.launch { listState.scrollToItem(0) } },
+                            label = { Text("السابقة", fontSize = 10.sp) },
+                            colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
+                        )
+                    }
+                    if (surahNumber < 114) {
+                        CompactChip(
+                            onClick = { viewModel.loadSurah(surahNumber + 1); scope.launch { listState.scrollToItem(0) } },
+                            label = { Text("التالية", fontSize = 10.sp) },
+                            colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
+                        )
+                    }
                 }
             }
         }
