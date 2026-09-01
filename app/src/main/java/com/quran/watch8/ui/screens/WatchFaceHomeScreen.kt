@@ -195,12 +195,16 @@ fun WatchFaceHomeScreen(
                             // Swiped UP from bottom -> Open App Drawer
                             vibrate(40)
                             onOpenAppDrawer()
-                        } else if (absX > absY && totalDragX < -35f) {
-                            // Swiped LEFT -> Open Tiles (Layer 2)
+                        } else if (absX > absY && totalDragX > 30f) {
+                            // Swiped RIGHT -> Open Tiles (Layer 2)
                             vibrate(40)
                             onNavigate("tiles")
-                        } else if (absY > absX && totalDragY > 50f) {
-                            // Swiped DOWN -> Open Prayer Schedule
+                        } else if (absX > absY && totalDragX < -30f) {
+                            // Swiped LEFT -> Open Notifications & Daily Alerts
+                            vibrate(40)
+                            showPrayerSchedulePopup = true
+                        } else if (absY > absX && totalDragY > 35f) {
+                            // Swiped DOWN -> Open Quick Control / Prayer Schedule
                             vibrate(40)
                             showPrayerSchedulePopup = true
                         }

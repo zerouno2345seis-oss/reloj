@@ -203,7 +203,7 @@
             <div class="canvas-column">
               <div class="canvas-sticky">
               <div class="canvas-toolbar">
-                <div class="canvas-toolbar-row"><div class="segmented"><button id="btnUndo" title="تراجع">↶</button><button id="btnRedo" title="إعادة">↷</button></div><label class="switch-label"><input type="checkbox" id="safeAreaToggle" checked><span></span>المنطقة الآمنة</label></div>
+                <div class="canvas-toolbar-row"><div class="segmented"><button id="btnUndo" title="تراجع">↶</button><button id="btnRedo" title="إعادة">↷</button></div><label class="switch-label" title="تُظهر حدود الشاشة المستديرة لمنع انقطاع زوايا البلاطات على شاشة الساعة"><input type="checkbox" id="safeAreaToggle" checked><span></span>دائرة حدود الساعة (المنطقة الآمنة)</label></div>
                 <div class="canvas-toolbar-row canvas-toolbar-actions"><div class="segmented"><button id="btnCopy">نسخ</button><button id="btnPaste">لصق</button><button id="btnSelectAll">الكل</button><button id="btnDeleteKey">حذف</button></div><button class="button" id="btnShuffleColors"><span>🎨</span> تلوين تلقائي</button><button class="button primary smart-layout-button" id="btnAutoLayout"><span>✦</span> ترتيب تلقائي ذكي</button></div>
               </div>
               <div class="watch-stage">
@@ -211,7 +211,21 @@
                   <div class="watch-crown" aria-hidden="true"></div>
                   <div class="watch-screen" id="watchScreenSimulator"><div class="safe-area-ring" aria-hidden="true"></div></div>
                 </div>
+                            <!-- Mobile Quick Action Toolbar -->
+              <div class="mobile-quick-actions" id="mobileQuickActions">
+                <div class="mobile-actions-header">
+                  <span id="mobileSelectedTileLabel">العنصر المحدد: لا يوجد</span>
+                </div>
+                <div class="mobile-actions-grid">
+                  <button class="m-btn" id="mBtnMoveLeft" title="تحريك لليسار">◀ يمين/يسار</button>
+                  <button class="m-btn" id="mBtnMoveUp" title="نقل للأعلى">▲ أعلى</button>
+                  <button class="m-btn" id="mBtnMoveDown" title="نقل للأسفل">▼ أسفل</button>
+                  <button class="m-btn size-btn" data-mobile-span="6">½ عرض</button>
+                  <button class="m-btn size-btn" data-mobile-span="12">كامل</button>
+                  <button class="m-btn danger" id="mBtnDeleteTile">🗑 حذف</button>
+                </div>
               </div>
+</div>
               <p class="canvas-help">اسحب العناصر داخل الساعة، أو استخدم مقابض الحجم للمحاذاة الدقيقة.</p>
               </div>
             </div>
@@ -260,7 +274,28 @@
             <div class="panel search-panel"><label class="search-box"><span>⌕</span><input id="quranSearchInput" type="search" placeholder="ابحث باسم السورة أو بكلمة من الآية"></label><div id="quranSearchResults" class="search-results"><div class="empty-state"><span>☰</span><strong>ابدأ البحث</strong><p>ستظهر السور والآيات المطابقة هنا مع زر لإضافتها إلى الإشارات المرجعية.</p></div></div></div>
             <aside class="quran-side">
               <article class="continue-card"><small>متابعة القراءة</small><h3 id="quranContinueSurah">سورة الكهف</h3><p id="quranContinueAyah">الآية 18 من 110</p><div class="progress"><i id="quranContinueBar" style="width:36%"></i></div><button class="button primary full-width" id="btnApplyReadingToWatch">متابعة على الساعة</button></article>
-              <article class="panel bookmarks-panel"><div class="panel-title"><div><h3>الإشارات المرجعية</h3><p>تحكم بالآيات المحفوظة والملاحظات</p></div><span class="badge" id="bookmarksCountBadge">0</span></div><div id="bookmarksList" class="bookmarks-list"><div class="empty-state compact"><span>🔖</span><small>لا توجد إشارات بعد. اضغط «إضافة علامة» من نتائج البحث.</small></div></div></article>
+              <article class="panel bookmarks-panel">
+                <div class="panel-title">
+                  <div>
+                    <h3>الإشارات المرجعية</h3>
+                    <p>تحكم بالآيات المحفوظة، أضف ملاحظاتك، أو احذفها</p>
+                  </div>
+                  <button class="button compact primary" id="btnOpenAddBookmarkModal">＋ إضافة إشارة</button>
+                </div>
+                <!-- Bookmark Quick Add Row -->
+                <div class="bookmark-add-bar" id="bookmarkAddBar" style="display:none; margin-bottom: 12px; padding: 10px; background: var(--finder-bg); border-radius: 10px; border: 1px solid var(--finder-border);">
+                  <div style="display:flex; gap:6px; margin-bottom:6px;">
+                    <select id="bmSelectSurah" style="flex:2; padding:6px; border-radius:6px; background:var(--finder-panel); color:var(--finder-text); border:1px solid var(--finder-border);"></select>
+                    <input id="bmInputAyah" type="number" min="1" max="286" placeholder="الآية" style="flex:1; padding:6px; border-radius:6px; background:var(--finder-panel); color:var(--finder-text); border:1px solid var(--finder-border);">
+                  </div>
+                  <input id="bmInputNote" type="text" placeholder="ملاحظة أو وسم (مثال: ورد الجمعة)" style="width:100%; padding:6px; border-radius:6px; margin-bottom:6px; background:var(--finder-panel); color:var(--finder-text); border:1px solid var(--finder-border);">
+                  <div style="display:flex; gap:6px; justify-content:flex-end;">
+                    <button class="button compact" id="btnCancelAddBookmark">إلغاء</button>
+                    <button class="button compact primary" id="btnSaveNewBookmark">حفظ الإشارة</button>
+                  </div>
+                </div>
+                <div id="bookmarksList" class="bookmarks-list"></div>
+              </article>
               <article class="panel daily-ayah"><span>آية اليوم</span><blockquote>﴿ وَقُل رَّبِّ زِدْنِي عِلْمًا ﴾</blockquote><small>سورة طه — 114</small></article>
             </aside>
           </div>

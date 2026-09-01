@@ -20,7 +20,8 @@ module.exports = async (req, res) => {
   const code = req.query.code || req.headers['x-sync-code'] || '41331';
 
   if (req.method === 'GET') {
-    const payload = memoryStore[code] || null;
+    const payload = memoryStore[code] || memoryStore['default'] || null;
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.status(200).json({
       status: 'ok',
       code: code,
@@ -37,7 +38,9 @@ module.exports = async (req, res) => {
         try { body = JSON.parse(body); } catch (_) {}
       }
       memoryStore[code] = body;
+      memoryStore['default'] = body;
       memoryStore[`${code}_time`] = Date.now();
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
       return res.status(200).json({
         status: 'ok',

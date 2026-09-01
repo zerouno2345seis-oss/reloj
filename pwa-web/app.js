@@ -2848,3 +2848,343 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+
+// ════════════════ ENHANCED REALISTIC PRESETS & BOOKMARKS MODULE ════════════════
+const REAL_PRESET_CONFIGS = {
+    'classic': {
+        name: 'الكلاسيكي المتوازن',
+        desc: 'الوقت والصلاة والورد اليومي بتناسق كامل',
+        tiles: [
+            { id: 'clock_big', colorHex: '#7C3AED', colSpan: 6, rowIndex: 0, fontSize: 22, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 6, rowIndex: 0, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_islamic', colorHex: '#0284C7', colSpan: 4, rowIndex: 1, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'quran_resume', colorHex: '#0E7490', colSpan: 8, rowIndex: 1, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'locations', colorHex: '#F59E0B', colSpan: 6, rowIndex: 2, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'settings', colorHex: '#334155', colSpan: 6, rowIndex: 2, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'prayer': {
+        name: 'الصلاة أولاً (العد التنازلي والمواقيت)',
+        desc: 'تركيز فائق على الصلاة القادمة والشريط الكامل للصلوات',
+        tiles: [
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 12, rowIndex: 0, fontSize: 18, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_strip_5', colorHex: '#047857', colSpan: 12, rowIndex: 1, fontSize: 12, displayStyle: 'prayer_strip_5', fontColorHex: '#ffffff' },
+            { id: 'clock_big', colorHex: '#6366F1', colSpan: 6, rowIndex: 2, fontSize: 16, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'qibla', colorHex: '#D97706', colSpan: 6, rowIndex: 2, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'quran': {
+        name: 'الورد القرآني والعبادة',
+        desc: 'استكمال القراءة مباشرة مع المسبحة والقبلة',
+        tiles: [
+            { id: 'quran_resume', colorHex: '#0E7490', colSpan: 12, rowIndex: 0, fontSize: 16, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'tasbih', colorHex: '#D97706', colSpan: 6, rowIndex: 1, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_islamic', colorHex: '#0284C7', colSpan: 6, rowIndex: 1, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'clock_big', colorHex: '#475569', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 6, rowIndex: 2, fontSize: 12, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'minimal': {
+        name: 'الحد الأدنى النقي (ساعة وصلاة)',
+        desc: 'شاشة صافية بأكبر حجم للأرقام بدون تشتيت',
+        tiles: [
+            { id: 'clock_big', colorHex: '#3B82F6', colSpan: 12, rowIndex: 0, fontSize: 26, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 12, rowIndex: 1, fontSize: 15, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    },
+    'day': {
+        name: 'يومي الشامل والمتوازن',
+        desc: 'جميع أدواتك ومواقيتك وقرآنك في شاشة واحدة',
+        tiles: [
+            { id: 'clock_big', colorHex: '#8B5CF6', colSpan: 6, rowIndex: 0, fontSize: 20, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 6, rowIndex: 0, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'quran_resume', colorHex: '#0E7490', colSpan: 6, rowIndex: 1, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_islamic', colorHex: '#0284C7', colSpan: 6, rowIndex: 1, fontSize: 13, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_tools', colorHex: '#EA580C', colSpan: 4, rowIndex: 2, fontSize: 12, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'locations', colorHex: '#F59E0B', colSpan: 4, rowIndex: 2, fontSize: 12, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'settings', colorHex: '#334155', colSpan: 4, rowIndex: 2, fontSize: 12, displayStyle: 'text', fontColorHex: '#ffffff' }
+        ]
+    }
+};
+
+function renderPresetsGallery() {
+    const gallery = document.querySelector('.preset-gallery');
+    if (!gallery) return;
+
+    gallery.innerHTML = Object.keys(REAL_PRESET_CONFIGS).map(key => {
+        const p = REAL_PRESET_CONFIGS[key];
+        // Generate actual mini-tile preview
+        const tilesHtml = p.tiles.map(t => {
+            const label = getTileDisplayName(t.id);
+            return `<div class="preset-mini-tile" style="grid-column: span ${t.colSpan}; background: ${t.colorHex};">
+                ${label}
+            </div>`;
+        }).join('');
+
+        return `
+            <article class="preset-card" data-preset-key="${key}">
+                <div class="preset-preview-grid">
+                    ${tilesHtml}
+                </div>
+                <div>
+                    <h3>${p.name}</h3>
+                    <p>${p.desc}</p>
+                </div>
+                <button class="button full-width primary" onclick="applyPresetByKey('${key}')">استخدام هذا القالب</button>
+            </article>
+        `;
+    }).join('');
+}
+
+function getTileDisplayName(tileId) {
+    switch (tileId) {
+        case 'clock_big': return '12:45';
+        case 'prayer_countdown': return 'المغرب 01:24';
+        case 'prayer_strip_5': return '▤ الصلوات 5';
+        case 'quran_resume': return '📖 الكهف: 18';
+        case 'folder_islamic': return '📁 إسلاميات';
+        case 'folder_tools': return '📁 أدوات';
+        case 'qibla': return '🕋 القبلة';
+        case 'tasbih': return '📿 المسبحة';
+        case 'locations': return '⌖ المواقع';
+        case 'settings': return '⚙ الإعدادات';
+        default: return tileId;
+    }
+}
+
+function applyPresetByKey(key) {
+    const preset = REAL_PRESET_CONFIGS[key];
+    if (!preset) return;
+    pushHistory();
+    tileConfig.tiles = JSON.parse(JSON.stringify(preset.tiles));
+    tileConfig.version = Date.now();
+    selectedIndices.clear();
+    primarySelectedIdx = 0;
+    selectedIndices.add(0);
+    validateAndPackGrid();
+    renderCanvas();
+    updateEditor();
+    saveLocalDraft();
+    showToast(`تم تطبيق قالب «${preset.name}»`);
+    
+    // Switch to tiles tab
+    const tilesTab = document.querySelector('[data-tab-target="tiles"]');
+    if (tilesTab) tilesTab.click();
+}
+
+// ════════════════ MOBILE QUICK ACTIONS BAR HANDLERS ════════════════
+function initMobileQuickActions() {
+    const updateLabel = () => {
+        const label = document.getElementById('mobileSelectedTileLabel');
+        if (!label) return;
+        const tile = tileConfig.tiles[primarySelectedIdx];
+        if (tile) {
+            label.textContent = `العنصر: ${getTileDisplayName(tile.id)} (الصف ${tile.rowIndex + 1} · عرض ${tile.colSpan}/12)`;
+        } else {
+            label.textContent = 'انقر على أي بلاطة لتحديدها وتعديلها';
+        }
+    };
+
+    document.getElementById('mBtnMoveLeft')?.addEventListener('click', () => {
+        const tile = tileConfig.tiles[primarySelectedIdx];
+        if (!tile) return;
+        pushHistory();
+        // Move within row
+        const sameRow = tileConfig.tiles.filter(t => t.rowIndex === tile.rowIndex);
+        const idxInRow = sameRow.indexOf(tile);
+        if (idxInRow > 0) {
+            const prev = sameRow[idxInRow - 1];
+            const i1 = tileConfig.tiles.indexOf(tile);
+            const i2 = tileConfig.tiles.indexOf(prev);
+            const temp = tileConfig.tiles[i1];
+            tileConfig.tiles[i1] = tileConfig.tiles[i2];
+            tileConfig.tiles[i2] = temp;
+        }
+        validateAndPackGrid();
+        renderCanvas();
+        updateLabel();
+    });
+
+    document.getElementById('mBtnMoveUp')?.addEventListener('click', () => {
+        const tile = tileConfig.tiles[primarySelectedIdx];
+        if (!tile || tile.rowIndex <= 0) return;
+        pushHistory();
+        tile.rowIndex = Math.max(0, tile.rowIndex - 1);
+        validateAndPackGrid();
+        renderCanvas();
+        updateLabel();
+    });
+
+    document.getElementById('mBtnMoveDown')?.addEventListener('click', () => {
+        const tile = tileConfig.tiles[primarySelectedIdx];
+        if (!tile) return;
+        pushHistory();
+        tile.rowIndex = tile.rowIndex + 1;
+        validateAndPackGrid();
+        renderCanvas();
+        updateLabel();
+    });
+
+    document.querySelectorAll('[data-mobile-span]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const span = parseInt(btn.dataset.mobileSpan, 10);
+            const tile = tileConfig.tiles[primarySelectedIdx];
+            if (!tile) return;
+            pushHistory();
+            tile.colSpan = span;
+            validateAndPackGrid();
+            renderCanvas();
+            updateLabel();
+        });
+    });
+
+    document.getElementById('mBtnDeleteTile')?.addEventListener('click', () => {
+        if (primarySelectedIdx >= 0 && tileConfig.tiles.length > 1) {
+            pushHistory();
+            tileConfig.tiles.splice(primarySelectedIdx, 1);
+            primarySelectedIdx = Math.max(0, primarySelectedIdx - 1);
+            selectedIndices.clear();
+            selectedIndices.add(primarySelectedIdx);
+            validateAndPackGrid();
+            renderCanvas();
+            updateLabel();
+            showToast('تم حذف العنصر');
+        }
+    });
+}
+
+// ════════════════ BOOKMARKS CRUD MODULE ════════════════
+let userBookmarks = [
+    { id: 'bm_1', surahName: 'سورة الكهف', surahNum: 18, ayahNum: 18, note: 'ورد يوم الجمعة', date: 'اليوم' },
+    { id: 'bm_2', surahName: 'سورة البقرة', surahNum: 2, ayahNum: 255, note: 'آية الكرسي', date: 'أمس' },
+    { id: 'bm_3', surahName: 'سورة الملك', surahNum: 67, ayahNum: 1, note: 'أذكار النوم', date: 'منذ يومين' }
+];
+
+function loadUserBookmarks() {
+    try {
+        const saved = localStorage.getItem('quran_watch_bookmarks');
+        if (saved) userBookmarks = JSON.parse(saved);
+    } catch (_) {}
+}
+
+function saveUserBookmarks() {
+    try {
+        localStorage.setItem('quran_watch_bookmarks', JSON.stringify(userBookmarks));
+        renderBookmarksList();
+    } catch (_) {}
+}
+
+function renderBookmarksList() {
+    const list = document.getElementById('bookmarksList');
+    const badge = document.getElementById('bookmarksCountBadge');
+    if (badge) badge.textContent = userBookmarks.length;
+    if (!list) return;
+
+    if (userBookmarks.length === 0) {
+        list.innerHTML = `<div class="empty-state compact"><span>🔖</span><small>لا توجد إشارات محفوظة بعد.</small></div>`;
+        return;
+    }
+
+    list.innerHTML = userBookmarks.map((bm, index) => `
+        <div class="bookmark-card">
+            <div class="bookmark-info">
+                <h4>${bm.surahName} · الآية ${bm.ayahNum}</h4>
+                <p>${bm.note ? '🏷️ ' + bm.note + ' • ' : ''}${bm.date}</p>
+            </div>
+            <div class="bookmark-actions">
+                <button class="bm-action-btn" onclick="applyBookmarkToWatch(${index})" title="متابعة على الساعة">⌚ إرسال</button>
+                <button class="bm-action-btn delete" onclick="deleteBookmark(${index})" title="حذف">🗑</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function deleteBookmark(index) {
+    if (confirm('هل أنت متأكد من حذف هذه الإشارة المرجعية؟')) {
+        userBookmarks.splice(index, 1);
+        saveUserBookmarks();
+        showToast('تم حذف الإشارة المرجعية');
+    }
+}
+
+function applyBookmarkToWatch(index) {
+    const bm = userBookmarks[index];
+    if (!bm) return;
+    showToast(`تم إرسال موضع القراءة (${bm.surahName}: ${bm.ayahNum}) للساعة`);
+    syncAll();
+}
+
+function initBookmarksUI() {
+    loadUserBookmarks();
+    renderBookmarksList();
+
+    const addBar = document.getElementById('bookmarkAddBar');
+    const btnOpen = document.getElementById('btnOpenAddBookmarkModal');
+    const btnCancel = document.getElementById('btnCancelAddBookmark');
+    const btnSave = document.getElementById('btnSaveNewBookmark');
+    const selectSurah = document.getElementById('bmSelectSurah');
+
+    if (selectSurah && selectSurah.options.length === 0) {
+        const surahs = [
+            "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة",
+            "يونس", "هود", "يوسف", "الرعد", "إبراهيم", "الحجر", "النحل", "الإسراء", "الكهف", "مريم", "طه",
+            "الأنبياء", "الحج", "المؤمنون", "النور", "الفرقان", "الشعراء", "النمل", "القصص", "العنكبوت", "الروم",
+            "لقمان", "السجدة", "الأحزاب", "سبأ", "فاطر", "يس", "الصافات", "ص", "الزمر", "غافر", "فصلت", "الشورى",
+            "الزخرف", "الدخان", "الجاثية", "الأحقاف", "محمد", "الفتح", "الحجرات", "ق", "الذاريات", "الطور", "النجم",
+            "القمر", "الرحمن", "الواقعة", "الحديد", "المجادلة", "الحشر", "الممتحنة", "الصف", "الجمعة", "المنافقون",
+            "التغابن", "الطلاق", "التحريم", "الملك", "القلم", "الحاقة", "المعارج", "نوح", "الجن", "المزمل", "المدثر",
+            "القيامة", "الإنسان", "المرسلات", "النبأ", "النازعات", "عبس", "التكوير", "الانفطار", "المطففين", "الانشقاق",
+            "البروج", "الطارق", "الأعلى", "الغاشية", "الفجر", "البلد", "الشمس", "الليل", "الضحى", "الشرح", "التين",
+            "العلق", "القدر", "البينة", "الزلزلة", "العاديات", "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش",
+            "الماعون", "الكوثر", "الكافرون", "النصر", "المسد", "الإخلاص", "الفلق", "الناس"
+        ];
+        selectSurah.innerHTML = surahs.map((s, i) => `<option value="${i+1}">سورة ${s}</option>`).join('');
+    }
+
+    btnOpen?.addEventListener('click', () => {
+        if (addBar) addBar.style.display = addBar.style.display === 'none' ? 'block' : 'none';
+    });
+
+    btnCancel?.addEventListener('click', () => {
+        if (addBar) addBar.style.display = 'none';
+    });
+
+    btnSave?.addEventListener('click', () => {
+        const surahNum = parseInt(selectSurah.value, 10) || 1;
+        const surahName = selectSurah.options[selectSurah.selectedIndex].text;
+        const ayahNum = parseInt(document.getElementById('bmInputAyah')?.value, 10) || 1;
+        const note = document.getElementById('bmInputNote')?.value || '';
+
+        userBookmarks.unshift({
+            id: 'bm_' + Date.now(),
+            surahName: surahName,
+            surahNum: surahNum,
+            ayahNum: ayahNum,
+            note: note,
+            date: 'الآن'
+        });
+
+        saveUserBookmarks();
+        if (addBar) addBar.style.display = 'none';
+        document.getElementById('bmInputAyah').value = '';
+        document.getElementById('bmInputNote').value = '';
+        showToast('تمت إضافة الإشارة المرجعية بنجاح');
+    });
+}
+
+// Auto Initialize New Modules
+document.addEventListener('DOMContentLoaded', () => {
+    renderPresetsGallery();
+    initMobileQuickActions();
+    initBookmarksUI();
+
+    // Set default watch IP input if empty
+    const ipInput = document.getElementById('watchIp');
+    if (ipInput && !ipInput.value) {
+        ipInput.value = localStorage.getItem('quran_watch_ip') || '192.168.1.226:41331';
+    }
+    ipInput?.addEventListener('change', () => {
+        localStorage.setItem('quran_watch_ip', ipInput.value);
+    });
+});

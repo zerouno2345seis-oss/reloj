@@ -316,8 +316,8 @@ fun HomeScreen(
                                 if (absY > absX && totalDragY < -25f) {
                                     // Swiped UP from bottom -> Open App Drawer
                                     onNavigate("app_drawer")
-                                } else if (absX > absY && totalDragX > 35f) {
-                                    // Swiped RIGHT -> Return to Watch Face
+                                } else if (absX > absY && (totalDragX < -30f || totalDragX > 30f)) {
+                                    // Swiped LEFT or RIGHT -> Return to Watch Face
                                     onNavigate("watchface")
                                 }
                             },
