@@ -17,7 +17,10 @@ object TileActionCatalog {
         TileActionItem("prayer_elapsed", "⌛ الوقت المنقضي على الصلاة", "⌛", "prayer"),
         TileActionItem("prayer", "🕌 مواقيت الصلاة اليومية", "🕌", "prayer"),
         TileActionItem("prayer_strip_5", "🕌 جدول المواقيت الـ 5 المدمج", "🕌", "prayer"),
-        TileActionItem("auto_layout", "✦ ترتيب تلقائي جديد", "✦", ""),
+        TileActionItem("auto_layout", "✦ ترتيب تلقائي جديد", "✦", "auto_layout"),
+        TileActionItem("auto_layout_shuffle", "✦ توليد ترتيب جديد", "✦", "auto_layout"),
+        TileActionItem("palette_shuffle", "🎨 تبديل الألوان عشوائياً", "🎨", "palette_shuffle"),
+        TileActionItem("presets", "📑 القوالب الجاهزة", "📑", "presets"),
         TileActionItem("auto_layout_restore", "↺ استعادة الترتيب الأول", "↺", ""),
         TileActionItem("quran_resume", "📖 موضع القراءة الأخير", "📖", "reader_resume"),
         TileActionItem("quran", "📖 المصحف الشريف (الفهرس)", "📖", "quran"),
@@ -211,6 +214,93 @@ data class TileConfig(
     val botTiles: List<SlotItem> get() = emptyList()
 
     fun isValid(): Boolean = tiles.isNotEmpty()
+
+    fun generateSmartLayout(): TileConfig {
+        val patterns = listOf(
+            listOf(listOf(6, 6), listOf(4, 8), listOf(4, 4, 4)),
+            listOf(listOf(12), listOf(6, 6), listOf(4, 4, 4)),
+            listOf(listOf(6, 6), listOf(12), listOf(4, 4, 4)),
+            listOf(listOf(4, 4, 4), listOf(6, 6), listOf(12)),
+            listOf(listOf(12), listOf(12), listOf(4, 4, 4)),
+            listOf(listOf(12), listOf(3, 3, 3, 3), listOf(6, 6)),
+            listOf(listOf(8, 4), listOf(4, 4, 4), listOf(6, 6)),
+            listOf(listOf(4, 8), listOf(4, 4, 4), listOf(6, 6)),
+            listOf(listOf(4, 4, 4), listOf(6, 6), listOf(4, 4, 4)),
+            listOf(listOf(6, 6), listOf(6, 6), listOf(6, 6)),
+            listOf(listOf(12), listOf(6, 6), listOf(3, 3, 3, 3)),
+            listOf(listOf(7, 5), listOf(5, 7), listOf(12)),
+            listOf(listOf(4, 4, 4), listOf(12), listOf(4, 4, 4)),
+            listOf(listOf(6, 6), listOf(4, 4, 4), listOf(12)),
+            listOf(listOf(12), listOf(6, 6), listOf(6, 6), listOf(12)),
+            listOf(listOf(4, 4, 4), listOf(4, 4, 4), listOf(4, 4, 4)),
+            listOf(listOf(12), listOf(6, 6)),
+            listOf(listOf(12), listOf(4, 4, 4), listOf(6, 6))
+        )
+        val chosenPattern = patterns.random()
+        val patternSlots = chosenPattern.flatMapIndexed { rowIndex, spans ->
+            spans.map { colSpan -> rowIndex to colSpan }
+        }
+        val rowCount = chosenPattern.size.coerceAtLeast(1)
+
+        val newTiles = tiles.mapIndexed { index, item ->
+            val planned = patternSlots[index % patternSlots.size]
+            val rIdx = (planned.first + (index / patternSlots.size) * rowCount).coerceAtMost(4)
+            val cSpan = planned.second
+            item.copy(
+                rowIndex = rIdx,
+                colSpan = cSpan,
+                fontSize = if (cSpan == 12) 18 else if (cSpan >= 6) 14 else 12
+            )
+        }
+
+        val rows = newTiles.groupBy { it.rowIndex }.toSortedMap()
+        val actualRowCount = rows.size.coerceAtLeast(1)
+        val actualRowHeight = 100f / actualRowCount.toFloat()
+
+        val finalTiles = mutableListOf<SlotItem>()
+        var currentY = 0f
+        rows.values.forEach { rowTiles ->
+            val totalCols = rowTiles.sumOf { it.colSpan }.toFloat().coerceAtLeast(1f)
+            var currentX = 0f
+            rowTiles.forEach { t ->
+                val w = (t.colSpan.toFloat() / totalCols) * 100f
+                finalTiles.add(
+                    t.copy(
+                        x = currentX,
+                        y = currentY,
+                        width = w,
+                        height = actualRowHeight
+                    )
+                )
+                currentX += w
+            }
+            currentY += actualRowHeight
+        }
+
+        return copy(tiles = finalTiles, version = System.currentTimeMillis())
+    }
+
+    fun shufflePalette(): TileConfig {
+        val palettes = listOf(
+            listOf("#1E293B", "#0E7490", "#D97706", "#334155", "#475569", "#155E75", "#1E3A8A"),
+            listOf("#065F46", "#047857", "#059669", "#10B981", "#0F766E", "#115E59", "#044E45"),
+            listOf("#292524", "#78350F", "#B45309", "#D97706", "#92400E", "#451A03", "#A16207"),
+            listOf("#27272A", "#881337", "#BE123C", "#E11D48", "#9F1239", "#4C0519", "#701A75"),
+            listOf("#1C2541", "#3A506B", "#5BC0BE", "#0E7490", "#2E4057", "#1D3557", "#0F2B48"),
+            listOf("#312E81", "#4338CA", "#6366F1", "#7C3AED", "#5B21B6", "#4C1D95", "#3730A3"),
+            listOf("#44403C", "#78350F", "#A16207", "#CA8A04", "#57534E", "#854D0E", "#6B390D"),
+            listOf("#115E59", "#0D9488", "#14B8A6", "#2DD4BF", "#0F766E", "#065F46", "#134E4A")
+        )
+        val chosen = palettes.random()
+        val newTiles = tiles.mapIndexed { index, slot ->
+            slot.copy(
+                colorHex = chosen[index % chosen.size],
+                fontColorHex = "#FFFFFF",
+                iconColorHex = "#FFFFFF"
+            )
+        }
+        return copy(tiles = newTiles, version = System.currentTimeMillis())
+    }
 
     fun toJson(): String {
         val obj = JSONObject()

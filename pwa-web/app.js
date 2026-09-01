@@ -64,22 +64,48 @@ let lastHapticSlotKey = '';
 let dragResizeCorner = null;
 let interactionHistoryPushed = false;
 let recentAutoLayoutPatterns = [];
+let recentPaletteIndex = -1;
 let initialLayoutSnapshot = null;
 
 const AUTO_LAYOUT_PATTERNS = [
     { id: 'balanced-halves', weight: 10, rows: [[6, 6], [4, 8], [4, 4, 4]] },
-    { id: 'hero-top', weight: 9, rows: [[12], [5, 7], [4, 4, 4]] },
-    { id: 'hero-middle', weight: 8, rows: [[4, 8], [12], [6, 6]] },
-    { id: 'reading-focus', weight: 9, rows: [[5, 7], [12], [3, 3, 6]] },
-    { id: 'prayer-focus', weight: 9, rows: [[6, 6], [12], [4, 4, 4]] },
-    { id: 'mosaic-left', weight: 7, rows: [[3, 9], [8, 4], [5, 3, 4]] },
-    { id: 'mosaic-right', weight: 7, rows: [[9, 3], [4, 8], [4, 3, 5]] },
+    { id: 'hero-top', weight: 10, rows: [[12], [6, 6], [4, 4, 4]] },
+    { id: 'hero-middle', weight: 9, rows: [[6, 6], [12], [4, 4, 4]] },
+    { id: 'hero-bottom', weight: 9, rows: [[4, 4, 4], [6, 6], [12]] },
+    { id: 'reading-focus', weight: 10, rows: [[12], [12], [4, 4, 4]] },
+    { id: 'prayer-ribbon', weight: 10, rows: [[12], [3, 3, 3, 3], [6, 6]] },
+    { id: 'asymmetric-left', weight: 8, rows: [[8, 4], [4, 4, 4], [6, 6]] },
+    { id: 'asymmetric-right', weight: 8, rows: [[4, 8], [4, 4, 4], [6, 6]] },
+    { id: 'tri-column-split', weight: 7, rows: [[4, 4, 4], [6, 6], [4, 4, 4]] },
+    { id: 'mosaic-dense', weight: 7, rows: [[3, 6, 3], [6, 6], [4, 4, 4]] },
+    { id: 'quad-grid', weight: 8, rows: [[6, 6], [6, 6], [6, 6]] },
+    { id: 'compact-dock', weight: 8, rows: [[12], [6, 6], [3, 3, 3, 3]] },
+    { id: 'golden-stack', weight: 7, rows: [[7, 5], [5, 7], [12]] },
+    { id: 'hud-center', weight: 8, rows: [[4, 4, 4], [12], [4, 4, 4]] },
+    { id: 'strip-hero-bottom', weight: 7, rows: [[6, 6], [4, 4, 4], [12]] },
+    { id: 'twin-tall', weight: 6, rows: [[6, 6], [3, 3, 3, 3], [6, 6]] },
+    { id: 'smart-five-flow', weight: 7, rows: [[4, 8], [8, 4], [4, 4, 4]] },
+    { id: 'islamic-dashboard', weight: 8, rows: [[12], [6, 6], [6, 6], [12]] },
+    { id: 'nine-mosaic', weight: 6, rows: [[4, 4, 4], [4, 4, 4], [4, 4, 4]] },
+    { id: 'staggered-zigzag', weight: 6, rows: [[7, 5], [3, 6, 3], [5, 7]] },
+    { id: 'four-deck', weight: 6, rows: [[6, 6], [4, 8], [8, 4], [6, 6]] },
     { id: 'dense-tools', weight: 6, rows: [[4, 4, 4], [3, 3, 3, 3], [6, 6]] },
-    { id: 'quiet-clock', weight: 6, rows: [[12], [4, 4, 4], [6, 6]] },
-    { id: 'staggered', weight: 6, rows: [[7, 5], [3, 6, 3], [5, 7]] },
-    { id: 'four-rows', weight: 5, rows: [[6, 6], [4, 8], [8, 4], [6, 6]] },
-    { id: 'compact-five', weight: 4, rows: [[7, 5], [4, 4, 4], [12], [6, 6], [3, 3, 3, 3]] }
+    { id: 'minimal-duo', weight: 5, rows: [[12], [6, 6]] },
+    { id: 'quiet-clock', weight: 5, rows: [[12], [4, 4, 4], [6, 6]] }
 ];
+
+const COLOR_PALETTES = [
+    { name: 'دمشقي ملكي', bg: '#0F172A', colors: ['#1E293B', '#0E7490', '#D97706', '#334155', '#475569', '#155E75', '#1E3A8A'] },
+    { name: 'أندلسي زمردي', bg: '#064E3B', colors: ['#065F46', '#047857', '#059669', '#10B981', '#0F766E', '#115E59', '#044E45'] },
+    { name: 'قرطبة ذهبي', bg: '#1C1917', colors: ['#292524', '#78350F', '#B45309', '#D97706', '#92400E', '#451A03', '#A16207'] },
+    { name: 'ياقوت مغربي', bg: '#18181B', colors: ['#27272A', '#881337', '#BE123C', '#E11D48', '#9F1239', '#4C0519', '#701A75'] },
+    { name: 'ليلي كحلي', bg: '#0B132B', colors: ['#1C2541', '#3A506B', '#5BC0BE', '#0E7490', '#2E4057', '#1D3557', '#0F2B48'] },
+    { name: 'موف إسلامي', bg: '#1E1B4B', colors: ['#312E81', '#4338CA', '#6366F1', '#7C3AED', '#5B21B6', '#4C1D95', '#3730A3'] },
+    { name: 'صحراوي دافئ', bg: '#292524', colors: ['#44403C', '#78350F', '#A16207', '#CA8A04', '#57534E', '#854D0E', '#6B390D'] },
+    { name: 'مينيمال أردوازي', bg: '#0F172A', colors: ['#1E293B', '#334155', '#475569', '#64748B', '#1E293B', '#334155', '#475569'] },
+    { name: 'فيروزي مشرق', bg: '#042F2E', colors: ['#115E59', '#0D9488', '#14B8A6', '#2DD4BF', '#0F766E', '#065F46', '#134E4A'] }
+];
+
 const RESIZE_EDGES = ['n', 'e', 's', 'w'];
 
 const surahNamesAr = [
@@ -152,11 +178,13 @@ const tileActionsList = [
     { id: 'date_big', title: '📅 التاريخ الهجري والميلادي' },
     { id: 'bookmarks', title: '🔖 العلامات المرجعية' },
     { id: 'voice_notes', title: '🎤 استوديو التسجيل الصوتي' },
-    { id: 'locations', title: '📍 المواقع المحفوظة' },
+    { id: 'locations', title: '📍 الموا مواقع المحفوظة' },
     { id: 'settings', title: '⚙️ الإعدادات والمزامنة' },
     { id: 'battery', title: '🔋 نسبة شحن البطارية' },
-    { id: 'weather', title: '⛅ حالة الطقس' }
-    ,{ id: 'auto_layout', title: '✦ ترتيب تلقائي جديد' }
+    { id: 'weather', title: '⛅ حالة الطقس' },
+    { id: 'auto_layout', title: '✦ ترتيب تلقائي جديد' },
+    { id: 'palette_shuffle', title: '🎨 تبديل الألوان تلقائياً' },
+    { id: 'presets', title: '📑 القوالب الجاهزة' }
 ];
 
 const featureActionCatalog = {
@@ -483,10 +511,17 @@ function initApp() {
     // Add Tile (Appends to grid and packs)
     document.getElementById('btnAddTile')?.addEventListener('click', () => addTile('new-row'));
     
-    // Auto Layout Grid
+    // Auto Layout Grid & Color Palette Shuffler
     document.getElementById('btnAutoLayout')?.addEventListener('click', () => {
         pushHistory();
         applySmartAutoLayout();
+        renderCanvas();
+        updateEditor();
+        scheduleAutoSync();
+    });
+    document.getElementById('btnShuffleColors')?.addEventListener('click', () => {
+        pushHistory();
+        shuffleColorPalette();
         renderCanvas();
         updateEditor();
         scheduleAutoSync();
@@ -778,6 +813,26 @@ function applyCircularAutoLayout() {
     });
     tileConfig.rowWeights = {};
     validateAndPackGrid();
+}
+
+function shuffleColorPalette() {
+    let nextIdx;
+    do {
+        nextIdx = Math.floor(Math.random() * COLOR_PALETTES.length);
+    } while (nextIdx === recentPaletteIndex && COLOR_PALETTES.length > 1);
+    recentPaletteIndex = nextIdx;
+    
+    const pal = COLOR_PALETTES[nextIdx];
+    const colors = pal.colors;
+    
+    tileConfig.tiles.forEach((tile, i) => {
+        const color = colors[i % colors.length];
+        tile.colorHex = color;
+        tile.fontColorHex = '#FFFFFF';
+        tile.iconColorHex = '#FFFFFF';
+    });
+    
+    updateSyncStatus(`تم تطبيق لوحة الألوان: ${pal.name} 🎨`, 'success');
 }
 
 window.quickAlignText = function(x, y) {

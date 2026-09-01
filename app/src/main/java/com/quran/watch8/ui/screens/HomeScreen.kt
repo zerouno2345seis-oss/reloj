@@ -242,7 +242,8 @@ fun HomeScreen(
                 "bookmarks" -> onNavigate("bookmarks")
                 "locations", "locations_recent", "locations_active", "locations_navigate", "locations_add_current" -> onNavigate("locations")
                 "qibla", "qibla_compass", "qibla_calibrate" -> onNavigate("qibla")
-                "voice_notes" -> onNavigate("notes")
+                "voice_notes" -> onNavigate("voice_notes")
+                "presets" -> onNavigate("presets")
                 "settings", "battery", "settings_open", "settings_notifications", "battery_status", "battery_saver" -> onNavigate("settings")
                 "tasbih", "tasbih_increment", "quick_tasbih_increment" -> {
                     tasbihCount++
@@ -250,12 +251,20 @@ fun HomeScreen(
                 }
                 "tasbih_reset" -> tasbihCount = 0
                 "tasbih_select_dhikr" -> tasbihDhikrIndex++
-                "auto_layout" -> {
+                "auto_layout", "auto_layout_shuffle" -> {
                     if (firstLayoutSnapshot == null) firstLayoutSnapshot = tileConfig
-                    autoLayoutSequence += 1
-                    viewModel.setTileConfig(generateAutomaticLayout(tileConfig, autoLayoutSequence))
+                    val newConfig = tileConfig.generateSmartLayout()
+                    viewModel.setTileConfig(newConfig)
+                    Toast.makeText(context, "✦ تم توليد ترتيب جديد", Toast.LENGTH_SHORT).show()
                 }
-                "auto_layout_restore" -> firstLayoutSnapshot?.let(viewModel::setTileConfig)
+                "palette_shuffle" -> {
+                    val newConfig = tileConfig.shufflePalette()
+                    viewModel.setTileConfig(newConfig)
+                    Toast.makeText(context, "🎨 تم تبديل الألوان", Toast.LENGTH_SHORT).show()
+                }
+                "auto_layout_restore" -> firstLayoutSnapshot?.let {
+                    viewModel.setTileConfig(it)
+                }
                 "folder_islamic_open", "folder_tools_open" -> onNavigate("quran")
                 else -> {
                     val def = TileActionCatalog.getDef(actionId)

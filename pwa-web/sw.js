@@ -1,4 +1,4 @@
-const CACHE_NAME = 'riwaq-finder-v1';
+const CACHE_NAME = 'riwaq-finder-v3';
 const CORE_ASSETS = [
   './',
   './index.html',

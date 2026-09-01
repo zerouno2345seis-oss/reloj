@@ -177,6 +177,12 @@ class MainActivity : ComponentActivity() {
                         composable("notes") {
                             VoiceNotesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
+                        composable("voice_notes") {
+                            VoiceNotesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                        }
+                        composable("presets") {
+                            PresetsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                        }
                         composable("settings") {
                             SettingsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
