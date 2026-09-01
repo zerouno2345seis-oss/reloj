@@ -61,6 +61,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val homeStyle       = prefs.homeStyle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "metro")
     val tilesConfig     = prefs.tilesConfigJson.map { com.quran.watch8.data.model.TileConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.data.model.TileConfig())
     val tilesDisplayMode= prefs.tilesDisplayMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "icons_only")
+    val watchFaceConfig = prefs.watchFaceConfigJson.map { com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, com.quran.watch8.data.model.WatchFaceConfig())
+    val pinnedApps      = prefs.pinnedApps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+    val drawerViewMode  = prefs.drawerViewMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "list")
     val notificationsEnabled = prefs.notificationsEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     // Prayer / location
@@ -193,6 +196,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setHomeStyle(style: String)    { viewModelScope.launch { prefs.setHomeStyle(style) } }
     fun setTileConfig(config: com.quran.watch8.data.model.TileConfig) { viewModelScope.launch { prefs.setTilesConfigJson(config.toJson()) } }
     fun setTilesDisplayMode(mode: String) { viewModelScope.launch { prefs.setTilesDisplayMode(mode) } }
+    fun setWatchFaceConfig(config: com.quran.watch8.data.model.WatchFaceConfig) { viewModelScope.launch { prefs.setWatchFaceConfigJson(config.toJson()) } }
+    fun setComplicationSlot(slot: String, type: com.quran.watch8.data.model.ComplicationType) {
+        val current = watchFaceConfig.value
+        val updated = when (slot) {
+            "top" -> current.copy(topSlot = type)
+            "right" -> current.copy(rightSlot = type)
+            "left" -> current.copy(leftSlot = type)
+            "bottom" -> current.copy(bottomSlot = type)
+            else -> current
+        }
+        setWatchFaceConfig(updated)
+    }
+    fun cycleComplicationSlot(slot: String) {
+        val current = watchFaceConfig.value
+        val updated = when (slot) {
+            "top" -> current.copy(topSlot = current.topSlot.next())
+            "right" -> current.copy(rightSlot = current.rightSlot.next())
+            "left" -> current.copy(leftSlot = current.leftSlot.next())
+            "bottom" -> current.copy(bottomSlot = current.bottomSlot.next())
+            else -> current
+        }
+        setWatchFaceConfig(updated)
+    }
+    fun setWatchFaceModel(model: com.quran.watch8.data.model.WatchFaceModelId) {
+        viewModelScope.launch {
+            val current = prefs.watchFaceConfigJson.first().let { com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) }
+            prefs.setWatchFaceConfigJson(current.copy(modelId = model).toJson())
+        }
+    }
+    fun togglePinnedApp(pkg: String) {
+        viewModelScope.launch { prefs.togglePinnedApp(pkg) }
+    }
+    fun setDrawerViewMode(mode: String) {
+        viewModelScope.launch { prefs.setDrawerViewMode(mode) }
+    }
     fun setNotifications(enabled: Boolean){
         viewModelScope.launch {
             prefs.setNotificationsEnabled(enabled)

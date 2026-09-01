@@ -1,10 +1,12 @@
 package com.quran.watch8.ui.screens
 
+import androidx.activity.compose.BackHandler
 import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -238,7 +240,8 @@ fun HomeScreen(
                         onNavigate("quran")
                     }
                 }
-                "prayer", "prayer_countdown", "prayer_elapsed", "clock_big", "date_big", "weather", "prayer_schedule", "prayer_next", "prayer_reminders", "weather_details", "weather_refresh" -> onNavigate("prayer")
+                "watchface", "clock_big", "clock_top" -> onNavigate("watchface")
+                "prayer", "prayer_countdown", "prayer_elapsed", "date_big", "weather", "prayer_schedule", "prayer_next", "prayer_reminders", "weather_details", "weather_refresh" -> onNavigate("prayer")
                 "bookmarks" -> onNavigate("bookmarks")
                 "locations", "locations_recent", "locations_active", "locations_navigate", "locations_add_current" -> onNavigate("locations")
                 "qibla", "qibla_compass", "qibla_calibrate" -> onNavigate("qibla")
@@ -282,6 +285,14 @@ fun HomeScreen(
         }
     }
 
+    // Hardware Back Button returns to WatchFace Home
+    BackHandler {
+        onNavigate("watchface")
+    }
+
+    var totalDragY by remember { mutableFloatStateOf(0f) }
+    var totalDragX by remember { mutableFloatStateOf(0f) }
+
     Scaffold(
         timeText = {},
         vignette = {}
@@ -293,6 +304,30 @@ fun HomeScreen(
                     .fillMaxSize()
                     .background(watchBackgroundFor(tileConfig.appearance.pattern))
                     .clip(CircleShape)
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = {
+                                totalDragY = 0f
+                                totalDragX = 0f
+                            },
+                            onDragEnd = {
+                                val absY = kotlin.math.abs(totalDragY)
+                                val absX = kotlin.math.abs(totalDragX)
+                                if (absY > absX && totalDragY < -25f) {
+                                    // Swiped UP from bottom -> Open App Drawer
+                                    onNavigate("app_drawer")
+                                } else if (absX > absY && totalDragX > 35f) {
+                                    // Swiped RIGHT -> Return to Watch Face
+                                    onNavigate("watchface")
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                totalDragY += dragAmount.y
+                                totalDragX += dragAmount.x
+                            }
+                        )
+                    }
             ) {
                 val screenWidth = maxWidth.value
                 val screenHeight = maxHeight.value
@@ -762,8 +797,8 @@ private fun SmartWatchFaceTile(
         "clock_big"        -> currentTime
         "date_big"         -> "30 Aug"
         "prayer"           -> "المواقيت"
-        "prayer_countdown" -> countdownStr
-        "prayer_elapsed"   -> elapsedStr
+        "prayer_countdown" -> "${nextPrayer?.nameAr ?: "الصلاة"} $countdownStr"
+        "prayer_elapsed"   -> "${nextPrayer?.nameAr ?: "الصلاة"} $elapsedStr"
         "tasbih"           -> "$currentDhikr $tasbihCount"
         "qibla"            -> "72° NE"
         "quran"            -> "المصحف"
@@ -920,7 +955,7 @@ private fun SmartWatchFaceTile(
                             textAlign = TextAlign.Start,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp)
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     } else Box(
                         modifier = Modifier

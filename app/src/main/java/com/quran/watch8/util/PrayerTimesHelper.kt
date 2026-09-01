@@ -66,7 +66,7 @@ object PrayerTimesHelper {
         val dateComponents = DateComponents(nowZoned.year, nowZoned.monthValue, nowZoned.dayOfMonth)
 
         val prayerTimes = PrayerTimes(coords, dateComponents, params)
-        val formatter = DateTimeFormatter.ofPattern("HH:mm", Locale("ar"))
+        val formatter = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
 
         fun toInfo(nameAr: String, nameEn: String, nameEs: String, date: Date?): PrayerInfo {
             val instant = date?.toInstant() ?: Instant.now()

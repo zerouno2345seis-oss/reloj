@@ -31,6 +31,7 @@ import com.quran.watch8.ui.viewmodel.MainViewModel
 class MainActivity : ComponentActivity() {
 
     private lateinit var viewModelRef: MainViewModel
+    private var navControllerRef: androidx.navigation.NavHostController? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -47,19 +48,32 @@ class MainActivity : ComponentActivity() {
         val presetId = intent?.getStringExtra("apply_preset")
         if (!presetId.isNullOrBlank()) {
             com.quran.watch8.data.model.PresetManager.applyPreset(applicationContext, presetId)
+            navControllerRef?.popBackStack("watchface", false)
+        }
+        val modelName = intent?.getStringExtra("set_watchface_model")
+        if (!modelName.isNullOrBlank() && ::viewModelRef.isInitialized) {
+            try {
+                val m = com.quran.watch8.data.model.WatchFaceModelId.valueOf(modelName)
+                viewModelRef.setWatchFaceModel(m)
+                navControllerRef?.popBackStack("watchface", false)
+            } catch (_: Exception) {}
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handlePresetIntent(intent)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         com.quran.watch8.util.LocalSyncServer.start(applicationContext)
 
         setContent {
             QuranWatchTheme {
                 val navController = rememberSwipeDismissableNavController()
+                navControllerRef = navController
                 val viewModel: MainViewModel = viewModel()
                 viewModelRef = viewModel
+                LaunchedEffect(Unit) {
+                    handlePresetIntent(intent)
+                }
 
                 var permissionsHandled by remember { mutableStateOf(false) }
                 var showPermissionScreen by remember { mutableStateOf(false) }
@@ -114,13 +128,32 @@ class MainActivity : ComponentActivity() {
 
                     SwipeDismissableNavHost(
                         navController    = navController,
-                        startDestination = "home"
+                        startDestination = "watchface"
                     ) {
+                        composable("watchface") {
+                            WatchFaceHomeScreen(
+                                onNavigate = { route -> navController.navigate(route) },
+                                onOpenAppDrawer = { navController.navigate("app_drawer") },
+                                viewModel = viewModel
+                            )
+                        }
+
+                        composable("tiles") {
+                            HomeScreen(
+                                onNavigate = { route -> navController.navigate(route) },
+                                viewModel  = viewModel
+                            )
+                        }
+
                         composable("home") {
                             HomeScreen(
                                 onNavigate = { route -> navController.navigate(route) },
                                 viewModel  = viewModel
                             )
+                        }
+
+                        composable("app_drawer") {
+                            AppDrawerScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
 
                         composable("quran") {

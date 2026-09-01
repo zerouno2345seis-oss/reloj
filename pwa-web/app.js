@@ -2451,3 +2451,400 @@ window.saveCurrentAsCustomPresetWeb = function() {
     localStorage.setItem('quran_watch_web_custom_presets', JSON.stringify(customPresets));
     alert('تم حفظ القالب بنجاح!');
 };
+
+
+// ════════════════ WATCH FACE STUDIO (LAYER 1) MODULE ════════════════
+const WATCH_FACE_MODELS = [
+    {
+        id: 'ULTRA_DIGITAL_CLASSIC',
+        name: 'الرقمي الكلاسيكي',
+        desc: 'أرقام رقمية عريضة مع تعقيدات متناسقة وشعار المصحف',
+        category: 'digital'
+    },
+    {
+        id: 'CLASSIC_CHRONO_HERITAGE',
+        name: 'الكرونوغراف التراثي',
+        desc: 'عقارب تناظرية كلاسيكية مع موانئ فرعية للمواقيت والورد',
+        category: 'analog'
+    },
+    {
+        id: 'CELESTIAL_SOLAR_ARC',
+        name: 'فلكي محيطي (1..12)',
+        desc: 'أرقام محيطية دائرية كاملة على إطار الشاشة مع مدار شمسي',
+        category: 'celestial'
+    },
+    {
+        id: 'ULTRA_DIGITAL_LATIN_ALERT',
+        name: 'الرقمي مع تنبيه الأذان',
+        desc: 'عرض رقمي فائق مع قوس تنبيه كهرماني قبل الصلاة بـ 10د',
+        category: 'digital'
+    },
+    {
+        id: 'CLASSIC_CHRONO_LATIN_ALERT',
+        name: 'الكرونوغراف مع التنبيه',
+        desc: 'تصميم تناظري تراثي مع مؤشر التنبيه المسبق للأذان',
+        category: 'analog'
+    },
+    {
+        id: 'CELESTIAL_MINIMAL_LATIN_ALERT',
+        name: 'فلكي نقي (ساعة فقط)',
+        desc: 'رقم ساعة مركزي عملاق بدون أي أرقام دائرية - نقاء تام',
+        category: 'celestial'
+    },
+    {
+        id: 'EDGE_TYPOGRAPHY_FULL',
+        name: 'الخط العريض الممتد',
+        desc: 'استغلال كامل لمساحة الشاشة مع نصوص عربية مطرزة',
+        category: 'modern'
+    },
+    {
+        id: 'QURANIC_AMBIENT_ORBIT',
+        name: 'المداري القرآني',
+        desc: 'مدار إشعاعي ينبض مع ورد القرآن والمصحف الشريف',
+        category: 'islamic'
+    },
+    {
+        id: 'SOLAR_HORIZON_FULL',
+        name: 'الأفق الشمسي',
+        desc: 'حركة تفاعلية تتدرج مع مدار الشمس والشروق والغروب',
+        category: 'celestial'
+    }
+];
+
+const COMPLICATION_TYPES = [
+    { id: 'NEXT_PRAYER', name: 'مواقيت الصلاة (المغرب 18:34)', icon: '🕌' },
+    { id: 'BATTERY', name: 'مستوى البطارية (78%)', icon: '🔋' },
+    { id: 'HIJRI_DATE', name: 'التقويم الهجري (18 ربيع الأول)', icon: '🌙' },
+    { id: 'GREGORIAN_DATE', name: 'التاريخ الميلادي (17 Sep)', icon: '📅' },
+    { id: 'QURAN_RESUME', name: 'موضع المصحف (الكهف: 18)', icon: '📖' },
+    { id: 'QIBLA', name: 'اتجاه القبلة (242°)', icon: '🕋' },
+    { id: 'TASBIH', name: 'المسبحة الإلكترونية (33/33)', icon: '📿' },
+    { id: 'WEATHER', name: 'الطقس والحرارة (24°C)', icon: '⛅' },
+    { id: 'SUNRISE_SUNSET', name: 'الشروق والغروب (06:12)', icon: '🌅' },
+    { id: 'DAILY_ATHKAR', name: 'ورد الأذكار اليومي', icon: '🤲' },
+    { id: 'STEP_COUNTER', name: 'عداد الخطوات (6,420)', icon: '🚶‍♂️' },
+    { id: 'HEART_RATE', name: 'نبضات القلب (72 bpm)', icon: '❤️' },
+    { id: 'FASTING_TRACKER', name: 'صيام النوافل والإمساك', icon: '✨' },
+    { id: 'PRAYER_ALERT', name: 'تنبيه الصلاة المسبق (باقي 10د)', icon: '🔔' },
+    { id: 'HIDDEN', name: 'إخفاء المعلومة (نقاء تام)', icon: '🚫' }
+];
+
+let watchFaceConfig = {
+    selectedModel: 'ULTRA_DIGITAL_CLASSIC',
+    topSlot: 'GREGORIAN_DATE',
+    leftSlot: 'BATTERY',
+    rightSlot: 'NEXT_PRAYER',
+    bottomSlot: 'HIDDEN',
+    useLatinDigits: true
+};
+
+function loadWatchFaceConfig() {
+    try {
+        const saved = localStorage.getItem('quran_watch_wf_config');
+        if (saved) {
+            watchFaceConfig = { ...watchFaceConfig, ...JSON.parse(saved) };
+        }
+    } catch (e) {
+        console.warn('Could not load wf config', e);
+    }
+}
+
+function saveWatchFaceConfig() {
+    try {
+        localStorage.setItem('quran_watch_wf_config', JSON.stringify(watchFaceConfig));
+        showToast('تم حفظ إعدادات الطبقة الأولى!');
+        syncWatchFaceToCloud();
+    } catch (e) {
+        console.warn('Could not save wf config', e);
+    }
+}
+
+async function syncWatchFaceToCloud() {
+    try {
+        if (typeof API_URL !== 'undefined') {
+            await fetch(`${API_URL}/api/watchface`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(watchFaceConfig)
+            }).catch(() => {});
+        }
+    } catch (e) {}
+}
+
+function initWatchFaceStudio() {
+    loadWatchFaceConfig();
+    renderWatchFaceModelCards();
+    setupComplicationSelects();
+    renderLiveWatchFacePreview();
+    setupWatchFaceEvents();
+}
+
+function renderWatchFaceModelCards() {
+    const container = document.getElementById('wfModelsList');
+    if (!container) return;
+    
+    container.innerHTML = WATCH_FACE_MODELS.map(model => `
+        <div class="wf-model-card ${model.id === watchFaceConfig.selectedModel ? 'active' : ''}" data-model-id="${model.id}">
+            <div class="wf-model-thumb">
+                ${renderThumbnailDial(model.id)}
+            </div>
+            <div class="wf-model-info">
+                <h4>${model.name}</h4>
+                <p>${model.desc}</p>
+            </div>
+        </div>
+    `).join('');
+
+    container.querySelectorAll('.wf-model-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const modelId = card.dataset.modelId;
+            watchFaceConfig.selectedModel = modelId;
+            container.querySelectorAll('.wf-model-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            renderLiveWatchFacePreview();
+        });
+    });
+}
+
+function renderThumbnailDial(modelId) {
+    if (modelId.includes('CHRONO')) {
+        return `<svg width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="#111" stroke="#333" stroke-width="1"/>
+            <line x1="20" y1="20" x2="20" y2="8" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="20" y1="20" x2="28" y2="20" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="20" cy="20" r="2" fill="#f59e0b"/>
+        </svg>`;
+    } else if (modelId.includes('CELESTIAL')) {
+        return `<svg width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="#0b0f19" stroke="#1e293b" stroke-width="1"/>
+            <circle cx="20" cy="20" r="13" fill="none" stroke="#38bdf8" stroke-dasharray="3,3" stroke-width="1"/>
+            <text x="20" y="24" fill="#38bdf8" font-size="10" font-weight="bold" text-anchor="middle">12</text>
+        </svg>`;
+    } else {
+        return `<div style="font-size:11px; font-weight:900; color:#fff; font-family:monospace;">12:45</div>`;
+    }
+}
+
+function setupComplicationSelects() {
+    const slots = [
+        { id: 'selectTopSlot', iconId: 'topSlotCurrentIcon', slotKey: 'topSlot' },
+        { id: 'selectLeftSlot', iconId: 'leftSlotCurrentIcon', slotKey: 'leftSlot' },
+        { id: 'selectRightSlot', iconId: 'rightSlotCurrentIcon', slotKey: 'rightSlot' },
+        { id: 'selectBottomSlot', iconId: 'bottomSlotCurrentIcon', slotKey: 'bottomSlot' }
+    ];
+
+    slots.forEach(slot => {
+        const select = document.getElementById(slot.id);
+        const iconEl = document.getElementById(slot.iconId);
+        if (!select) return;
+
+        select.innerHTML = COMPLICATION_TYPES.map(type => `
+            <option value="${type.id}" ${watchFaceConfig[slot.slotKey] === type.id ? 'selected' : ''}>
+                ${type.icon} ${type.name}
+            </option>
+        `).join('');
+
+        const updateIcon = () => {
+            const found = COMPLICATION_TYPES.find(t => t.id === watchFaceConfig[slot.slotKey]);
+            if (iconEl && found) iconEl.textContent = found.icon;
+        };
+        updateIcon();
+
+        select.addEventListener('change', (e) => {
+            watchFaceConfig[slot.slotKey] = e.target.value;
+            updateIcon();
+            renderLiveWatchFacePreview();
+        });
+    });
+}
+
+function getComplicationBadgeHtml(slotKey, className) {
+    const compId = watchFaceConfig[slotKey];
+    if (compId === 'HIDDEN') return '';
+    const comp = COMPLICATION_TYPES.find(c => c.id === compId) || COMPLICATION_TYPES[0];
+    
+    let sampleText = '';
+    switch (compId) {
+        case 'NEXT_PRAYER': sampleText = 'المغرب 18:34'; break;
+        case 'BATTERY': sampleText = '78%'; break;
+        case 'HIJRI_DATE': sampleText = '18 ربيع'; break;
+        case 'GREGORIAN_DATE': sampleText = '17 Sep'; break;
+        case 'QURAN_RESUME': sampleText = 'الكهف: 18'; break;
+        case 'QIBLA': sampleText = '242°'; break;
+        case 'TASBIH': sampleText = '33/33'; break;
+        case 'WEATHER': sampleText = '24°C'; break;
+        case 'SUNRISE_SUNSET': sampleText = '06:12'; break;
+        case 'DAILY_ATHKAR': sampleText = 'أذكار'; break;
+        case 'STEP_COUNTER': sampleText = '6,420'; break;
+        case 'HEART_RATE': sampleText = '72 bpm'; break;
+        case 'FASTING_TRACKER': sampleText = 'صيام'; break;
+        case 'PRAYER_ALERT': sampleText = 'باقي 10د'; break;
+        default: sampleText = comp.name.split(' ')[0];
+    }
+
+    return `
+        <div class="wf-comp-badge ${className}" data-slot-key="${slotKey}" title="${comp.name}">
+            <span>${comp.icon}</span>
+            <span>${sampleText}</span>
+        </div>
+    `;
+}
+
+function renderLiveWatchFacePreview() {
+    const container = document.getElementById('wfDialPreviewContainer');
+    if (!container) return;
+
+    const model = watchFaceConfig.selectedModel;
+    let dialHtml = '';
+
+    // Badges
+    const topBadge = getComplicationBadgeHtml('topSlot', 'wf-comp-top');
+    const leftBadge = getComplicationBadgeHtml('leftSlot', 'wf-comp-left');
+    const rightBadge = getComplicationBadgeHtml('rightSlot', 'wf-comp-right');
+    const bottomBadge = getComplicationBadgeHtml('bottomSlot', 'wf-comp-bottom');
+
+    // Central Quran Emblem Button
+    const centerEmblem = `<div class="wf-emblem-badge" title="المصحف الشريف (البلاطات المتصلة)">📖</div>`;
+
+    if (model.includes('CHRONO')) {
+        // Chronograph Dial
+        dialHtml = `
+            <div class="wf-analog-dial">
+                <!-- Outer Bezel Numbers 1..12 -->
+                ${renderDialHours()}
+                ${topBadge}
+                ${leftBadge}
+                ${rightBadge}
+                ${bottomBadge}
+                <!-- Hands -->
+                <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+                    <!-- Hour Hand -->
+                    <line x1="50%" y1="50%" x2="35%" y2="35%" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+                    <!-- Minute Hand -->
+                    <line x1="50%" y1="50%" x2="50%" y2="20%" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Second Hand -->
+                    <line x1="50%" y1="50%" x2="50%" y2="12%" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle cx="50%" cy="50%" r="4" fill="#f59e0b"/>
+                </svg>
+                ${centerEmblem}
+            </div>
+        `;
+    } else if (model.includes('CELESTIAL')) {
+        // Celestial Model
+        const isCleanMinimal = model.includes('MINIMAL');
+        dialHtml = `
+            <div class="wf-analog-dial" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                ${!isCleanMinimal ? renderDialHours() : ''}
+                ${topBadge}
+                ${leftBadge}
+                ${rightBadge}
+                ${bottomBadge}
+                <div class="wf-center-clock" style="color: #38bdf8; font-size: ${isCleanMinimal ? '54px' : '42px'};">
+                    12<span style="opacity:0.6; font-size: 28px;">:45</span>
+                </div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:2px;">الجمعة · 18 ربيع الأول</div>
+                ${centerEmblem}
+            </div>
+        `;
+    } else {
+        // Digital Models
+        dialHtml = `
+            <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative;">
+                ${topBadge}
+                ${leftBadge}
+                ${rightBadge}
+                ${bottomBadge}
+                <div class="wf-center-clock">12:45</div>
+                <div style="font-size:11px; color:#fbbf24; font-weight:600; margin-top:3px;">المغرب بعد 01:24</div>
+                ${centerEmblem}
+            </div>
+        `;
+    }
+
+    container.innerHTML = dialHtml;
+
+    // Add interactivity to badges
+    container.querySelectorAll('.wf-comp-badge').forEach(badge => {
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const slotKey = badge.dataset.slotKey;
+            // Cycle complication
+            const currentIndex = COMPLICATION_TYPES.findIndex(c => c.id === watchFaceConfig[slotKey]);
+            const nextIndex = (currentIndex + 1) % COMPLICATION_TYPES.length;
+            watchFaceConfig[slotKey] = COMPLICATION_TYPES[nextIndex].id;
+            setupComplicationSelects();
+            renderLiveWatchFacePreview();
+        });
+    });
+
+    const emblem = container.querySelector('.wf-emblem-badge');
+    if (emblem) {
+        emblem.addEventListener('click', () => {
+            // Navigate to Layer 2
+            const tilesTab = document.querySelector('[data-tab-target="tiles"]');
+            if (tilesTab) tilesTab.click();
+        });
+    }
+}
+
+function renderDialHours() {
+    const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const radius = 105; // px from center
+    const center = 130; // center of 260px container
+    
+    return hours.map((hour, i) => {
+        const angle = (i * 30 - 90) * (Math.PI / 180);
+        const x = center + radius * Math.cos(angle);
+        const y = center + radius * Math.sin(angle);
+        return `<div class="wf-dial-number" style="left:${x}px; top:${y}px;">${hour}</div>`;
+    }).join('');
+}
+
+function setupWatchFaceEvents() {
+    const btnSave = document.getElementById('btnSaveWatchFaceToWatch');
+    if (btnSave) {
+        btnSave.addEventListener('click', () => {
+            saveWatchFaceConfig();
+        });
+    }
+
+    const btnReset = document.getElementById('btnResetSlotsDefault');
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            watchFaceConfig.topSlot = 'GREGORIAN_DATE';
+            watchFaceConfig.leftSlot = 'BATTERY';
+            watchFaceConfig.rightSlot = 'NEXT_PRAYER';
+            watchFaceConfig.bottomSlot = 'HIDDEN';
+            setupComplicationSelects();
+            renderLiveWatchFacePreview();
+            showToast('تمت استعادة التوزيع الافتراضي للتعقيدات');
+        });
+    }
+
+    const btnHideAll = document.getElementById('btnHideAllSlots');
+    if (btnHideAll) {
+        btnHideAll.addEventListener('click', () => {
+            watchFaceConfig.topSlot = 'HIDDEN';
+            watchFaceConfig.leftSlot = 'HIDDEN';
+            watchFaceConfig.rightSlot = 'HIDDEN';
+            watchFaceConfig.bottomSlot = 'HIDDEN';
+            setupComplicationSelects();
+            renderLiveWatchFacePreview();
+            showToast('تم إخفاء كافة التعقيدات');
+        });
+    }
+}
+
+// Auto-init on tab click or load
+document.addEventListener('DOMContentLoaded', () => {
+    initWatchFaceStudio();
+    
+    // Also listen to tab clicks
+    document.querySelectorAll('[data-tab-target]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.tabTarget === 'watchfaces') {
+                setTimeout(renderLiveWatchFacePreview, 50);
+            }
+        });
+    });
+});

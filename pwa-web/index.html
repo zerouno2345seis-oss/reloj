@@ -18,10 +18,11 @@
       </div>
 
       <nav class="finder-nav" aria-label="أقسام التطبيق">
-        <p class="sidebar-label">المفضلة</p>
+        <p class="sidebar-label">واجهة الساعة</p>
         <button class="nav-item active" data-tab-target="overview" aria-selected="true"><span>▦</span>نظرة عامة</button>
-        <button class="nav-item" data-tab-target="tiles" aria-selected="false"><span>◫</span>تصميم الساعة</button>
-        <button class="nav-item" data-tab-target="presets" aria-selected="false"><span>✦</span>القوالب</button>
+        <button class="nav-item" data-tab-target="watchfaces" aria-selected="false"><span>⌚</span>الطبقة الأولى (الواجهات)</button>
+        <button class="nav-item" data-tab-target="tiles" aria-selected="false"><span>◫</span>الطبقة الثانية (البلاطات)</button>
+        <button class="nav-item" data-tab-target="presets" aria-selected="false"><span>✦</span>القوالب الجاهزة</button>
         <p class="sidebar-label">المحتوى</p>
         <button class="nav-item" data-tab-target="quran" aria-selected="false"><span>☰</span>القرآن الكريم</button>
         <button class="nav-item" data-tab-target="locations" aria-selected="false"><span>⌖</span>المواقيت والموقع</button>
@@ -69,7 +70,118 @@
           </div>
         </section>
 
-        <section class="tab-page" id="tab-tiles" data-tab="tiles">
+                <!-- ════════════════ TAB: LAYER 1 WATCH FACES & COMPLICATIONS ════════════════ -->
+        <section class="tab-page" id="tab-watchfaces" data-tab="watchfaces">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="eyebrow">الطبقة الأولى</span>
+              <h2>تخصيص واجهات الساعة والتعقيدات</h2>
+              <p>اختر من بين 9 واجهات فاخرة بدون إطارات، وخصص معلومات الزوايا الأربع.</p>
+            </div>
+            <div class="heading-actions">
+              <button class="button primary" id="btnSaveWatchFaceToWatch"><span>⚡</span> حفظ وإرسال للساعة</button>
+            </div>
+          </div>
+
+          <div class="watchface-studio-grid">
+            <!-- Left Panel: 9 Watch Face Models -->
+            <aside class="panel wf-models-panel">
+              <div class="panel-title">
+                <div>
+                  <h3>الواجهات التسعة</h3>
+                  <p>اختر التصميم المباشر للساعة</p>
+                </div>
+              </div>
+              <div class="wf-models-grid" id="wfModelsList">
+                <!-- Dynamically generated model cards -->
+              </div>
+            </aside>
+
+            <!-- Center Column: Interactive Live Watch Face Simulator -->
+            <div class="wf-stage-column">
+              <div class="watch-stage">
+                <div class="watch-frame">
+                  <div class="watch-crown" aria-hidden="true"></div>
+                  <div class="watch-screen" id="liveWatchFaceSimulator">
+                    <!-- Dynamic Watch Face Render (Canvas / HTML Dial) -->
+                    <div id="wfDialPreviewContainer" class="wf-dial-container"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="wf-interactive-hints">
+                <span>💡 <strong>إيماءات الساعة:</strong> انقر للتبديل • ضغط مطول لفتح النافذة/المصحف • سحب للأعلى لدرج التطبيقات • سحب لليسار للبلاطات</span>
+              </div>
+            </div>
+
+            <!-- Right Panel: 4-Slot Complication Inspector -->
+            <aside class="panel wf-inspector-panel">
+              <div class="panel-title">
+                <div>
+                  <h3>تخصيص التعقيدات</h3>
+                  <p>المعلومات الذكية في الزوايا الأربع</p>
+                </div>
+              </div>
+              
+              <div class="wf-slots-editor">
+                <!-- Top Slot -->
+                <div class="wf-slot-card">
+                  <div class="wf-slot-header">
+                    <span class="wf-slot-tag top">العلوية (أعلى الساعة)</span>
+                    <span class="wf-slot-current-icon" id="topSlotCurrentIcon">📅</span>
+                  </div>
+                  <label class="field">
+                    <span>نوع المعلومة</span>
+                    <select id="selectTopSlot" class="wf-slot-select"></select>
+                  </label>
+                </div>
+
+                <!-- Left Slot -->
+                <div class="wf-slot-card">
+                  <div class="wf-slot-header">
+                    <span class="wf-slot-tag left">اليسرى (يسار الساعة)</span>
+                    <span class="wf-slot-current-icon" id="leftSlotCurrentIcon">🔋</span>
+                  </div>
+                  <label class="field">
+                    <span>نوع المعلومة</span>
+                    <select id="selectLeftSlot" class="wf-slot-select"></select>
+                  </label>
+                </div>
+
+                <!-- Right Slot -->
+                <div class="wf-slot-card">
+                  <div class="wf-slot-header">
+                    <span class="wf-slot-tag right">اليمنى (يمين الساعة)</span>
+                    <span class="wf-slot-current-icon" id="rightSlotCurrentIcon">🕌</span>
+                  </div>
+                  <label class="field">
+                    <span>نوع المعلومة</span>
+                    <select id="selectRightSlot" class="wf-slot-select"></select>
+                  </label>
+                </div>
+
+                <!-- Bottom Slot -->
+                <div class="wf-slot-card">
+                  <div class="wf-slot-header">
+                    <span class="wf-slot-tag bottom">السفلية (أسفل الساعة)</span>
+                    <span class="wf-slot-current-icon" id="bottomSlotCurrentIcon">🚫</span>
+                  </div>
+                  <label class="field">
+                    <span>نوع المعلومة</span>
+                    <select id="selectBottomSlot" class="wf-slot-select"></select>
+                  </label>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="wf-quick-options">
+                  <button class="button full-width" id="btnResetSlotsDefault"><span>↺</span> استعادة التوزيع الافتراضي</button>
+                  <button class="button full-width" id="btnHideAllSlots"><span>🚫</span> إخفاء كافة المعلومات (نقاء تام)</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+<section class="tab-page" id="tab-tiles" data-tab="tiles">
           <div class="section-heading compact-heading"><div><span class="eyebrow">المصمم</span><h2>تصميم واجهة الساعة</h2><p>رتّب الطبقات بصريًا ثم أرسل النتيجة إلى الساعة.</p></div><button class="button primary" id="btnSaveTilesToWatch">حفظ وإرسال</button></div>
           <div class="designer-grid">
             <aside class="panel layers-panel">
