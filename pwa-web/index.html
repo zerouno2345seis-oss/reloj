@@ -39,13 +39,18 @@
 
     <main class="workspace">
       <header class="finder-toolbar">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="فتح القائمة">☰</button>
         <div class="traffic-lights" aria-hidden="true"><i class="traffic-close"></i><i class="traffic-minimize"></i><i class="traffic-maximize"></i></div>
         <div class="toolbar-heading"><h1 id="currentPageTitle">نظرة عامة</h1><p id="currentPageSubtitle">كل ما تحتاجه لإدارة ساعتك في مكان واحد</p></div>
         <div class="toolbar-actions">
+          <button class="button compact" id="btnExportBackupToolbar" title="تنزيل نسخة احتياطية JSON">📥 تصدير</button>
+          <button class="button compact" id="btnImportBackupToolbar" title="استيراد نسخة احتياطية JSON">📤 استيراد</button>
+          <input type="file" id="backupFileInput" accept=".json" style="display:none;">
           <span class="sync-pill" id="syncStatus"><i></i> محفوظ محليًا</span>
           <button class="button primary compact" id="btnApplyFromToolbar">تطبيق على الساعة</button>
         </div>
       </header>
+      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
       <div class="workspace-scroll">
         <section class="tab-page active" id="tab-overview" data-tab="overview">
@@ -317,7 +322,20 @@
               <details class="settings-card"><summary><span class="icon-box orange">♟</span><div><strong>التنبيهات</strong><small>الأذان وتذكير مستقل لكل صلاة</small></div><b>⌄</b></summary><div class="settings-content"><label class="setting-toggle"><div><strong>تفعيل التنبيهات</strong><small>إشعارات الصلاة على الساعة</small></div><input id="settingNotifications" type="checkbox" checked></label><div class="field-row"><label class="setting-toggle"><div><strong>اهتزاز</strong><small>نبضة عند التذكير</small></div><input id="settingNotificationVibration" type="checkbox" checked></label><label class="setting-toggle"><div><strong>ملء الشاشة</strong><small>إظهار التنبيه فوق الواجهة</small></div><input id="settingNotificationFullScreen" type="checkbox"></label></div><div class="field-row"><label class="field"><span>الفجر قبل</span><select id="reminderFajr"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label><label class="field"><span>الظهر قبل</span><select id="reminderDhuhr"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label></div><div class="field-row"><label class="field"><span>العصر قبل</span><select id="reminderAsr"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label><label class="field"><span>المغرب قبل</span><select id="reminderMaghrib"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label></div><label class="field"><span>العشاء قبل</span><select id="reminderIsha"><option value="0">عند الأذان</option><option value="5">5 دقائق</option><option value="10">10 دقائق</option><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option></select></label></div></details>
               <details class="settings-card"><summary><span class="icon-box purple">⌖</span><div><strong>الموقع والحساب</strong><small>المدينة وطريقة حساب المواقيت</small></div><b>⌄</b></summary><div class="settings-content"><label class="field"><span>المدينة النشطة</span><select id="settingActiveCity"><option value="buenos-aires">بوينس آيرس</option></select></label><label class="field"><span>طريقة الحساب</span><select id="settingCalcMethod"><option value="mwl">رابطة العالم الإسلامي</option><option value="isna">ISNA</option><option value="egypt">الهيئة المصرية</option></select></label></div></details>
             </div>
-            <aside class="settings-actions panel"><div class="icon-box blue large">⚙</div><h3>تطبيق التغييرات</h3><p>تُحفظ إعدادات الويب تلقائيًا. أرسلها إلى الساعة عندما تصبح جاهزًا.</p><button class="button primary full-width" id="btnSaveSettingsToWatch">حفظ وإرسال</button><button class="button danger-text full-width" id="btnResetSettings">استعادة الافتراضي</button></aside>
+            <aside class="settings-actions panel">
+              <div class="icon-box blue large">⚙</div>
+              <h3>تطبيق التغييرات</h3>
+              <p>تُحفظ إعدادات الويب تلقائيًا. أرسلها إلى الساعة عندما تصبح جاهزًا.</p>
+              <button class="button primary full-width" id="btnSaveSettingsToWatch">حفظ وإرسال للساعة</button>
+              
+              <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--finder-border); display:flex; flex-direction:column; gap:8px;">
+                <span style="font-size:12px; font-weight:700; color:var(--finder-text);">النسخ الاحتياطي والاستعادة</span>
+                <button class="button full-width" id="btnExportBackupSettings">📥 تنزيل نسخة احتياطية (JSON)</button>
+                <button class="button full-width" id="btnImportBackupSettings">📤 استيراد نسخة احتياطية</button>
+              </div>
+
+              <button class="button danger-text full-width" id="btnResetSettings" style="margin-top:12px;">استعادة الافتراضي</button>
+            </aside>
           </div>
         </section>
 

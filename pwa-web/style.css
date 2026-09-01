@@ -701,3 +701,170 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 .bm-action-btn:hover {
   background: var(--finder-selection);
 }
+
+
+/* ════════════════ ENHANCED 8-DIRECTIONAL RESIZE HANDLES ════════════════ */
+.canvas-tile.selected {
+  outline: none !important;
+  box-shadow: 0 0 0 2.5px #38bdf8, 0 0 20px rgba(56, 189, 248, 0.5) !important;
+  z-index: 20 !important;
+}
+
+.tile-resize-handle {
+  position: absolute;
+  z-index: 35;
+  padding: 0;
+  border: 2px solid #ffffff !important;
+  background: #0284c7 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 6px #38bdf8 !important;
+  touch-action: none;
+  transition: transform 0.1s;
+}
+
+.tile-resize-handle:hover, .tile-resize-handle:active {
+  transform: scale(1.3) !important;
+  background: #38bdf8 !important;
+}
+
+/* Corner Handles */
+.tile-resize-nw, .tile-resize-ne, .tile-resize-sw, .tile-resize-se {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+}
+
+.tile-resize-nw { top: -8px !important; left: -8px !important; cursor: nwse-resize; }
+.tile-resize-ne { top: -8px !important; right: -8px !important; cursor: nesw-resize; }
+.tile-resize-sw { bottom: -8px !important; left: -8px !important; cursor: nesw-resize; }
+.tile-resize-se { bottom: -8px !important; right: -8px !important; cursor: nwse-resize; }
+
+/* Side/Edge Handles */
+.tile-resize-n {
+  top: -7px !important;
+  left: calc(50% - 15px) !important;
+  width: 30px !important;
+  height: 10px !important;
+  border-radius: 5px !important;
+  cursor: ns-resize;
+}
+
+.tile-resize-s {
+  bottom: -7px !important;
+  left: calc(50% - 15px) !important;
+  width: 30px !important;
+  height: 10px !important;
+  border-radius: 5px !important;
+  cursor: ns-resize;
+}
+
+.tile-resize-e {
+  right: -7px !important;
+  top: calc(50% - 15px) !important;
+  width: 10px !important;
+  height: 30px !important;
+  border-radius: 5px !important;
+  cursor: ew-resize;
+}
+
+.tile-resize-w {
+  left: -7px !important;
+  top: calc(50% - 15px) !important;
+  width: 10px !important;
+  height: 30px !important;
+  border-radius: 5px !important;
+  cursor: ew-resize;
+}
+
+/* Knobs */
+.icon-scale-knob, .text-scale-knob {
+  width: 16px !important;
+  height: 16px !important;
+  border: 2px solid #ffffff !important;
+  background: #f59e0b !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.8) !important;
+  border-radius: 50% !important;
+  touch-action: none;
+}
+
+/* ════════════════ MOBILE HAMBURGER DRAWER & OVERLAY ════════════════ */
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: var(--finder-text);
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.mobile-menu-btn:hover {
+  background: var(--finder-selection);
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 95;
+  transition: opacity 0.3s;
+}
+
+.sidebar-backdrop.active {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .mobile-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .finder-sidebar.mobile-open {
+    display: flex !important;
+    flex-direction: column !important;
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: auto !important;
+    width: 280px !important;
+    height: 100vh !important;
+    z-index: 110 !important;
+    background: var(--finder-panel) !important;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.25) !important;
+    transform: translateX(0) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    padding: 20px 16px !important;
+  }
+
+  .finder-sidebar.mobile-open .brand-lockup,
+  .finder-sidebar.mobile-open .sidebar-label,
+  .finder-sidebar.mobile-open .sidebar-status {
+    display: block !important;
+  }
+
+  .finder-sidebar.mobile-open .finder-nav {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    gap: 4px !important;
+  }
+
+  .finder-sidebar.mobile-open .nav-item {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    width: 100% !important;
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+  }
+
+  .finder-sidebar.mobile-open .nav-item > span {
+    font-size: 18px !important;
+  }
+}

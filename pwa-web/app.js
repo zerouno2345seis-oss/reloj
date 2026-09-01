@@ -3188,3 +3188,129 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('quran_watch_ip', ipInput.value);
     });
 });
+
+
+// ════════════════ BACKUP & RESTORE MODULE ════════════════
+function exportBackupJson() {
+    try {
+        const backupData = {
+            version: Date.now(),
+            app: 'Quran Watch 8 Hub',
+            timestamp: new Date().toISOString(),
+            tileConfig: tileConfig,
+            watchFaceConfig: watchFaceConfig,
+            watchSettings: watchSettings,
+            userBookmarks: userBookmarks,
+            customPresets: typeof customPresets !== 'undefined' ? customPresets : {}
+        };
+
+        const jsonStr = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dateStr = new Date().toISOString().split('T')[0];
+        a.href = url;
+        a.download = `quran-watch8-backup-${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('تم تنزيل النسخة الاحتياطية بنجاح 📥');
+    } catch (e) {
+        console.error('Backup export failed:', e);
+        showToast('حدث خطأ أثناء تنزيل النسخة الاحتياطية');
+    }
+}
+
+function triggerImportBackup() {
+    const fileInput = document.getElementById('backupFileInput');
+    if (fileInput) {
+        fileInput.value = '';
+        fileInput.click();
+    }
+}
+
+function handleBackupFileSelected(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data || typeof data !== 'object') throw new Error('Invalid JSON structure');
+
+            if (data.tileConfig?.tiles) {
+                tileConfig = data.tileConfig;
+                localStorage.setItem('quran_watch_tiles', JSON.stringify(tileConfig));
+            }
+            if (data.watchFaceConfig) {
+                watchFaceConfig = { ...watchFaceConfig, ...data.watchFaceConfig };
+                localStorage.setItem('quran_watch_wf_config', JSON.stringify(watchFaceConfig));
+            }
+            if (data.watchSettings) {
+                watchSettings = { ...watchSettings, ...data.watchSettings };
+                localStorage.setItem('quran_watch_settings', JSON.stringify(watchSettings));
+            }
+            if (Array.isArray(data.userBookmarks)) {
+                userBookmarks = data.userBookmarks;
+                localStorage.setItem('quran_watch_bookmarks', JSON.stringify(userBookmarks));
+            }
+
+            // Re-render everything
+            selectedIndices.clear();
+            primarySelectedIdx = 0;
+            selectedIndices.add(0);
+            validateAndPackGrid();
+            renderCanvas();
+            updateEditor();
+            renderWatchFaceModelCards();
+            setupComplicationSelects();
+            renderLiveWatchFacePreview();
+            renderBookmarksList();
+            renderPresetsGallery();
+
+            showToast('✓ تم استيراد واستعادة النسخة الاحتياطية بنجاح!');
+        } catch (err) {
+            console.error('Import error:', err);
+            alert('تعذر استيراد الملف: الرجاء التأكد من اختيار ملف نسخة احتياطية صالح (JSON).');
+        }
+    };
+    reader.readAsText(file);
+}
+
+// ════════════════ MOBILE DRAWER TOGGLE ════════════════
+function initMobileDrawer() {
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.querySelector('.finder-sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+
+    const toggleDrawer = (open) => {
+        if (!sidebar) return;
+        const isOpen = open !== undefined ? open : !sidebar.classList.contains('mobile-open');
+        sidebar.classList.toggle('mobile-open', isOpen);
+        if (backdrop) backdrop.classList.toggle('active', isOpen);
+    };
+
+    menuBtn?.addEventListener('click', () => toggleDrawer());
+    backdrop?.addEventListener('click', () => toggleDrawer(false));
+
+    // Close drawer when any tab button is clicked
+    document.querySelectorAll('.finder-sidebar .nav-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+            toggleDrawer(false);
+        });
+    });
+}
+
+// Attach Backup & Mobile Drawer Handlers on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+    initMobileDrawer();
+
+    document.getElementById('btnExportBackupToolbar')?.addEventListener('click', exportBackupJson);
+    document.getElementById('btnImportBackupToolbar')?.addEventListener('click', triggerImportBackup);
+    document.getElementById('btnExportBackupSettings')?.addEventListener('click', exportBackupJson);
+    document.getElementById('btnImportBackupSettings')?.addEventListener('click', triggerImportBackup);
+    document.getElementById('backupFileInput')?.addEventListener('change', handleBackupFileSelected);
+});
