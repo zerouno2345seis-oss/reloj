@@ -1,131 +1,122 @@
-// Vercel Serverless Sync Relay API with Persistent Cloud Storage
-const https = require('https');
+// Sync relay between the web studio and the watch.
+//
+// Storage is Vercel KV (Upstash Redis) over its REST API, called with plain
+// fetch so this file needs no dependencies and no package.json. Connect a KV
+// store to the project and Vercel injects KV_REST_API_URL / KV_REST_API_TOKEN
+// automatically; until then the relay falls back to per-instance memory, which
+// works but does not survive a cold start. The response always reports which
+// one served the request under `storage`.
+//
+// The previous implementation persisted to a public webhook.site bin, which
+// expires after about a week and exposed saved GPS locations to anyone.
 
-const WH_UUID = '8c4af8cb-77b7-4acc-adf3-a97f3270b692';
-const POST_URL = `https://webhook.site/${WH_UUID}`;
-const GET_URL = `https://webhook.site/token/${WH_UUID}/requests?sorting=newest&per_page=1`;
+const KV_URL = process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+const SYNC_TOKEN = process.env.SYNC_TOKEN;
+const hasKv = Boolean(KV_URL && KV_TOKEN);
 
-let memoryStore = {};
+// Only used when no KV store is connected. Per-instance and short lived.
+const memoryStore = new Map();
 
-function httpRequest(url, method, data = null) {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const options = {
-      hostname: parsed.hostname,
-      port: 443,
-      path: parsed.pathname + parsed.search,
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'QuranWatch-Vercel-Relay/1.0'
-      },
-      timeout: 4000
-    };
+async function kvFetch(path, init = {}) {
+  const response = await fetch(`${KV_URL}${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, ...(init.headers || {}) },
+  });
+  if (!response.ok) throw new Error(`KV ${path} responded ${response.status}`);
+  return response.json();
+}
 
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, body: JSON.parse(body) });
-        } catch (_) {
-          resolve({ status: res.statusCode, body: body });
-        }
-      });
-    });
+async function readRecord(key) {
+  if (!hasKv) return memoryStore.get(key) || null;
+  const { result } = await kvFetch(`/get/${encodeURIComponent(key)}`);
+  if (result === null || result === undefined) return null;
+  try {
+    return typeof result === 'string' ? JSON.parse(result) : result;
+  } catch (_) {
+    return null;
+  }
+}
 
-    req.on('error', (err) => reject(err));
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('Request timeout'));
-    });
-
-    if (data) {
-      req.write(typeof data === 'string' ? data : JSON.stringify(data));
-    }
-    req.end();
+async function writeRecord(key, record) {
+  if (!hasKv) {
+    memoryStore.set(key, record);
+    return;
+  }
+  await kvFetch(`/set/${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
   });
 }
 
+/**
+ * Auth is opt-in: without SYNC_TOKEN configured the relay stays open, exactly as
+ * before, so setting it is a deliberate upgrade rather than a breaking change.
+ */
+function isAuthorised(req) {
+  if (!SYNC_TOKEN) return true;
+  const presented = req.headers['x-sync-token'] || req.query.token;
+  return presented === SYNC_TOKEN;
+}
+
 module.exports = async (req, res) => {
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Sync-Token');
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  if (!isAuthorised(req)) {
+    return res.status(401).json({ status: 'error', error: 'Invalid sync token' });
   }
 
   const code = req.query.code || req.headers['x-sync-code'] || '41331';
+  const key = `sync:${code}`;
+  const storage = hasKv ? 'vercel-kv' : 'memory';
 
   if (req.method === 'GET') {
     try {
-      // 1. Try fetching from persistent cloud store
-      const cloudRes = await httpRequest(GET_URL, 'GET');
-      if (cloudRes.status === 200 && cloudRes.body?.data?.length > 0) {
-        const rawContent = cloudRes.body.data[0].content;
-        let parsed = rawContent;
-        if (typeof rawContent === 'string') {
-          try { parsed = JSON.parse(rawContent); } catch (_) {}
-        }
-        return res.status(200).json({
-          status: 'ok',
-          code: code,
-          hasData: true,
-          data: parsed,
-          updatedAt: Date.now()
-        });
-      }
-    } catch (e) {
-      console.error('Cloud fetch fallback:', e);
+      const record = await readRecord(key);
+      return res.status(200).json({
+        status: 'ok',
+        code,
+        storage,
+        hasData: Boolean(record),
+        data: record?.data ?? null,
+        updatedAt: record?.updatedAt ?? null,
+      });
+    } catch (error) {
+      // Surface the failure instead of silently serving an empty payload, which
+      // the watch would happily treat as "nothing to sync".
+      return res.status(502).json({ status: 'error', storage, error: error.message });
     }
-
-    // Fallback to memoryStore
-    const payload = memoryStore[code] || memoryStore['default'] || null;
-    return res.status(200).json({
-      status: 'ok',
-      code: code,
-      hasData: payload !== null,
-      data: payload,
-      updatedAt: memoryStore[`${code}_time`] || Date.now()
-    });
   }
 
   if (req.method === 'POST') {
     try {
       let body = req.body;
       if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch (_) {}
+        try { body = JSON.parse(body); } catch (_) { /* keep the raw string */ }
+      }
+      if (!body || typeof body !== 'object') {
+        return res.status(400).json({ status: 'error', error: 'Body must be a JSON object' });
       }
 
-      // 1. Save to memory cache
-      memoryStore[code] = body;
-      memoryStore['default'] = body;
-      memoryStore[`${code}_time`] = Date.now();
-
-      // 2. Persist to cloud store
-      try {
-        await httpRequest(POST_URL, 'POST', body);
-      } catch (err) {
-        console.error('Persistent cloud save error:', err);
-      }
-
+      const record = { data: body, updatedAt: Date.now() };
+      await writeRecord(key, record);
       return res.status(200).json({
         status: 'ok',
-        code: code,
-        message: 'Sync state saved on persistent cloud relay',
-        updatedAt: memoryStore[`${code}_time`]
+        code,
+        storage,
+        message: hasKv ? 'Saved to Vercel KV' : 'Saved to instance memory (no KV store connected)',
+        updatedAt: record.updatedAt,
       });
-    } catch (e) {
-      return res.status(400).json({ status: 'error', error: e.message });
+    } catch (error) {
+      return res.status(502).json({ status: 'error', storage, error: error.message });
     }
   }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+  return res.status(405).json({ status: 'error', error: 'Method not allowed' });
 };

@@ -232,6 +232,11 @@ object LocalSyncServer {
             runCatching { root.put("tilesConfig", JSONObject(tilesJson)) }
         }
 
+        val wfJson = prefs.watchFaceConfigJson.first()
+        if (wfJson.isNotBlank()) {
+            runCatching { root.put("watchFaceConfig", JSONObject(wfJson)) }
+        }
+
         val settings = JSONObject().apply {
             put("fontSize", prefs.fontSize.first())
             put("ayahColor", prefs.ayahNumberColor.first())
@@ -287,6 +292,28 @@ object LocalSyncServer {
             if (config.isValid()) {
                 prefs.setTilesConfigJson(config.toJson())
             }
+        }
+
+        val wfObj = root.optJSONObject("watchFaceConfig") ?: root.optJSONObject("watchFace")
+        if (wfObj != null) {
+            val modelId = wfObj.optString("selectedModel", wfObj.optString("modelId", ""))
+            val topSlot = wfObj.optString("topSlot", "")
+            val rightSlot = wfObj.optString("rightSlot", "")
+            val leftSlot = wfObj.optString("leftSlot", "")
+            val bottomSlot = wfObj.optString("bottomSlot", "")
+
+            val current = prefs.watchFaceConfigJson.first().let { 
+                com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) 
+            }
+
+            val updated = current.copy(
+                modelId = if (modelId.isNotBlank()) runCatching { com.quran.watch8.data.model.WatchFaceModelId.valueOf(modelId) }.getOrDefault(current.modelId) else current.modelId,
+                topSlot = if (topSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(topSlot) }.getOrDefault(current.topSlot) else current.topSlot,
+                rightSlot = if (rightSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(rightSlot) }.getOrDefault(current.rightSlot) else current.rightSlot,
+                leftSlot = if (leftSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(leftSlot) }.getOrDefault(current.leftSlot) else current.leftSlot,
+                bottomSlot = if (bottomSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(bottomSlot) }.getOrDefault(current.bottomSlot) else current.bottomSlot
+            )
+            prefs.setWatchFaceConfigJson(updated.toJson())
         }
 
         val settingsObj = root.optJSONObject("settings")
