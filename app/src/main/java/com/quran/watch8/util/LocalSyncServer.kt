@@ -2,7 +2,6 @@ package com.quran.watch8.util
 
 import android.content.Context
 import android.net.wifi.WifiManager
-import android.os.PowerManager
 import com.quran.watch8.data.db.QuranDatabase
 import com.quran.watch8.data.db.entities.BookmarkEntity
 import com.quran.watch8.data.db.entities.ReadingPositionEntity
@@ -17,20 +16,17 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
-import java.net.HttpURLConnection
-import java.net.ServerSocket
-import java.net.Socket
-import java.net.URL
+import java.net.*
+import java.util.*
 
 /**
- * Universal Dual-Sync Engine for Galaxy Watch 8 & Vercel Web Hub
+ * Ultra-Low Power & High Performance Dual-Sync Engine for Galaxy Watch 8
  *
- * Capabilities:
- *  1. Local High-Performance Socket Server on Fixed Port 41331 (with WakeLock/WifiLock).
- *  2. Cloud Sync Relay (HTTPS) via Vercel Serverless Function (code=41331).
- *  3. Silent Background Real-time Auto-Sync:
- *     - When Web changes -> Watch automatically detects and applies within seconds.
- *     - When Watch changes -> Automatically pushes to cloud relay in background.
+ * Battery Optimized:
+ *  - ZERO permanent WakeLocks or WifiLocks (allows CPU and Wi-Fi to enter deep sleep/Doze mode).
+ *  - ZERO aggressive infinite background polling loops.
+ *  - Passive lightweight ServerSocket on port 41331 for instant local push from Web.
+ *  - On-demand Cloud Relay sync (HTTPS).
  */
 object LocalSyncServer {
     const val FIXED_PORT = 41331
@@ -39,9 +35,6 @@ object LocalSyncServer {
     private var serverSocket: ServerSocket? = null
     private var isRunning = false
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var wifiLock: WifiManager.WifiLock? = null
     private var lastSyncedVersion: Long = 0L
 
     fun start(context: Context) {
@@ -50,20 +43,10 @@ object LocalSyncServer {
 
         scope.launch {
             try {
-                val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-                wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "QuranWatch:SyncWakeLock")?.apply {
-                    setReferenceCounted(false)
-                    acquire(24 * 60 * 60 * 1000L)
+                serverSocket = ServerSocket().apply {
+                    reuseAddress = true
+                    bind(InetSocketAddress(FIXED_PORT))
                 }
-
-                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-                @Suppress("DEPRECATION")
-                wifiLock = wifiManager?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "QuranWatch:SyncWifiLock")?.apply {
-                    setReferenceCounted(false)
-                    acquire()
-                }
-
-                serverSocket = ServerSocket(FIXED_PORT)
 
                 val db = QuranDatabase.getInstance(context)
                 val dbRepo = DatabaseRepository(
@@ -74,8 +57,12 @@ object LocalSyncServer {
                 )
                 val prefs = PreferencesRepository(context)
 
-                // ── Start Silent Background Auto-Sync Poller ──
-                startSilentAutoSyncPoller(dbRepo, prefs)
+                // Gentle one-time check on startup
+                launch {
+                    try {
+                        syncWithCloud(context, "pull")
+                    } catch (_: Exception) {}
+                }
 
                 while (isRunning && serverSocket?.isClosed == false) {
                     try {
@@ -93,46 +80,41 @@ object LocalSyncServer {
         isRunning = false
         runCatching { serverSocket?.close() }
         serverSocket = null
-        runCatching { wakeLock?.release() }
-        runCatching { wifiLock?.release() }
     }
 
     /**
-     * Silent Background Poller:
-     * Checks Cloud Relay every 10 seconds for any updates made on the web.
-     * Automatically applies new tiles/settings without user needing to press anything!
+     * Returns current Wi-Fi IPv4 address of the watch
      */
-    private fun startSilentAutoSyncPoller(dbRepo: DatabaseRepository, prefs: PreferencesRepository) {
-        scope.launch {
-            while (isRunning) {
-                delay(10000L)
-                try {
-                    val url = URL(CLOUD_RELAY_URL)
-                    val conn = url.openConnection() as HttpURLConnection
-                    conn.requestMethod = "GET"
-                    conn.connectTimeout = 4000
-                    conn.readTimeout = 4000
-
-                    if (conn.responseCode == 200) {
-                        val jsonStr = conn.inputStream.bufferedReader().use { it.readText() }
-                        val root = JSONObject(jsonStr)
-                        val dataObj = root.optJSONObject("data") ?: root
-                        val remoteVersion = dataObj.optJSONObject("tilesConfig")?.optLong("version", 0L) ?: dataObj.optLong("version", 0L)
-
-                        if (remoteVersion > lastSyncedVersion && remoteVersion > 0L) {
-                            lastSyncedVersion = remoteVersion
-                            importDataJson(dataObj.toString(), dbRepo, prefs)
+    fun getWatchIpAddress(context: Context): String {
+        try {
+            val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+            for (intf in interfaces) {
+                if (intf.name.contains("wlan") || intf.name.contains("eth")) {
+                    val addrs = Collections.list(intf.inetAddresses)
+                    for (addr in addrs) {
+                        if (!addr.isLoopbackAddress && addr is Inet4Address) {
+                            return addr.hostAddress ?: ""
                         }
                     }
-                    conn.disconnect()
-                } catch (_: Exception) {}
+                }
             }
-        }
+            // Fallback to any non-loopback IPv4
+            for (intf in interfaces) {
+                val addrs = Collections.list(intf.inetAddresses)
+                for (addr in addrs) {
+                    if (!addr.isLoopbackAddress && addr is Inet4Address) {
+                        return addr.hostAddress ?: ""
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return "192.168.1.190"
     }
 
     private fun handleClient(socket: Socket, dbRepo: DatabaseRepository, prefs: PreferencesRepository) {
         scope.launch {
             try {
+                socket.soTimeout = 5000
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
                 val writer = PrintWriter(socket.getOutputStream(), true)
 
@@ -150,17 +132,17 @@ object LocalSyncServer {
                     }
                 }
 
-                if (method == "OPTIONS") {
+                if (method.equals("OPTIONS", ignoreCase = true)) {
                     sendResponse(writer, 200, "OK", "application/json", "{}")
                     socket.close()
                     return@launch
                 }
 
                 if (path.startsWith("/api/sync") || path == "/") {
-                    if (method == "GET") {
+                    if (method.equals("GET", ignoreCase = true)) {
                         val json = exportDataJson(dbRepo, prefs)
                         sendResponse(writer, 200, "OK", "application/json; charset=utf-8", json)
-                    } else if (method == "POST") {
+                    } else if (method.equals("POST", ignoreCase = true)) {
                         val bodyChars = CharArray(contentLength)
                         var read = 0
                         while (read < contentLength) {
@@ -170,8 +152,10 @@ object LocalSyncServer {
                         }
                         val body = String(bodyChars)
                         importDataJson(body, dbRepo, prefs)
-                        sendResponse(writer, 200, "OK", "application/json; charset=utf-8", """{"status":"synced"}""")
+                        sendResponse(writer, 200, "OK", "application/json; charset=utf-8", """{"status":"synced","time":${System.currentTimeMillis()}}""")
                     }
+                } else if (path.startsWith("/api/ping")) {
+                    sendResponse(writer, 200, "OK", "application/json; charset=utf-8", """{"status":"online","device":"Galaxy Watch 8"}""")
                 } else {
                     sendResponse(writer, 404, "Not Found", "text/plain", "Not Found")
                 }
@@ -193,9 +177,10 @@ object LocalSyncServer {
             val prefs = PreferencesRepository(context)
 
             val url = URL(CLOUD_RELAY_URL)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 6000
-            conn.readTimeout = 6000
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 5000
+                readTimeout = 5000
+            }
 
             if (mode == "push") {
                 conn.requestMethod = "POST"
@@ -222,9 +207,12 @@ object LocalSyncServer {
                     conn.disconnect()
                     val root = JSONObject(body)
                     val dataObj = root.optJSONObject("data") ?: root
-                    lastSyncedVersion = dataObj.optJSONObject("tilesConfig")?.optLong("version", System.currentTimeMillis()) ?: dataObj.optLong("version", System.currentTimeMillis())
-                    importDataJson(dataObj.toString(), dbRepo, prefs)
-                    Pair(true, "✓ تمت المزامنة التلقائية وتحديث البلاطات")
+                    val remoteVer = dataObj.optJSONObject("tilesConfig")?.optLong("version", System.currentTimeMillis()) ?: dataObj.optLong("version", System.currentTimeMillis())
+                    if (remoteVer > lastSyncedVersion) {
+                        lastSyncedVersion = remoteVer
+                        importDataJson(dataObj.toString(), dbRepo, prefs)
+                    }
+                    Pair(true, "✓ تمت المزامنة وتحديث البلاطات")
                 } else {
                     conn.disconnect()
                     Pair(false, "تعذر الجلب السحابي ($code)")
@@ -240,7 +228,9 @@ object LocalSyncServer {
         root.put("version", System.currentTimeMillis())
 
         val tilesJson = prefs.tilesConfigJson.first()
-        root.put("tilesConfig", JSONObject(tilesJson))
+        if (tilesJson.isNotBlank()) {
+            runCatching { root.put("tilesConfig", JSONObject(tilesJson)) }
+        }
 
         val settings = JSONObject().apply {
             put("fontSize", prefs.fontSize.first())
@@ -312,7 +302,6 @@ object LocalSyncServer {
             if (settingsObj.has("notificationsEnabled")) prefs.setNotificationsEnabled(settingsObj.getBoolean("notificationsEnabled"))
             if (settingsObj.has("calculationMethod")) prefs.setCalculationMethod(settingsObj.getString("calculationMethod"))
             settingsObj.optJSONObject("prayerReminders")?.let { remote ->
-                // The web editor sends one minute value per prayer; the scheduler stores the native list schema.
                 fun minuteList(key: String): JSONArray = remote.optJSONArray(key) ?: JSONArray().put(remote.optInt(key, 10))
                 val normalized = JSONObject().apply {
                     put("fajr", minuteList("fajr"))
@@ -359,16 +348,17 @@ object LocalSyncServer {
     }
 
     private fun sendResponse(writer: PrintWriter, code: Int, status: String, contentType: String, body: String) {
-        writer.println("HTTP/1.1 $code $status")
-        writer.println("Content-Type: $contentType")
-        writer.println("Access-Control-Allow-Origin: *")
-        writer.println("Access-Control-Allow-Methods: GET, POST, OPTIONS")
-        writer.println("Access-Control-Allow-Headers: *")
-        writer.println("Access-Control-Allow-Private-Network: true")
-        writer.println("Content-Length: ${body.toByteArray(Charsets.UTF_8).size}")
-        writer.println("Connection: close")
-        writer.println()
-        writer.println(body)
+        val bytes = body.toByteArray(Charsets.UTF_8)
+        writer.print("HTTP/1.1 $code $status\r\n")
+        writer.print("Content-Type: $contentType\r\n")
+        writer.print("Access-Control-Allow-Origin: *\r\n")
+        writer.print("Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n")
+        writer.print("Access-Control-Allow-Headers: *\r\n")
+        writer.print("Access-Control-Allow-Private-Network: true\r\n")
+        writer.print("Content-Length: ${bytes.size}\r\n")
+        writer.print("Connection: close\r\n")
+        writer.print("\r\n")
+        writer.print(body)
         writer.flush()
     }
 }

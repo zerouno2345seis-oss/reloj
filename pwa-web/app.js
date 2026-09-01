@@ -2295,7 +2295,7 @@ function scheduleAutoSync() {
 
 async function syncAll(isManual = false) {
     const pin = document.getElementById('syncPinCode')?.value || '41331';
-    const localIp = document.getElementById('watchIp')?.value || '192.168.1.224';
+    const localIp = document.getElementById('watchIp')?.value || localStorage.getItem('quran_watch_ip') || '192.168.1.190';
     
     tileConfig.version = Date.now();
     const syncedSettings = {
@@ -3345,4 +3345,57 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnExportBackupSettings')?.addEventListener('click', exportBackupJson);
     document.getElementById('btnImportBackupSettings')?.addEventListener('click', triggerImportBackup);
     document.getElementById('backupFileInput')?.addEventListener('change', handleBackupFileSelected);
+});
+
+// ════════════════ WATCH IP AUTO-DISCOVERY & PING MODULE ════════════════
+async function pingWatchIp(ip) {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`http://${ip}:41331/api/ping`, {
+            method: 'GET',
+            mode: 'cors',
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        return res.ok;
+    } catch (_) {
+        return false;
+    }
+}
+
+async function autoDiscoverWatch() {
+    const ipInput = document.getElementById('watchIp');
+    const statusPill = document.getElementById('syncStatus');
+    if (statusPill) statusPill.textContent = 'جاري فحص الاتصال…';
+
+    const currentIp = ipInput?.value || localStorage.getItem('quran_watch_ip') || '192.168.1.190';
+    
+    // First try current IP
+    if (await pingWatchIp(currentIp)) {
+        if (ipInput) ipInput.value = currentIp;
+        localStorage.setItem('quran_watch_ip', currentIp);
+        showToast(`✓ متصلة بالساعة مباشرة (${currentIp})`);
+        updateSyncStatus(`متصلة (${currentIp})`, 'success');
+        return currentIp;
+    }
+
+    // Try common fallback IPs
+    const candidates = ['192.168.1.190', '192.168.1.226', '192.168.1.224', '192.168.1.100', '192.168.1.50', '192.168.0.190'];
+    for (const cand of candidates) {
+        if (await pingWatchIp(cand)) {
+            if (ipInput) ipInput.value = cand;
+            localStorage.setItem('quran_watch_ip', cand);
+            showToast(`✓ تم العثور على الساعة والاتصال بها (${cand})`);
+            updateSyncStatus(`متصلة (${cand})`, 'success');
+            return cand;
+        }
+    }
+
+    updateSyncStatus('الساعة غير متاحة محليًا (تأكد من فتح تطبيق الساعة)', 'error');
+    return null;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnTestLocalSync')?.addEventListener('click', autoDiscoverWatch);
 });
