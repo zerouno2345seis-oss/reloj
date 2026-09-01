@@ -20,8 +20,8 @@
       <nav class="finder-nav" aria-label="أقسام التطبيق">
         <p class="sidebar-label">واجهة الساعة</p>
         <button class="nav-item active" data-tab-target="overview" aria-selected="true"><span>▦</span>نظرة عامة</button>
-        <button class="nav-item" data-tab-target="watchfaces" aria-selected="false"><span>⌚</span>الطبقة الأولى (الواجهات)</button>
-        <button class="nav-item" data-tab-target="tiles" aria-selected="false"><span>◫</span>الطبقة الثانية (البلاطات)</button>
+        <button class="nav-item" data-tab-target="watchfaces" aria-selected="false"><span>⌚</span>لوحة التطبيق</button>
+        <button class="nav-item" data-tab-target="tiles" aria-selected="false"><span>◫</span>البلاطات</button>
         <button class="nav-item" data-tab-target="presets" aria-selected="false"><span>✦</span>القوالب الجاهزة</button>
         <p class="sidebar-label">المحتوى</p>
         <button class="nav-item" data-tab-target="quran" aria-selected="false"><span>☰</span>القرآن الكريم</button>
@@ -79,9 +79,9 @@
         <section class="tab-page" id="tab-watchfaces" data-tab="watchfaces">
           <div class="section-heading compact-heading">
             <div>
-              <span class="eyebrow">الطبقة الأولى</span>
-              <h2>تخصيص واجهات الساعة والتعقيدات</h2>
-              <p>اختر من بين 9 واجهات فاخرة بدون إطارات، وخصص معلومات الزوايا الأربع.</p>
+              <span class="eyebrow">لوحة التطبيق</span>
+              <h2>تخصيص لوحة التطبيق والتعقيدات</h2>
+              <p>اختر من بين 9 تصاميم بدون إطارات وخصص معلومات الزوايا الأربع. هذه هي الشاشة التي تظهر عند فتح التطبيق، وليست واجهة الساعة التي يعرضها النظام عند رفع المعصم.</p>
             </div>
             <div class="heading-actions">
               <button class="button primary" id="btnSaveWatchFaceToWatch"><span>⚡</span> حفظ وإرسال للساعة</button>
@@ -341,10 +341,10 @@
 
         <section class="tab-page" id="tab-sync" data-tab="sync">
           <div class="section-heading"><div><span class="eyebrow">الاتصال</span><h2>المزامنة</h2><p>انقل التصميم والإعدادات بين المتصفح والساعة.</p></div></div>
-          <article class="sync-banner" id="syncBannerSection"><div class="sync-illustration">⇅</div><div><small>مزامنة آمنة</small><h3>احتفظ بالساعة والويب على النسخة نفسها</h3><p id="syncBannerBody">اختر المزامنة السحابية عن بُعد أو الاتصال المحلي الأسرع داخل الشبكة.</p></div><button class="button" id="btnToggleSync"><span id="syncToggleIcon">⌄</span> خيارات الاتصال</button></article>
+          <article class="sync-banner" id="syncBannerSection"><div class="sync-illustration">⇅</div><div><small>مزامنة آمنة</small><h3>احتفظ بالساعة والويب على النسخة نفسها</h3><p id="syncBannerBody">تُحفظ التغييرات في السحابة، وتسحبها الساعة عند فتح التطبيق أو عند طلب المزامنة.</p></div><button class="button" id="btnToggleSync"><span id="syncToggleIcon">⌄</span> خيارات الاتصال</button></article>
           <div class="sync-grid">
             <article class="panel sync-method"><span class="method-icon blue">☁</span><h3>المزامنة السحابية</h3><p>استخدم رمز الربط للوصول إلى الساعة من أي مكان.</p><label class="field"><span>رمز الربط</span><input id="syncPinCode" inputmode="numeric" maxlength="8" placeholder="000000"></label><div class="button-row"><button class="button primary" id="btnCloudPush">إرسال للسحابة</button><button class="button" id="btnCloudPull">جلب من السحابة</button></div></article>
-            <article class="panel sync-method"><span class="method-icon green">⌁</span><h3>الشبكة المحلية (Wi-Fi المباشر)</h3><p>اتصال مباشر وفائق السرعة عندما يكون الجهازان على شبكة Wi‑Fi نفسها.</p><label class="field"><span>عنوان IP للساعة</span><input id="watchIp" dir="ltr" value="192.168.1.190" placeholder="192.168.1.190"></label><div class="button-row"><button class="button primary" id="btnLocalSync">مزامنة محلية فورية</button><button class="button" id="btnTestLocalSync">فحص الاتصال ⌁</button></div></article>
+            <article class="panel sync-method"><span class="method-icon green">⌚</span><h3>استلام الساعة للتغييرات</h3><p>تسحب الساعة النسخة السحابية عند فتح التطبيق، أو فورًا بضغطة مطوّلة على بلاطة الإعدادات. الاتصال المباشر بالساعة عبر Wi‑Fi غير متاح من موقع HTTPS لأن المتصفح يحجبه.</p><div class="button-row"><button class="button primary" id="btnLocalSync">مزامنة الآن</button></div></article>
           </div>
           <div id="syncFeedback" class="sync-feedback" role="status" aria-live="polite"></div>
           <article class="panel sync-log"><div class="panel-title"><div><h3>حالة الاتصال</h3><p>آخر العمليات المعروفة</p></div></div><div class="sync-log-row"><span class="status-dot"></span><div><strong>التخزين المحلي</strong><small>يحفظ كل تعديل مباشرة في هذا المتصفح</small></div><b>نشط</b></div><div class="sync-log-row"><span class="status-dot muted"></span><div><strong>الساعة</strong><small>أرسل التغييرات عند جاهزية الاتصال</small></div><b>بانتظار الاتصال</b></div></article>

@@ -1,7 +1,5 @@
 
 // ════════════════ QURAN WATCH 8 - 12-UNIT CONSTRAINED INTELLIGENT GRID STUDIO ════════════════
-const API_URL = "https://app-sync.fly.dev";
-
 // Default State (Default is text only, font size 14, white text)
 let tileConfig = {
     version: Date.now(),
@@ -59,6 +57,9 @@ let dragType = null; // 'grid-tile', 'scale-text', 'scale-icon', 'text', 'icon'
 let dragStartPointerX = 0;
 let dragStartPointerY = 0;
 let startTilesSnapshot = [];
+// Row heights must also be snapshotted, otherwise a drag reads back its own
+// half-applied result on every pointermove and the row grows without bound.
+let startRowWeightsSnapshot = {};
 let ghostTargetSlot = null; // { rowIndex, insertIndex, colSpan }
 let lastHapticSlotKey = '';
 let dragResizeCorner = null;
@@ -493,7 +494,7 @@ function initApp() {
     document.getElementById('btnSaveTilesToWatch')?.addEventListener('click', () => syncAll(true));
     document.getElementById('btnCloudPush')?.addEventListener('click', () => syncAll(true));
     document.getElementById('btnCloudPull')?.addEventListener('click', () => pullFromCloud());
-    document.getElementById('btnLocalSync')?.addEventListener('click', () => syncLocalDirect());
+    document.getElementById('btnLocalSync')?.addEventListener('click', () => syncAll(true));
     
     // Toggle Sync Banner
     let syncBody = document.getElementById('syncBannerBody');
@@ -938,12 +939,13 @@ function setupTabs() {
 
 const tabMetadata = {
     overview: ['نظرة عامة', 'كل ما تحتاجه لإدارة ساعتك في مكان واحد'],
-    tiles: ['تصميم الساعة', 'رتّب الطبقات وعاين النتيجة قبل إرسالها'],
+    watchfaces: ['لوحة التطبيق', 'الشاشة التي تظهر عند فتح التطبيق على الساعة'],
+    tiles: ['البلاطات', 'رتّب البلاطات وعاين النتيجة قبل إرسالها'],
     presets: ['القوالب', 'تكوينات جاهزة ونُسخ محفوظة من تصاميمك'],
     quran: ['القرآن الكريم', 'البحث والورد وموضع القراءة'],
     locations: ['المواقيت والموقع', 'الصلاة القادمة والمواقع المحفوظة'],
     settings: ['الإعدادات', 'مظهر القارئ والتنبيهات وطريقة الحساب'],
-    sync: ['المزامنة', 'الاتصال السحابي والمحلي مع الساعة']
+    sync: ['المزامنة', 'الاتصال السحابي مع الساعة']
 };
 
 function activateTab(tabName) {
@@ -1428,6 +1430,7 @@ function setupCanvasEvents() {
                 dragStartPointerX = clientX;
                 dragStartPointerY = clientY;
                 startTilesSnapshot = JSON.parse(JSON.stringify(tileConfig.tiles));
+                startRowWeightsSnapshot = JSON.parse(JSON.stringify(tileConfig.rowWeights || {}));
                 ghostTargetSlot = null;
                 interactionHistoryPushed = false;
                 return;
@@ -1457,6 +1460,7 @@ function setupCanvasEvents() {
                 dragStartPointerX = clientX;
                 dragStartPointerY = clientY;
                 startTilesSnapshot = JSON.parse(JSON.stringify(tileConfig.tiles));
+                startRowWeightsSnapshot = JSON.parse(JSON.stringify(tileConfig.rowWeights || {}));
                 ghostTargetSlot = null;
                 interactionHistoryPushed = false;
                 return;
@@ -1515,21 +1519,64 @@ function onTouchEnd() {
     document.removeEventListener('touchend', onTouchEnd);
 }
 
+/**
+ * Widens a grid tile by trading units with the neighbour on the dragged side, so
+ * the opposite edge stays put and the tile follows the finger. Both spans are
+ * read from the drag-start snapshot, so a drag can never compound on itself.
+ */
+function resizeGridTileWidth(original, side, dx) {
+    const insets = getCanvasInsets();
+    const usableWidth = Math.max(1, 100 - insets.left - insets.right);
+    const row = original.rowIndex || 0;
+
+    const rowIndices = tileConfig.tiles
+        .map((tile, index) => ({ tile, index }))
+        .filter(entry => (entry.tile.rowIndex || 0) === row)
+        .map(entry => entry.index);
+
+    const position = rowIndices.indexOf(primarySelectedIdx);
+    if (position < 0) return;
+
+    // Dragging west takes units from the tile on the left, east from the right.
+    const neighbourIdx = side === 'w' ? rowIndices[position - 1] : rowIndices[position + 1];
+    // The outermost tile of a row has nothing to trade with, so it stays put.
+    if (neighbourIdx === undefined) return;
+
+    const minimum = rowIndices.length <= 6 ? 2 : 1;
+    const deltaUnits = Math.round((dx * (side === 'w' ? -1 : 1)) / usableWidth * 12);
+
+    const snapshotTarget = startTilesSnapshot[primarySelectedIdx] || original;
+    const snapshotNeighbour = startTilesSnapshot[neighbourIdx] || tileConfig.tiles[neighbourIdx];
+    const targetBase = Math.max(minimum, Number(snapshotTarget.colSpan) || 4);
+    const neighbourBase = Math.max(minimum, Number(snapshotNeighbour.colSpan) || 4);
+    const pool = targetBase + neighbourBase;
+
+    const nextTarget = Math.max(minimum, Math.min(pool - minimum, targetBase + deltaUnits));
+    tileConfig.tiles[primarySelectedIdx].colSpan = nextTarget;
+    tileConfig.tiles[neighbourIdx].colSpan = pool - nextTarget;
+    tileConfig.tiles[primarySelectedIdx].manualLayout = false;
+    tileConfig.tiles[neighbourIdx].manualLayout = false;
+}
+
+/** Resizes the row a tile sits in, always measured from the drag-start weight. */
+function resizeGridRowHeight(original, side, dy) {
+    const row = original.rowIndex || 0;
+    const baseWeight = Math.max(.22, Number(startRowWeightsSnapshot?.[row]) || 1);
+    const direction = side === 'n' ? -1 : 1;
+    tileConfig.rowWeights = {
+        ...(tileConfig.rowWeights || {}),
+        [row]: Math.max(.22, Math.min(4, baseWeight + (dy * direction * .045)))
+    };
+}
+
 function resizeTileWithRatio(slot, original, corner, dx, dy) {
     // Grid tiles resize as a coordinated row: there are never empty cells after a drag.
     if (!original.manualLayout) {
         const isWidthGesture = Math.abs(dx) >= Math.abs(dy);
         if (isWidthGesture) {
-            const usableWidth = 100 - getCanvasInsets().left - getCanvasInsets().right;
-            const direction = corner.includes('e') ? 1 : -1;
-            const desired = (original.width + (dx * direction)) / usableWidth * 12;
-            rebalanceRowWidths(original.rowIndex || 0, slot, desired);
+            resizeGridTileWidth(original, corner.includes('w') ? 'w' : 'e', dx);
         } else {
-            const row = original.rowIndex || 0;
-            const currentWeight = Math.max(.22, Number(tileConfig.rowWeights?.[row]) || 1);
-            const direction = corner.includes('s') ? 1 : -1;
-            // Changing one tile's height changes its whole row; the other rows receive the freed space.
-            tileConfig.rowWeights = { ...(tileConfig.rowWeights || {}), [row]: Math.max(.22, currentWeight + (dy * direction * .045)) };
+            resizeGridRowHeight(original, corner.includes('n') ? 'n' : 's', dy);
         }
         validateAndPackGrid();
         return;
@@ -1563,15 +1610,9 @@ function resizeTileWithRatio(slot, original, corner, dx, dy) {
 function resizeTileFromEdge(slot, original, edge, dx, dy) {
     if (!original.manualLayout) {
         if (edge === 'e' || edge === 'w') {
-            const usableWidth = 100 - getCanvasInsets().left - getCanvasInsets().right;
-            const direction = edge === 'e' ? 1 : -1;
-            const desiredSpan = (original.width + dx * direction) / usableWidth * 12;
-            rebalanceRowWidths(original.rowIndex || 0, slot, desiredSpan);
+            resizeGridTileWidth(original, edge, dx);
         } else {
-            const row = original.rowIndex || 0;
-            const currentWeight = Math.max(.22, Number(tileConfig.rowWeights?.[row]) || 1);
-            const direction = edge === 's' ? 1 : -1;
-            rebalanceRowHeights(row, currentWeight + dy * direction * .045);
+            resizeGridRowHeight(original, edge, dy);
         }
         validateAndPackGrid();
         return;
@@ -2295,8 +2336,7 @@ function scheduleAutoSync() {
 
 async function syncAll(isManual = false) {
     const pin = document.getElementById('syncPinCode')?.value || '41331';
-    const localIp = document.getElementById('watchIp')?.value || localStorage.getItem('quran_watch_ip') || '192.168.1.190';
-    
+
     tileConfig.version = Date.now();
     const syncedSettings = {
         ...watchSettings,
@@ -2314,48 +2354,48 @@ async function syncAll(isManual = false) {
         type: 'FULL_SYNC',
         version: tileConfig.version,
         tilesConfig: tileConfig,
+        watchFaceConfig: watchFaceConfig,
         settings: syncedSettings
     };
     
     saveLocalDraft();
     updateSyncStatus('جاري الاتصال…');
 
-    const post = async (url) => {
-        const response = await fetch(url, {
+    // Only the cloud relay is used. A direct call to the watch over the LAN is
+    // blocked by every browser as mixed content, because this page is served
+    // over HTTPS and the watch only speaks plain HTTP on port 41331.
+    let cloudOk = false;
+    let failure = '';
+    try {
+        const response = await fetch(`/api/sync?code=${encodeURIComponent(pin)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        if (!response.ok) throw new Error(`Sync failed with ${response.status}`);
-        return response;
-    };
-
-    const results = await Promise.allSettled([
-        post(`/api/sync?code=${encodeURIComponent(pin)}`),
-        post(`http://${localIp}:41331/api/sync`)
-    ]);
-    const cloudOk = results[0].status === 'fulfilled';
-    const localOk = results[1].status === 'fulfilled';
-
-    if (cloudOk && localOk) {
-        updateSyncStatus('تمت المزامنة سحابيًا ومحليًا', 'success');
-        showToast('✓ تم إرسال وتطبيق التصميم على الساعة بنجاح!');
-    } else if (cloudOk) {
-        updateSyncStatus('تم الحفظ والمزامنة سحابيًا بنجاح', 'success');
-        showToast('✓ تم حفظ التصميم سحابيًا وجاهز للمزامنة على الساعة');
-    } else if (localOk) {
-        updateSyncStatus('تم الإرسال للساعة بنجاح', 'success');
-        showToast('✓ تم إرسال التصميم للساعة محليًا بنجاح');
-    } else {
-        updateSyncStatus('حُفظت المسودة محليًا؛ تعذر الاتصال بالسحابة', 'error');
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `الخادم ردّ بالرمز ${response.status}`);
+        cloudOk = true;
+        // The relay says whether it reached durable storage, so a silent
+        // fallback to instance memory is visible instead of looking like success.
+        if (result.storage === 'memory') {
+            updateSyncStatus('تمت المزامنة، لكن بلا تخزين دائم (اربط Vercel KV)', 'error');
+            showToast('⚠ تم الحفظ مؤقتًا فقط — لم يُربط مخزن Vercel KV بعد');
+        } else {
+            updateSyncStatus('تم الحفظ السحابي بنجاح', 'success');
+            showToast('✓ تم حفظ التصميم سحابيًا وجاهز للمزامنة على الساعة');
+        }
+    } catch (error) {
+        failure = error.message;
+        console.error('Cloud sync failed:', error);
+        updateSyncStatus(`حُفظت المسودة محليًا؛ تعذر الاتصال بالسحابة (${failure})`, 'error');
         showToast('تم حفظ المسودة محليًا في المتصفح');
     }
 
-    if (isManual && !cloudOk && !localOk) {
+    if (isManual && !cloudOk) {
         const feedback = document.getElementById('syncFeedback');
         feedback?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    return { cloudOk, localOk };
+    return { cloudOk, error: failure };
 }
 
 function unwrapSyncPayload(response) {
@@ -2374,6 +2414,11 @@ async function pullFromCloud() {
         pushHistory();
         tileConfig = data.tilesConfig;
         if (data.settings) watchSettings = { ...watchSettings, ...data.settings };
+        // The watch face belongs to the same envelope, so a pull must restore it too.
+        if (data.watchFaceConfig) {
+            watchFaceConfig = { ...watchFaceConfig, ...data.watchFaceConfig };
+            localStorage.setItem('quran_watch_wf_config', JSON.stringify(watchFaceConfig));
+        }
         selectedIndices.clear();
         primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
         if (primarySelectedIdx >= 0) selectedIndices.add(primarySelectedIdx);
@@ -2386,10 +2431,6 @@ async function pullFromCloud() {
         console.error('Cloud pull error:', error);
         updateSyncStatus('تعذر جلب النسخة السحابية؛ تحقق من الاتصال والرمز', 'error');
     }
-}
-
-function syncLocalDirect() {
-    return syncAll(true);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2593,23 +2634,13 @@ function loadWatchFaceConfig() {
 function saveWatchFaceConfig() {
     try {
         localStorage.setItem('quran_watch_wf_config', JSON.stringify(watchFaceConfig));
-        showToast('تم حفظ إعدادات الطبقة الأولى!');
-        syncWatchFaceToCloud();
+        showToast('تم حفظ إعدادات لوحة التطبيق!');
+        // This used to POST to a dead fly.dev host and swallow the failure, so the
+        // settings never actually left the browser. The relay is the working path.
+        scheduleAutoSync();
     } catch (e) {
         console.warn('Could not save wf config', e);
     }
-}
-
-async function syncWatchFaceToCloud() {
-    try {
-        if (typeof API_URL !== 'undefined') {
-            await fetch(`${API_URL}/api/watchface`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(watchFaceConfig)
-            }).catch(() => {});
-        }
-    } catch (e) {}
 }
 
 function initWatchFaceStudio() {
@@ -3219,15 +3250,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPresetsGallery();
     initMobileQuickActions();
     initBookmarksUI();
-
-    // Set default watch IP input if empty
-    const ipInput = document.getElementById('watchIp');
-    if (ipInput && !ipInput.value) {
-        ipInput.value = localStorage.getItem('quran_watch_ip') || '192.168.1.226:41331';
-    }
-    ipInput?.addEventListener('change', () => {
-        localStorage.setItem('quran_watch_ip', ipInput.value);
-    });
 });
 
 
@@ -3356,55 +3378,3 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('backupFileInput')?.addEventListener('change', handleBackupFileSelected);
 });
 
-// ════════════════ WATCH IP AUTO-DISCOVERY & PING MODULE ════════════════
-async function pingWatchIp(ip) {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        const res = await fetch(`http://${ip}:41331/api/ping`, {
-            method: 'GET',
-            mode: 'cors',
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return res.ok;
-    } catch (_) {
-        return false;
-    }
-}
-
-async function autoDiscoverWatch() {
-    const ipInput = document.getElementById('watchIp');
-    const statusPill = document.getElementById('syncStatus');
-    if (statusPill) statusPill.textContent = 'جاري فحص الاتصال…';
-
-    const currentIp = ipInput?.value || localStorage.getItem('quran_watch_ip') || '192.168.1.190';
-    
-    // First try current IP
-    if (await pingWatchIp(currentIp)) {
-        if (ipInput) ipInput.value = currentIp;
-        localStorage.setItem('quran_watch_ip', currentIp);
-        showToast(`✓ متصلة بالساعة مباشرة (${currentIp})`);
-        updateSyncStatus(`متصلة (${currentIp})`, 'success');
-        return currentIp;
-    }
-
-    // Try common fallback IPs
-    const candidates = ['192.168.1.190', '192.168.1.226', '192.168.1.224', '192.168.1.100', '192.168.1.50', '192.168.0.190'];
-    for (const cand of candidates) {
-        if (await pingWatchIp(cand)) {
-            if (ipInput) ipInput.value = cand;
-            localStorage.setItem('quran_watch_ip', cand);
-            showToast(`✓ تم العثور على الساعة والاتصال بها (${cand})`);
-            updateSyncStatus(`متصلة (${cand})`, 'success');
-            return cand;
-        }
-    }
-
-    updateSyncStatus('الساعة غير متاحة محليًا (تأكد من فتح تطبيق الساعة)', 'error');
-    return null;
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('btnTestLocalSync')?.addEventListener('click', autoDiscoverWatch);
-});
