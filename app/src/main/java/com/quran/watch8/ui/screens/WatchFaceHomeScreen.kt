@@ -84,25 +84,38 @@ fun WatchFaceHomeScreen(
         }
     }
 
+    val config by viewModel.watchFaceConfig.collectAsState()
+
+    // Only the two chronograph faces sweep a second hand; the other seven render
+    // HH:mm, so waking the whole tree every second was 60x more work than needed.
+    val needsSecondTick = config.modelId == WatchFaceModelId.CLASSIC_CHRONO_HERITAGE ||
+        config.modelId == WatchFaceModelId.CLASSIC_CHRONO_LATIN_ALERT
+
     var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(needsSecondTick) {
+        val periodMs = if (needsSecondTick) 1_000L else 60_000L
         while (true) {
-            currentTime = Calendar.getInstance()
-            delay(1000L)
+            val now = Calendar.getInstance()
+            currentTime = now
+            // Sleep to the next boundary rather than a flat delay, so the clock
+            // never drifts and never wakes earlier than the next visible change.
+            delay(periodMs - (now.timeInMillis % periodMs))
         }
     }
 
-    val config by viewModel.watchFaceConfig.collectAsState()
+    val tickMinute = currentTime.get(Calendar.MINUTE)
+
     val prayerTimes = viewModel.prayerTimes
     val lastReading by viewModel.lastReadingPosition.collectAsState()
     val lastPosition: Pair<Int, Int> = if (lastReading != null) (lastReading!!.surah to lastReading!!.ayahNumber) else (1 to 1)
 
     val batteryManager = remember { context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager }
-    val batteryPct = remember(currentTime) {
+    // Charge moves over minutes, so re-reading it every tick was pure waste.
+    val batteryPct = remember(tickMinute) {
         batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0, 100) ?: 85
     }
 
-    val nextPrayerInfo = remember(prayerTimes, currentTime) {
+    val nextPrayerInfo = remember(prayerTimes, tickMinute) {
         calculateNextPrayer(prayerTimes, currentTime)
     }
     val nextPrayerName = nextPrayerInfo.first
@@ -391,7 +404,7 @@ fun WatchFaceHomeScreen(
         // 1. Popup: All Prayer Times Schedule + Elapsed/Remaining Times
         // ─────────────────────────────────────────────────────────────────────
         if (showPrayerSchedulePopup) {
-            val details = remember(prayerTimes, currentTime) {
+            val details = remember(prayerTimes, tickMinute) {
                 computePrayerScheduleDetails(prayerTimes)
             }
             PrayerScheduleDialog(

@@ -41,7 +41,9 @@ class QuranWatchFaceRenderer(
     currentUserStyleRepository,
     watchState,
     canvasType,
-    16L, // 60fps
+    // A digital face only ever changes once a second, so redrawing at 60fps
+    // burned ~60x the power for no visible difference.
+    1000L,
     true
 ), WatchFace.TapListener {
 

@@ -202,29 +202,30 @@ fun HomeScreen(
     var currentSecondsStr by remember { mutableStateOf(LocalTime.now().format(DateTimeFormatter.ofPattern("ss", Locale.US))) }
     var amPmStr by remember { mutableStateOf(if (LocalTime.now().hour < 12) "AM" else "PM") }
 
+    val hhmmFormatter = remember { DateTimeFormatter.ofPattern("HH:mm", Locale.US) }
+    val secondsFormatter = remember { DateTimeFormatter.ofPattern("ss", Locale.US) }
+
+    // The tiles only ever render HH:mm, so tick once a minute on the boundary
+    // instead of waking the whole grid every second.
     LaunchedEffect(Unit) {
         viewModel.refreshPrayerTimes()
         while (true) {
             val now = LocalTime.now()
-            currentTimeStr = now.format(DateTimeFormatter.ofPattern("HH:mm", Locale.US))
-            currentSecondsStr = now.format(DateTimeFormatter.ofPattern("ss", Locale.US))
+            currentTimeStr = now.format(hhmmFormatter)
+            currentSecondsStr = now.format(secondsFormatter)
             amPmStr = if (now.hour < 12) "AM" else "PM"
-            delay(1000L)
+            delay(60_000L - (System.currentTimeMillis() % 60_000L))
         }
     }
 
-    // Live animation ticker
-    val infiniteTransition = rememberInfiniteTransition()
-    val stepFloat by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        )
-    )
-    LaunchedEffect(stepFloat.toInt()) {
-        if (stepFloat.toInt() % 100 == 0) liveStep++
+    // Rotates a live tile through its sub-actions. This used to hang off a 60fps
+    // infinite animation whose LaunchedEffect key changed hundreds of times a
+    // second, tearing down and relaunching a coroutine on every change.
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(4000L)
+            liveStep++
+        }
     }
 
     // Safe navigation helper
@@ -729,6 +730,25 @@ private fun FolderItemButton(actionId: String, modifier: Modifier = Modifier, on
     }
 }
 
+/** Pulses a tile icon only when that tile actually asked for an animated one. */
+@Composable
+private fun rememberIconPulse(enabled: Boolean): Float =
+    if (enabled) {
+        val transition = rememberInfiniteTransition(label = "icon_pulse")
+        val scale by transition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.20f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1200, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "icon_pulse_scale"
+        )
+        scale
+    } else {
+        1f
+    }
+
 @Composable
 private fun SmartWatchFaceTile(
     slot: SlotItem,
@@ -827,15 +847,9 @@ private fun SmartWatchFaceTile(
         label = "tile_scale"
     )
 
-    val infiniteTransition = rememberInfiniteTransition()
-    val animatedIconScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (slot.iconStyle == "animated") 1.20f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
+    // Every tile used to run this animation even with a static icon (1f -> 1f),
+    // which kept the whole grid invalidating at the display refresh rate.
+    val animatedIconScale = rememberIconPulse(slot.iconStyle == "animated")
 
     val tileShape = RectangleShape
     val resolvedBg = when (appearance.iconPalette) {
