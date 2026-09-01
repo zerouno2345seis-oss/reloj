@@ -1251,6 +1251,17 @@ function updateEditor() {
         if (noMsg) noMsg.style.display = 'block';
         document.getElementById('folderItemsEditor')?.setAttribute('hidden', '');
     }
+
+    // Always keep mobile toolbar label in sync
+    const mobileLabel = document.getElementById('mobileSelectedTileLabel');
+    if (mobileLabel) {
+        if (primarySelectedIdx >= 0 && primarySelectedIdx < tileConfig.tiles.length) {
+            const s = tileConfig.tiles[primarySelectedIdx];
+            mobileLabel.textContent = `العنصر المحدد: ${getPreviewLabel(s)} (الصف ${(s.rowIndex || 0) + 1} · عرض ${s.colSpan || 12}/12)`;
+        } else {
+            mobileLabel.textContent = 'انقر على أي بلاطة لتحديدها وتعديلها';
+        }
+    }
 }
 
 function renderFolderItemsEditor(slot) {
@@ -1396,78 +1407,99 @@ function setupCanvasEvents() {
     if (!canvas) return;
 
     function handleStart(clientX, clientY, target, isShift, isCtrl) {
-        if (target.dataset.handle === 'resize-tile') {
-            dragType = 'resize-tile';
-            dragResizeCorner = target.dataset.edge || target.dataset.corner || 'se';
-            primarySelectedIdx = parseInt(target.dataset.index);
-            selectedIndices = new Set([primarySelectedIdx]);
-        } else if (target.dataset.handle === 'scale-text') {
-            dragType = 'scale-text';
-            primarySelectedIdx = parseInt(target.dataset.index);
-        } else if (target.dataset.handle === 'scale-icon') {
-            dragType = 'scale-icon';
-            primarySelectedIdx = parseInt(target.dataset.index);
-        } else if (target.dataset.role === 'text') {
-            dragType = 'text';
-            primarySelectedIdx = parseInt(target.dataset.index);
-        } else if (target.dataset.role === 'icon') {
-            dragType = 'icon';
-            primarySelectedIdx = parseInt(target.dataset.index);
-        } else if (target.dataset.index !== undefined) {
-            dragType = 'grid-tile';
-            let clickedIdx = parseInt(target.dataset.index);
-            
-            if (isShift || isCtrl) {
-                if (selectedIndices.has(clickedIdx)) {
-                    selectedIndices.delete(clickedIdx);
-                    if (primarySelectedIdx === clickedIdx) {
+        // 1. Check for Resize Handle or Scale Knob
+        const handleEl = target.closest('[data-handle]');
+        if (handleEl) {
+            const hType = handleEl.dataset.handle;
+            const hIdx = parseInt(handleEl.dataset.index);
+            if (!isNaN(hIdx) && hIdx >= 0 && hIdx < tileConfig.tiles.length) {
+                primarySelectedIdx = hIdx;
+                selectedIndices = new Set([hIdx]);
+                if (hType === 'resize-tile') {
+                    dragType = 'resize-tile';
+                    dragResizeCorner = handleEl.dataset.edge || handleEl.dataset.corner || 'se';
+                } else if (hType === 'scale-text') {
+                    dragType = 'scale-text';
+                } else if (hType === 'scale-icon') {
+                    dragType = 'scale-icon';
+                }
+                updateEditor();
+                renderCanvas();
+                dragStartPointerX = clientX;
+                dragStartPointerY = clientY;
+                startTilesSnapshot = JSON.parse(JSON.stringify(tileConfig.tiles));
+                ghostTargetSlot = null;
+                interactionHistoryPushed = false;
+                return;
+            }
+        }
+
+        // 2. Check for Tile Click (Any child element inside canvas-tile)
+        const tileEl = target.closest('.canvas-tile') || target.closest('[data-index]');
+        if (tileEl && tileEl.dataset.index !== undefined) {
+            const clickedIdx = parseInt(tileEl.dataset.index);
+            if (!isNaN(clickedIdx) && clickedIdx >= 0 && clickedIdx < tileConfig.tiles.length) {
+                dragType = 'grid-tile';
+                if (isShift || isCtrl) {
+                    if (selectedIndices.has(clickedIdx)) {
+                        selectedIndices.delete(clickedIdx);
                         primarySelectedIdx = selectedIndices.size > 0 ? Array.from(selectedIndices)[0] : -1;
+                    } else {
+                        selectedIndices.add(clickedIdx);
+                        primarySelectedIdx = clickedIdx;
                     }
                 } else {
-                    selectedIndices.add(clickedIdx);
+                    selectedIndices = new Set([clickedIdx]);
                     primarySelectedIdx = clickedIdx;
                 }
-            } else {
-                if (!selectedIndices.has(clickedIdx)) {
-                    selectedIndices.clear();
-                    selectedIndices.add(clickedIdx);
-                }
-                primarySelectedIdx = clickedIdx;
+                updateEditor();
+                renderCanvas();
+                dragStartPointerX = clientX;
+                dragStartPointerY = clientY;
+                startTilesSnapshot = JSON.parse(JSON.stringify(tileConfig.tiles));
+                ghostTargetSlot = null;
+                interactionHistoryPushed = false;
+                return;
             }
-        } else {
+        }
+
+        // 3. Clicked empty background inside canvas
+        if (target === canvas || target.classList.contains('safe-area-ring') || target.classList.contains('edge-margin-guide')) {
             selectedIndices.clear();
             primarySelectedIdx = -1;
             dragType = null;
             updateEditor();
             renderCanvas();
-            return;
         }
-        
-        updateEditor();
-        renderCanvas();
-        
-        dragStartPointerX = clientX;
-        dragStartPointerY = clientY;
-        startTilesSnapshot = JSON.parse(JSON.stringify(tileConfig.tiles));
-        ghostTargetSlot = null;
-        interactionHistoryPushed = false;
     }
 
-    canvas.addEventListener('mousedown', (e) => {
-        handleStart(e.clientX, e.clientY, e.target, e.shiftKey, e.ctrlKey || e.metaKey);
-        document.addEventListener('mousemove', onPointerMove);
-        document.addEventListener('mouseup', onPointerUp);
+    // Unified Touch & Pointer Engine with setPointerCapture
+    canvas.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+        handleStart(e.clientX, e.clientY, e.target, e.shiftKey, e.ctrlKey || e.metaKey);
     });
 
-    canvas.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) {
-            let t = e.touches[0];
-            handleStart(t.clientX, t.clientY, e.target, false, false);
-            document.addEventListener('touchmove', onTouchMove, { passive: false });
-            document.addEventListener('touchend', onTouchEnd);
+    canvas.addEventListener('pointermove', (e) => {
+        if (dragType) {
+            e.preventDefault();
+            onPointerMove(e);
         }
-    }, { passive: false });
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+        if (dragType) {
+            onPointerUp();
+            try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+    });
+
+    canvas.addEventListener('pointercancel', (e) => {
+        if (dragType) {
+            onPointerUp();
+            try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+    });
 }
 
 function onTouchMove(e) {
