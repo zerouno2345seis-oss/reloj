@@ -2337,10 +2337,19 @@ async function syncAll(isManual = false) {
     const cloudOk = results[0].status === 'fulfilled';
     const localOk = results[1].status === 'fulfilled';
 
-    if (cloudOk && localOk) updateSyncStatus('تمت المزامنة سحابيًا ومحليًا', 'success');
-    else if (cloudOk) updateSyncStatus('تم الحفظ سحابيًا؛ الساعة المحلية غير متاحة', 'success');
-    else if (localOk) updateSyncStatus('تم الإرسال للساعة؛ السحابة غير متاحة', 'success');
-    else updateSyncStatus('حُفظت المسودة محليًا؛ تعذر الوصول إلى الساعة والسحابة', 'error');
+    if (cloudOk && localOk) {
+        updateSyncStatus('تمت المزامنة سحابيًا ومحليًا', 'success');
+        showToast('✓ تم إرسال وتطبيق التصميم على الساعة بنجاح!');
+    } else if (cloudOk) {
+        updateSyncStatus('تم الحفظ والمزامنة سحابيًا بنجاح', 'success');
+        showToast('✓ تم حفظ التصميم سحابيًا وجاهز للمزامنة على الساعة');
+    } else if (localOk) {
+        updateSyncStatus('تم الإرسال للساعة بنجاح', 'success');
+        showToast('✓ تم إرسال التصميم للساعة محليًا بنجاح');
+    } else {
+        updateSyncStatus('حُفظت المسودة محليًا؛ تعذر الاتصال بالسحابة', 'error');
+        showToast('تم حفظ المسودة محليًا في المتصفح');
+    }
 
     if (isManual && !cloudOk && !localOk) {
         const feedback = document.getElementById('syncFeedback');
