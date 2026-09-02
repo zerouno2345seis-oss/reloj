@@ -1,0 +1,6 @@
+# Android sources and restore archives are not part of the web deployment.
+app/
+.gradle/
+.restore-points/
+.git/
+*.tar.gz
