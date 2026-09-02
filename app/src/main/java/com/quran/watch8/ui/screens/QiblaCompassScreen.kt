@@ -38,24 +38,8 @@ import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Text
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
-import kotlin.math.PI
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-
-private const val KAABA_LATITUDE = 21.422487
-private const val KAABA_LONGITUDE = 39.826206
-
-private fun qiblaBearing(latitude: Double, longitude: Double): Float {
-    val userLat = Math.toRadians(latitude)
-    val kaabaLat = Math.toRadians(KAABA_LATITUDE)
-    val longitudeDelta = Math.toRadians(KAABA_LONGITUDE - longitude)
-    val y = sin(longitudeDelta) * cos(kaabaLat)
-    val x = cos(userLat) * sin(kaabaLat) - sin(userLat) * cos(kaabaLat) * cos(longitudeDelta)
-    return ((atan2(y, x) * 180.0 / PI + 360.0) % 360.0).toFloat()
-}
-
-private fun normalizedRotation(degrees: Float): Float = ((degrees + 540f) % 360f) - 180f
+import com.quran.watch8.ui.screens.watchfaces.normalizedRotation
+import com.quran.watch8.ui.screens.watchfaces.qiblaBearing
 
 @Composable
 fun QiblaCompassScreen(onBack: () -> Unit, viewModel: MainViewModel) {

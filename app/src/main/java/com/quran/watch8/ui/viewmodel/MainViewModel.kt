@@ -25,6 +25,8 @@ import com.quran.watch8.data.model.PrayerReminderConfig
 import com.quran.watch8.data.model.SavedLocation
 import com.quran.watch8.data.model.*
 import com.quran.watch8.util.PrayerTimesHelper
+import com.quran.watch8.util.WeatherSnapshot
+import com.quran.watch8.ui.screens.watchfaces.TasbihState
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -62,6 +64,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val tilesConfig     = prefs.tilesConfigJson.map { com.quran.watch8.data.model.TileConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.data.model.TileConfig())
     val tilesDisplayMode= prefs.tilesDisplayMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "icons_only")
     val watchFaceConfig = prefs.watchFaceConfigJson.map { com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, com.quran.watch8.data.model.WatchFaceConfig())
+    val tasbihState: StateFlow<TasbihState> = combine(prefs.tasbihCount, prefs.tasbihTarget, prefs.tasbihDhikrIndex) { count, target, index ->
+        TasbihState(count, target, index)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, TasbihState())
     val pinnedApps      = prefs.pinnedApps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
     val drawerViewMode  = prefs.drawerViewMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "list")
     val notificationsEnabled = prefs.notificationsEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -117,11 +122,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var weatherSummary by mutableStateOf("جاري تحديث الطقس...")
         private set
+    var weatherSnapshot by mutableStateOf(WeatherSnapshot.unavailable())
+        private set
+    var lastReadingAyahText by mutableStateOf("بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ")
+        private set
 
     // ───────────────────────────────────────────────────────────────────────────
     init {
         checkPermissions()
         initBatteryAndDate()
+        viewModelScope.launch {
+            isQuranLoaded = quranRepo.loadQuran()
+            lastReadingPosition.collectLatest { position ->
+                val surah = position?.surah ?: 1
+                val ayah = position?.ayahNumber ?: 1
+                lastReadingAyahText = quranRepo.getAyah(surah, ayah)?.text
+                    ?: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"
+            }
+        }
         viewModelScope.launch { refreshPrayerTimes() }
         refreshWeather()
     }
@@ -130,7 +148,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val lat = currentLocation?.latitude ?: selectedLat.value
             val lng = currentLocation?.longitude ?: selectedLng.value
-            weatherSummary = com.quran.watch8.util.WeatherHelper.fetchWeatherSummary(lat, lng)
+            weatherSnapshot = com.quran.watch8.util.WeatherHelper.fetchWeatherSnapshot(lat, lng)
+            weatherSummary = weatherSnapshot.summary
         }
     }
 
@@ -199,31 +218,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setWatchFaceConfig(config: com.quran.watch8.data.model.WatchFaceConfig) { viewModelScope.launch { prefs.setWatchFaceConfigJson(config.toJson()) } }
     fun setComplicationSlot(slot: String, type: com.quran.watch8.data.model.ComplicationType) {
         val current = watchFaceConfig.value
-        val updated = when (slot) {
-            "top" -> current.copy(topSlot = type)
-            "right" -> current.copy(rightSlot = type)
-            "left" -> current.copy(leftSlot = type)
-            "bottom" -> current.copy(bottomSlot = type)
-            else -> current
-        }
-        setWatchFaceConfig(updated)
+        setWatchFaceConfig(current.withSlot(slot, type))
     }
     fun cycleComplicationSlot(slot: String) {
         val current = watchFaceConfig.value
-        val updated = when (slot) {
-            "top" -> current.copy(topSlot = current.topSlot.next())
-            "right" -> current.copy(rightSlot = current.rightSlot.next())
-            "left" -> current.copy(leftSlot = current.leftSlot.next())
-            "bottom" -> current.copy(bottomSlot = current.bottomSlot.next())
-            else -> current
+        val currentType = when (slot) {
+            "top" -> current.topSlot; "right" -> current.rightSlot; "left" -> current.leftSlot
+            "bottom" -> current.bottomSlot; else -> return
         }
-        setWatchFaceConfig(updated)
+        setWatchFaceConfig(current.withSlot(slot, currentType.next()))
     }
     fun setWatchFaceModel(model: com.quran.watch8.data.model.WatchFaceModelId) {
         viewModelScope.launch {
             val current = prefs.watchFaceConfigJson.first().let { com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) }
-            prefs.setWatchFaceConfigJson(current.copy(modelId = model).toJson())
+            prefs.setWatchFaceConfigJson(current.withModel(model).toJson())
         }
+    }
+
+    fun incrementTasbih() {
+        val updated = tasbihState.value.incremented()
+        viewModelScope.launch { prefs.setTasbihState(updated.count, updated.target, updated.dhikrIndex) }
+    }
+
+    fun resetTasbih() {
+        val current = tasbihState.value
+        viewModelScope.launch { prefs.setTasbihState(0, current.target, current.dhikrIndex) }
+    }
+
+    fun cycleTasbihTarget() {
+        val current = tasbihState.value
+        val nextTarget = when (current.target) { 33 -> 99; 99 -> 100; else -> 33 }
+        viewModelScope.launch { prefs.setTasbihState(current.count.coerceAtMost(nextTarget), nextTarget, current.dhikrIndex) }
+    }
+
+    fun cycleTasbihDhikr() {
+        val current = tasbihState.value
+        viewModelScope.launch { prefs.setTasbihState(0, current.target, (current.dhikrIndex + 1) % 6) }
     }
     fun togglePinnedApp(pkg: String) {
         viewModelScope.launch { prefs.togglePinnedApp(pkg) }

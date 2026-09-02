@@ -306,13 +306,33 @@ object LocalSyncServer {
                 com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) 
             }
 
-            val updated = current.copy(
-                modelId = if (modelId.isNotBlank()) runCatching { com.quran.watch8.data.model.WatchFaceModelId.valueOf(modelId) }.getOrDefault(current.modelId) else current.modelId,
-                topSlot = if (topSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(topSlot) }.getOrDefault(current.topSlot) else current.topSlot,
-                rightSlot = if (rightSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(rightSlot) }.getOrDefault(current.rightSlot) else current.rightSlot,
-                leftSlot = if (leftSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(leftSlot) }.getOrDefault(current.leftSlot) else current.leftSlot,
-                bottomSlot = if (bottomSlot.isNotBlank()) runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(bottomSlot) }.getOrDefault(current.bottomSlot) else current.bottomSlot
-            )
+            val selectedModel = if (modelId.isNotBlank()) runCatching {
+                com.quran.watch8.data.model.WatchFaceModelId.valueOf(modelId)
+            }.getOrDefault(current.modelId) else current.modelId
+            var updated = current.withModel(selectedModel)
+            val profileObject = wfObj.optJSONObject("slotProfiles")
+            if (profileObject != null) {
+                val incomingProfiles = buildMap {
+                    profileObject.keys().forEach { id ->
+                        val item = profileObject.optJSONObject(id) ?: return@forEach
+                        val model = runCatching { com.quran.watch8.data.model.WatchFaceModelId.valueOf(id) }.getOrNull() ?: return@forEach
+                        val fallback = com.quran.watch8.data.model.WatchFaceConfig.defaultSlotsFor(model)
+                        fun slot(longKey: String, shortKey: String, default: com.quran.watch8.data.model.ComplicationType): com.quran.watch8.data.model.ComplicationType {
+                            val raw = item.optString(longKey, item.optString(shortKey, default.name))
+                            return runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(raw) }.getOrDefault(default)
+                        }
+                        put(id, com.quran.watch8.data.model.ComplicationSlots(
+                            top = slot("topSlot", "top", fallback.top), right = slot("rightSlot", "right", fallback.right),
+                            left = slot("leftSlot", "left", fallback.left), bottom = slot("bottomSlot", "bottom", fallback.bottom)
+                        ))
+                    }
+                }
+                updated = updated.copy(slotProfiles = updated.slotProfiles + incomingProfiles).withModel(selectedModel)
+            }
+            if (topSlot.isNotBlank()) updated = updated.withSlot("top", runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(topSlot) }.getOrDefault(updated.topSlot))
+            if (rightSlot.isNotBlank()) updated = updated.withSlot("right", runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(rightSlot) }.getOrDefault(updated.rightSlot))
+            if (leftSlot.isNotBlank()) updated = updated.withSlot("left", runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(leftSlot) }.getOrDefault(updated.leftSlot))
+            if (bottomSlot.isNotBlank()) updated = updated.withSlot("bottom", runCatching { com.quran.watch8.data.model.ComplicationType.valueOf(bottomSlot) }.getOrDefault(updated.bottomSlot))
             prefs.setWatchFaceConfigJson(updated.toJson())
         }
 

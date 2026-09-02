@@ -2899,6 +2899,42 @@ const WATCH_FACE_MODELS = [
         name: 'الأفق الشمسي',
         desc: 'حركة تفاعلية تتدرج مع مدار الشمس والشروق والغروب',
         category: 'celestial'
+    },
+    {
+        id: 'FAJR_MIHRAB',
+        name: 'محراب الفجر',
+        desc: 'وقت هادئ داخل محراب مع الصلوات الخمس وموضع القراءة',
+        category: 'islamic'
+    },
+    {
+        id: 'DHIKR_PULSE',
+        name: 'نبض الذكر',
+        desc: 'حلقة تسبيح تفاعلية مع الطقس والبطارية والصلاة',
+        category: 'islamic'
+    },
+    {
+        id: 'QIBLA_SERENITY',
+        name: 'بوصلة السكينة',
+        desc: 'سهم قبلة مركزي بلا درجات أو تدريجات محيطية',
+        category: 'islamic'
+    },
+    {
+        id: 'QURAN_GALLERY',
+        name: 'رِواق الآية',
+        desc: 'اسم السورة ورقم الآية والمتن في قراءة عربية متصلة',
+        category: 'islamic'
+    },
+    {
+        id: 'DAILY_ORBITS',
+        name: 'مدارات اليوم',
+        desc: 'أقواس داخلية للبطارية والصلاة وضوء النهار والتسبيح',
+        category: 'modern'
+    },
+    {
+        id: 'BELIEVER_MOSAIC',
+        name: 'فسيفساء المؤمن',
+        desc: 'بلاطات متوازنة للطقس والقبلة والقرآن والصلوات',
+        category: 'modern'
     }
 ];
 
@@ -2908,13 +2944,13 @@ const COMPLICATION_TYPES = [
     { id: 'HIJRI_DATE', name: 'التقويم الهجري', icon: '🌙' },
     { id: 'GREGORIAN_DATE', name: 'التاريخ الميلادي (17 Sep)', icon: '📅' },
     { id: 'QURAN_RESUME', name: 'موضع المصحف (الكهف: 18)', icon: '📖' },
-    { id: 'QIBLA', name: 'اتجاه القبلة (242°)', icon: '🕋' },
+    { id: 'QIBLA', name: 'اتجاه القبلة', icon: '🕋' },
     { id: 'TASBIH', name: 'المسبحة الإلكترونية (33/33)', icon: '📿' },
     { id: 'WEATHER', name: 'الطقس والحرارة (24°C)', icon: '⛅' },
     { id: 'SUNRISE_SUNSET', name: 'الشروق والغروب (06:12)', icon: '🌅' },
     { id: 'DAILY_ATHKAR', name: 'ورد الأذكار اليومي', icon: '🤲' },
-    { id: 'STEP_COUNTER', name: 'عداد الخطوات (6,420)', icon: '🚶‍♂️' },
-    { id: 'HEART_RATE', name: 'نبضات القلب (72 bpm)', icon: '❤️' },
+    { id: 'STEP_COUNTER', name: 'عداد الخطوات (غير متاح دون مصدر صحي)', icon: '🚶‍♂️' },
+    { id: 'HEART_RATE', name: 'نبضات القلب (غير متاح دون مصدر صحي)', icon: '❤️' },
     { id: 'FASTING_TRACKER', name: 'صيام النوافل والإمساك', icon: '✨' },
     { id: 'PRAYER_ALERT', name: 'تنبيه الصلاة المسبق (باقي 10د)', icon: '🔔' },
     { id: 'HIDDEN', name: 'إخفاء المعلومة (نقاء تام)', icon: '🚫' }
@@ -2929,8 +2965,47 @@ let watchFaceConfig = {
     leftSlot: 'BATTERY',
     rightSlot: 'NEXT_PRAYER',
     bottomSlot: 'QURAN_RESUME',
+    slotProfiles: {},
     useLatinDigits: true
 };
+
+const WATCH_FACE_DEFAULT_SLOTS = {
+    FAJR_MIHRAB: { topSlot: 'HIJRI_DATE', rightSlot: 'NEXT_PRAYER', leftSlot: 'NEXT_PRAYER', bottomSlot: 'QURAN_RESUME' },
+    DHIKR_PULSE: { topSlot: 'NEXT_PRAYER', rightSlot: 'WEATHER', leftSlot: 'BATTERY', bottomSlot: 'QURAN_RESUME' },
+    QIBLA_SERENITY: { topSlot: 'GREGORIAN_DATE', rightSlot: 'BATTERY', leftSlot: 'WEATHER', bottomSlot: 'NEXT_PRAYER' },
+    QURAN_GALLERY: { topSlot: 'HIJRI_DATE', rightSlot: 'HIDDEN', leftSlot: 'HIDDEN', bottomSlot: 'NEXT_PRAYER' },
+    DAILY_ORBITS: { topSlot: 'BATTERY', rightSlot: 'TASBIH', leftSlot: 'SUNRISE_SUNSET', bottomSlot: 'NEXT_PRAYER' },
+    BELIEVER_MOSAIC: { topSlot: 'WEATHER', rightSlot: 'BATTERY', leftSlot: 'QIBLA', bottomSlot: 'QURAN_RESUME' }
+};
+
+function snapshotActiveWatchFaceSlots() {
+    return {
+        topSlot: watchFaceConfig.topSlot,
+        rightSlot: watchFaceConfig.rightSlot,
+        leftSlot: watchFaceConfig.leftSlot,
+        bottomSlot: watchFaceConfig.bottomSlot
+    };
+}
+
+function getActiveWatchFaceSlots(modelId = watchFaceConfig.selectedModel) {
+    return watchFaceConfig.slotProfiles?.[modelId]
+        || WATCH_FACE_DEFAULT_SLOTS[modelId]
+        || snapshotActiveWatchFaceSlots();
+}
+
+function persistActiveWatchFaceSlots() {
+    watchFaceConfig.slotProfiles = {
+        ...(watchFaceConfig.slotProfiles || {}),
+        [watchFaceConfig.selectedModel]: snapshotActiveWatchFaceSlots()
+    };
+}
+
+function switchWatchFaceModel(modelId) {
+    persistActiveWatchFaceSlots();
+    const slots = getActiveWatchFaceSlots(modelId);
+    watchFaceConfig = { ...watchFaceConfig, selectedModel: modelId, ...slots };
+    persistActiveWatchFaceSlots();
+}
 
 function loadWatchFaceConfig() {
     try {
@@ -2938,6 +3013,8 @@ function loadWatchFaceConfig() {
         if (saved) {
             watchFaceConfig = { ...watchFaceConfig, ...JSON.parse(saved) };
         }
+        if (!watchFaceConfig.slotProfiles || typeof watchFaceConfig.slotProfiles !== 'object') watchFaceConfig.slotProfiles = {};
+        persistActiveWatchFaceSlots();
     } catch (e) {
         console.warn('Could not load wf config', e);
     }
@@ -2982,10 +3059,11 @@ function renderWatchFaceModelCards() {
     container.querySelectorAll('.wf-model-card').forEach(card => {
         card.addEventListener('click', () => {
             const modelId = card.dataset.modelId;
-            watchFaceConfig.selectedModel = modelId;
+            switchWatchFaceModel(modelId);
             container.querySelectorAll('.wf-model-card').forEach(c => c.classList.remove('active'));
             card.classList.add('active');
             renderLiveWatchFacePreview();
+            setupComplicationSelects();
         });
     });
 }
@@ -3036,42 +3114,99 @@ function setupComplicationSelects() {
 
         select.addEventListener('change', (e) => {
             watchFaceConfig[slot.slotKey] = e.target.value;
+            persistActiveWatchFaceSlots();
             updateIcon();
             renderLiveWatchFacePreview();
         });
     });
 }
 
-function getComplicationBadgeHtml(slotKey, className) {
-    const compId = watchFaceConfig[slotKey];
-    if (compId === 'HIDDEN') return '';
+function getComplicationPresentation(compId) {
     const comp = COMPLICATION_TYPES.find(c => c.id === compId) || COMPLICATION_TYPES[0];
-    
     let sampleText = '';
     switch (compId) {
         case 'NEXT_PRAYER': sampleText = 'المغرب 18:34'; break;
         case 'BATTERY': sampleText = '78%'; break;
         case 'HIJRI_DATE': sampleText = hijriToday(); break;
-        case 'GREGORIAN_DATE': sampleText = '17 Sep'; break;
+        case 'GREGORIAN_DATE': sampleText = '17 سبتمبر'; break;
         case 'QURAN_RESUME': sampleText = 'الكهف: 18'; break;
-        case 'QIBLA': sampleText = '242°'; break;
+        case 'QIBLA': sampleText = 'اتجاه القبلة'; break;
         case 'TASBIH': sampleText = '33/33'; break;
         case 'WEATHER': sampleText = '24°C'; break;
-        case 'SUNRISE_SUNSET': sampleText = '06:12'; break;
+        case 'SUNRISE_SUNSET': sampleText = '06:12 · 19:03'; break;
         case 'DAILY_ATHKAR': sampleText = 'أذكار'; break;
-        case 'STEP_COUNTER': sampleText = '6,420'; break;
-        case 'HEART_RATE': sampleText = '72 bpm'; break;
+        case 'STEP_COUNTER':
+        case 'HEART_RATE': sampleText = 'غير متاح'; break;
         case 'FASTING_TRACKER': sampleText = 'صيام'; break;
         case 'PRAYER_ALERT': sampleText = 'باقي 10د'; break;
         default: sampleText = comp.name.split(' ')[0];
     }
+    return { ...comp, sampleText };
+}
+
+function getComplicationBadgeHtml(slotKey, className) {
+    const compId = watchFaceConfig[slotKey];
+    if (compId === 'HIDDEN') return '';
+    const comp = getComplicationPresentation(compId);
 
     return `
         <div class="wf-comp-badge ${className}" data-slot-key="${slotKey}" title="${comp.name}">
             <span>${comp.icon}</span>
-            <span>${sampleText}</span>
+            <span>${comp.sampleText}</span>
         </div>
     `;
+}
+
+function getNewFaceSlotHtml(slotKey, className, expectedId = null, expectedHtml = null) {
+    const compId = watchFaceConfig[slotKey];
+    if (compId === 'HIDDEN') return '';
+    const comp = getComplicationPresentation(compId);
+    const content = expectedId === compId && expectedHtml
+        ? expectedHtml
+        : `<span>${comp.icon}</span><b>${comp.sampleText}</b>`;
+    return `<div class="${className}" data-slot-key="${slotKey}" title="انقر للتبديل، واضغط مطولًا للتخصيص">${content}</div>`;
+}
+
+const NEW_WATCH_FACE_IDS = new Set(['FAJR_MIHRAB', 'DHIKR_PULSE', 'QIBLA_SERENITY', 'QURAN_GALLERY', 'DAILY_ORBITS', 'BELIEVER_MOSAIC']);
+
+function renderNewWatchFacePreview(model) {
+    switch (model) {
+        case 'FAJR_MIHRAB': return `
+            <div class="wf-v2 wf-v2-fajr-mihrab">
+                ${getNewFaceSlotHtml('topSlot', 'wf-v2-hijri')}
+                <div class="wf-v2-mihrab"><strong data-action="calendar">06:12</strong>${getNewFaceSlotHtml('rightSlot', 'wf-v2-mihrab-slot', 'NEXT_PRAYER', '<span>الفجر بعد 18 د</span>')}</div>
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-prayers', 'NEXT_PRAYER', '<span>فجر<small>06:30</small></span><span>ظهر<small>12:35</small></span><span>عصر<small>15:55</small></span><span>مغرب<small>18:20</small></span><span>عشاء<small>19:50</small></span>')}
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill')}
+            </div>`;
+        case 'DHIKR_PULSE': return `
+            <div class="wf-v2 wf-v2-dhikr-pulse">
+                ${getNewFaceSlotHtml('topSlot', 'wf-v2-top-pill')}<div class="wf-v2-ring"></div>
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right')}
+                <div class="wf-v2-center" data-action="tasbih"><span>سبحان الله</span><strong>18:34</strong><em>27 / 33</em></div>
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill')}
+            </div>`;
+        case 'QIBLA_SERENITY': return `
+            <div class="wf-v2 wf-v2-qibla-serenity">${getNewFaceSlotHtml('topSlot', 'wf-v2-top-pill')}
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right')}
+                <div class="wf-v2-qibla-arrow" data-action="qibla">➤<span>القبلة</span></div>${getNewFaceSlotHtml('bottomSlot', 'wf-v2-prayer-pill')}
+                <div class="wf-v2-sun" data-action="sun">☀ 06:12 · 19:03 ☾</div></div>`;
+        case 'QURAN_GALLERY': return `
+            <div class="wf-v2 wf-v2-quran-gallery"><div class="wf-v2-quran-time"><strong data-action="calendar">12:45</strong>${getNewFaceSlotHtml('topSlot', 'wf-v2-quran-sub')}</div>
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right')}
+                <div class="wf-v2-ayah" data-action="quran"><b>سورة الفاتحة · 1 </b>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-quran-footer')}</div>`;
+        case 'DAILY_ORBITS': return `
+            <div class="wf-v2 wf-v2-daily-orbits"><div class="wf-v2-orbit-ring"></div>
+                ${getNewFaceSlotHtml('topSlot', 'wf-v2-orbit-label ol1')}<div class="wf-v2-orbit-label ol2" data-action="sun">ضوء النهار<b>64%</b></div>
+                <div class="wf-v2-orbit-clock" data-action="calendar">10:08<small>الثلاثاء 23</small></div>
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-orbit-label ol3')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-orbit-label ol4')}
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-orbit-prayer')}</div>`;
+        case 'BELIEVER_MOSAIC': return `
+            <div class="wf-v2 wf-v2-believer-mosaic">${getNewFaceSlotHtml('topSlot', 'wf-v2-weather')}
+                <div class="wf-v2-mosaic-row">${getNewFaceSlotHtml('leftSlot', '')}<strong data-action="calendar">21:06</strong>${getNewFaceSlotHtml('rightSlot', '')}</div>
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill')}<div class="wf-v2-mosaic-bottom"><em data-action="tasbih">📿 33</em><span data-action="prayers">فجر<br>04:28</span><span data-action="prayers">ظهر<br>12:34</span><span data-action="prayers">عصر<br>15:47</span><span data-action="prayers">مغرب<br>19:08</span><span data-action="prayers">عشاء<br>20:38</span></div></div>`;
+        default: return '';
+    }
 }
 
 function renderLiveWatchFacePreview() {
@@ -3090,7 +3225,9 @@ function renderLiveWatchFacePreview() {
     // Central Quran Emblem Button
     const centerEmblem = `<div class="wf-emblem-badge" title="المصحف الشريف (البلاطات المتصلة)">📖</div>`;
 
-    if (model.includes('CHRONO')) {
+    if (NEW_WATCH_FACE_IDS.has(model)) {
+        dialHtml = renderNewWatchFacePreview(model);
+    } else if (model.includes('CHRONO')) {
         // Chronograph Dial
         dialHtml = `
             <div class="wf-analog-dial">
@@ -3147,8 +3284,8 @@ function renderLiveWatchFacePreview() {
 
     container.innerHTML = dialHtml;
 
-    // Add interactivity to badges
-    container.querySelectorAll('.wf-comp-badge').forEach(badge => {
+    // Every visible slot in both the original and new faces is directly interactive.
+    container.querySelectorAll('[data-slot-key]').forEach(badge => {
         badge.addEventListener('click', (e) => {
             e.stopPropagation();
             const slotKey = badge.dataset.slotKey;
@@ -3156,8 +3293,34 @@ function renderLiveWatchFacePreview() {
             const currentIndex = COMPLICATION_TYPES.findIndex(c => c.id === watchFaceConfig[slotKey]);
             const nextIndex = (currentIndex + 1) % COMPLICATION_TYPES.length;
             watchFaceConfig[slotKey] = COMPLICATION_TYPES[nextIndex].id;
+            persistActiveWatchFaceSlots();
             setupComplicationSelects();
             renderLiveWatchFacePreview();
+        });
+        badge.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const selectId = { topSlot: 'selectTopSlot', leftSlot: 'selectLeftSlot', rightSlot: 'selectRightSlot', bottomSlot: 'selectBottomSlot' }[badge.dataset.slotKey];
+            const select = document.getElementById(selectId);
+            if (select) {
+                select.focus();
+                showToast('اختر المعلومة المطلوبة لهذه المساحة');
+            }
+        });
+    });
+
+    const actionMessages = {
+        prayers: 'يفتح جدول مواقيت الصلاة على الساعة',
+        tasbih: 'النقر يزيد التسبيح، والضغط المطوّل يفتح السبحة',
+        qibla: 'يفتح بوصلة القبلة الحية على الساعة',
+        quran: 'يفتح الآية كاملة في المصحف',
+        calendar: 'يفتح التاريخ والتقويم',
+        sun: 'يفتح تفاصيل الشروق والغروب'
+    };
+    container.querySelectorAll('[data-action]').forEach(item => {
+        item.addEventListener('click', (event) => {
+            event.stopPropagation();
+            showToast(actionMessages[item.dataset.action] || 'هذا العنصر تفاعلي على الساعة');
         });
     });
 
@@ -3199,6 +3362,7 @@ function setupWatchFaceEvents() {
             watchFaceConfig.leftSlot = 'BATTERY';
             watchFaceConfig.rightSlot = 'NEXT_PRAYER';
             watchFaceConfig.bottomSlot = 'HIDDEN';
+            persistActiveWatchFaceSlots();
             setupComplicationSelects();
             renderLiveWatchFacePreview();
             showToast('تمت استعادة التوزيع الافتراضي للتعقيدات');
@@ -3212,6 +3376,7 @@ function setupWatchFaceEvents() {
             watchFaceConfig.leftSlot = 'HIDDEN';
             watchFaceConfig.rightSlot = 'HIDDEN';
             watchFaceConfig.bottomSlot = 'HIDDEN';
+            persistActiveWatchFaceSlots();
             setupComplicationSelects();
             renderLiveWatchFacePreview();
             showToast('تم إخفاء كافة التعقيدات');

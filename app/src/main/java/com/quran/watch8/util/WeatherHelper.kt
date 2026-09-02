@@ -16,7 +16,7 @@ object WeatherHelper {
      * Fetches weather from Open-Meteo API.
      * Returns a formatted string like "22° ☀️ | 🌧️ 10%"
      */
-    suspend fun fetchWeatherSummary(lat: Double = DEFAULT_LAT, lng: Double = DEFAULT_LNG): String {
+    suspend fun fetchWeatherSnapshot(lat: Double = DEFAULT_LAT, lng: Double = DEFAULT_LNG): WeatherSnapshot {
         return withContext(Dispatchers.IO) {
             try {
                 // We use open-meteo for free, no-key weather data
@@ -39,18 +39,19 @@ object WeatherHelper {
                     val precipProbArray = daily.getJSONArray("precipitation_probability_max")
                     val precipProb = if (precipProbArray.length() > 0) precipProbArray.getInt(0) else 0
 
-                    val icon = getWeatherIcon(code)
-                    
-                    "$temp° $icon | 🌧️ $precipProb%"
+                    WeatherSnapshot(temp, code, precipProb, getWeatherIcon(code), true)
                 } else {
-                    "غير متوفر"
+                    WeatherSnapshot.unavailable()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                "خطأ بالاتصال"
+                WeatherSnapshot.unavailable()
             }
         }
     }
+
+    suspend fun fetchWeatherSummary(lat: Double = DEFAULT_LAT, lng: Double = DEFAULT_LNG): String =
+        fetchWeatherSnapshot(lat, lng).summary
 
     private fun getWeatherIcon(code: Int): String {
         return when (code) {
@@ -65,5 +66,20 @@ object WeatherHelper {
             95, 96, 99 -> "⛈️" // Thunderstorm
             else -> "🌡️"
         }
+    }
+}
+
+data class WeatherSnapshot(
+    val temperatureC: Int?,
+    val weatherCode: Int?,
+    val precipitationPercent: Int?,
+    val icon: String,
+    val isAvailable: Boolean
+) {
+    val temperatureLabel: String get() = temperatureC?.let { "$it°" } ?: "—°"
+    val summary: String get() = if (isAvailable) "$temperatureLabel $icon | 🌧️ ${precipitationPercent ?: 0}%" else "غير متوفر"
+
+    companion object {
+        fun unavailable() = WeatherSnapshot(null, null, null, "◌", false)
     }
 }

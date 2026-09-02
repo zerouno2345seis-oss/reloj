@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../../', import.meta.url);
-const [home, tileConfig, settings, reader, preferences, sync, mainActivity, qibla] = await Promise.all([
+const [home, tileConfig, settings, reader, preferences, sync, mainActivity, qibla, watchFaceCalculations] = await Promise.all([
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/HomeScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/data/model/TileConfig.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/SettingsScreen.kt', root), 'utf8'),
@@ -12,6 +12,7 @@ const [home, tileConfig, settings, reader, preferences, sync, mainActivity, qibl
   readFile(new URL('app/src/main/java/com/quran/watch8/util/LocalSyncServer.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/MainActivity.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/QiblaCompassScreen.kt', root), 'utf8'),
+  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/watchfaces/WatchFaceCalculations.kt', root), 'utf8'),
 ]);
 
 test('watch exposes automatic layout as an assignable and reversible tile action', () => {
@@ -67,7 +68,8 @@ test('qibla action opens a real sensor-backed compass screen', () => {
   assert.match(mainActivity, /composable\("qibla"\)/);
   assert.match(qibla, /TYPE_ROTATION_VECTOR/);
   assert.match(qibla, /qiblaBearing/);
-  assert.match(qibla, /KAABA_LATITUDE/);
+  assert.match(watchFaceCalculations, /KAABA_LATITUDE/);
+  assert.match(watchFaceCalculations, /KAABA_LONGITUDE/);
 });
 
 test('settings can save the current watch face as a reusable preset', () => {

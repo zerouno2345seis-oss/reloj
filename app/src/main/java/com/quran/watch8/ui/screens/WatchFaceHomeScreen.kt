@@ -39,6 +39,7 @@ import com.quran.watch8.data.model.WatchFaceConfig
 import com.quran.watch8.data.model.WatchFaceModelId
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
+import com.quran.watch8.ui.screens.watchfaces.*
 import com.quran.watch8.util.HijriDate
 import com.quran.watch8.util.PrayerTimesHelper
 import kotlinx.coroutines.delay
@@ -120,6 +121,9 @@ fun WatchFaceHomeScreen(
     val prayerTimes = viewModel.prayerTimes
     val lastReading by viewModel.lastReadingPosition.collectAsState()
     val lastPosition: Pair<Int, Int> = if (lastReading != null) (lastReading!!.surah to lastReading!!.ayahNumber) else (1 to 1)
+    val tasbihState by viewModel.tasbihState.collectAsState()
+    val latitude by viewModel.selectedLat.collectAsState()
+    val longitude by viewModel.selectedLng.collectAsState()
 
     val batteryManager = remember { context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager }
     // Charge moves over minutes, so re-reading it every tick was pure waste.
@@ -133,6 +137,23 @@ fun WatchFaceHomeScreen(
     val nextPrayerName = nextPrayerInfo.first
     val minutesToNextPrayer = nextPrayerInfo.second
     val isAlertActive = minutesToNextPrayer in 0..10
+    val newFaceData = WatchFaceLiveData(
+        nowMillis = currentTime.timeInMillis,
+        batteryPercent = batteryPct,
+        weather = viewModel.weatherSnapshot,
+        prayers = prayerTimes,
+        nextPrayerName = nextPrayerName,
+        minutesToNextPrayer = minutesToNextPrayer,
+        reading = WatchFaceReading(
+            surah = lastReading?.surah ?: 1,
+            ayah = lastReading?.ayahNumber ?: 1,
+            surahName = lastReading?.surahNameAr ?: "الفاتحة",
+            text = viewModel.lastReadingAyahText
+        ),
+        latitude = latitude,
+        longitude = longitude,
+        tasbih = tasbihState
+    )
 
     // Popups state
     var showModelCarousel by remember { mutableStateOf(false) }
@@ -200,6 +221,16 @@ fun WatchFaceHomeScreen(
         }
     }
 
+    val newFaceActions = WatchFaceActions(
+        onAction = { type -> onLongPressComplication("fixed", type) },
+        onAdjustSlot = { slot -> adjustingSlotName = slot },
+        onIncrementTasbih = {
+            vibrate(if (tasbihState.count + 1 >= tasbihState.target) 110 else 35)
+            viewModel.incrementTasbih()
+        },
+        onOpenTasbih = { showTasbihPopup = true }
+    )
+
     var totalDragY by remember { mutableFloatStateOf(0f) }
     var totalDragX by remember { mutableFloatStateOf(0f) }
 
@@ -247,7 +278,8 @@ fun WatchFaceHomeScreen(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Render Active Watch Face Model (1 to 9)
+        // Render Active Watch Face Model (1 to 15)
+        CompositionLocalProvider(LocalWatchFaceLiveData provides newFaceData) {
         when (config.modelId) {
             WatchFaceModelId.ULTRA_DIGITAL_CLASSIC -> {
                 UltraDigitalFaceView(
@@ -406,6 +438,13 @@ fun WatchFaceHomeScreen(
                     vibrate = ::vibrate
                 )
             }
+            WatchFaceModelId.FAJR_MIHRAB -> FajrMihrabFace(config, newFaceData, newFaceActions)
+            WatchFaceModelId.DHIKR_PULSE -> DhikrPulseFace(config, newFaceData, newFaceActions)
+            WatchFaceModelId.QIBLA_SERENITY -> QiblaSerenityFace(config, newFaceData, newFaceActions)
+            WatchFaceModelId.QURAN_GALLERY -> QuranGalleryFace(config, newFaceData, newFaceActions)
+            WatchFaceModelId.DAILY_ORBITS -> DailyOrbitsFace(config, newFaceData, newFaceActions)
+            WatchFaceModelId.BELIEVER_MOSAIC -> BelieverMosaicFace(config, newFaceData, newFaceActions)
+        }
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -427,6 +466,11 @@ fun WatchFaceHomeScreen(
         // ─────────────────────────────────────────────────────────────────────
         if (showTasbihPopup) {
             TasbihDialog(
+                state = tasbihState,
+                onIncrement = viewModel::incrementTasbih,
+                onReset = viewModel::resetTasbih,
+                onCycleTarget = viewModel::cycleTasbihTarget,
+                onCycleDhikr = viewModel::cycleTasbihDhikr,
                 onDismiss = { showTasbihPopup = false },
                 vibrate = ::vibrate
             )
@@ -458,6 +502,7 @@ fun WatchFaceHomeScreen(
         // ─────────────────────────────────────────────────────────────────────
         if (showWeatherPopup) {
             WeatherDetailsDialog(
+                weather = viewModel.weatherSnapshot,
                 onDismiss = { showWeatherPopup = false },
                 vibrate = ::vibrate
             )
@@ -468,6 +513,7 @@ fun WatchFaceHomeScreen(
         // ─────────────────────────────────────────────────────────────────────
         if (showSunrisePopup) {
             SunriseSunsetDialog(
+                prayers = prayerTimes,
                 onDismiss = { showSunrisePopup = false },
                 vibrate = ::vibrate
             )
@@ -1589,6 +1635,7 @@ private fun RenderComplicationContent(
     lastPosition: Pair<Int, Int>
 ) {
     if (type == ComplicationType.HIDDEN) return
+    val liveData = LocalWatchFaceLiveData.current
 
     Box(
         modifier = Modifier
@@ -1661,22 +1708,23 @@ private fun RenderComplicationContent(
                 ComplicationType.QIBLA -> {
                     Text("🕋", fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("72°", color = AccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    val bearing = liveData?.let { qiblaBearing(it.latitude, it.longitude).toInt() }
+                    Text(bearing?.let { "$it°" } ?: "—", color = AccentGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 ComplicationType.TASBIH -> {
                     Text("📿", fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("33", color = Color(0xFF34D399), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(liveData?.tasbih?.count?.toString() ?: "—", color = Color(0xFF34D399), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 ComplicationType.WEATHER -> {
                     Text("⛅", fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("24°", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(liveData?.weather?.temperatureLabel ?: "—°", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 ComplicationType.SUNRISE_SUNSET -> {
                     Text("🌅", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("07:12", color = Color(0xFFF59E0B), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(liveData?.prayers?.sunrise?.formatted ?: "—:—", color = Color(0xFFF59E0B), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 ComplicationType.DAILY_ATHKAR -> {
                     Text("🤲", fontSize = 10.sp)
@@ -1686,12 +1734,12 @@ private fun RenderComplicationContent(
                 ComplicationType.STEP_COUNTER -> {
                     Text("🚶‍♂️", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("6.4k", color = Color(0xFF34D399), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("غير متاح", color = Color.LightGray, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 ComplicationType.HEART_RATE -> {
                     Text("❤️", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("72", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("غير متاح", color = Color.LightGray, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 ComplicationType.FASTING_TRACKER -> {
                     Text("✨", fontSize = 10.sp)
@@ -1726,19 +1774,12 @@ data class PrayerScheduleDetails(
 fun computePrayerScheduleDetails(prayers: PrayerTimesHelper.DayPrayers?): PrayerScheduleDetails {
     if (prayers == null) {
         return PrayerScheduleDetails(
-            list = listOf(
-                "الفجر" to "06:03",
-                "الشروق" to "07:12",
-                "الظهر" to "12:48",
-                "العصر" to "16:08",
-                "المغرب" to "18:35",
-                "العشاء" to "19:45"
-            ),
-            pastPrayerName = "الشروق",
-            pastElapsedMinutes = 260,
-            nextPrayerName = "الظهر",
-            nextRemainingMinutes = 80,
-            activeIndex = 2
+            list = listOf("الفجر", "الشروق", "الظهر", "العصر", "المغرب", "العشاء").map { it to "—:—" },
+            pastPrayerName = "—",
+            pastElapsedMinutes = 0,
+            nextPrayerName = "—",
+            nextRemainingMinutes = 0,
+            activeIndex = -1
         )
     }
 
@@ -1905,16 +1946,17 @@ fun PrayerScheduleDialog(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun TasbihDialog(
+    state: TasbihState,
+    onIncrement: () -> Unit,
+    onReset: () -> Unit,
+    onCycleTarget: () -> Unit,
+    onCycleDhikr: () -> Unit,
     onDismiss: () -> Unit,
     vibrate: (Long) -> Unit
 ) {
     val dhikrList = remember {
         listOf("سبحان الله", "الحمد لله", "لا إله إلا الله", "الله أكبر", "أستغفر الله", "اللهم صلِّ على محمد")
     }
-    var dhikrIndex by remember { mutableStateOf(0) }
-    var count by remember { mutableStateOf(0) }
-    var target by remember { mutableStateOf(33) }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1935,13 +1977,12 @@ fun TasbihDialog(
                     .background(Color(0xFF0F172A))
                     .clickable {
                         vibrate(30)
-                        dhikrIndex = (dhikrIndex + 1) % dhikrList.size
-                        count = 0
+                        onCycleDhikr()
                     }
                     .padding(horizontal = 12.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = dhikrList[dhikrIndex],
+                    text = dhikrList[state.dhikrIndex % dhikrList.size],
                     color = Color(0xFFFDE68A),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
@@ -1963,8 +2004,8 @@ fun TasbihDialog(
                     )
                     .clickable {
                         vibrate(40)
-                        count++
-                        if (count >= target) {
+                        onIncrement()
+                        if (state.count + 1 >= state.target) {
                             vibrate(120)
                         }
                     },
@@ -1972,13 +2013,13 @@ fun TasbihDialog(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "$count",
+                        text = "${state.count}",
                         color = Color.White,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black
                     )
                     Text(
-                        text = "الهدف: $target",
+                        text = "الهدف: ${state.target}",
                         color = Color(0xFF38BDF8),
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold
@@ -1995,7 +2036,7 @@ fun TasbihDialog(
             ) {
                 // Reset
                 Button(
-                    onClick = { vibrate(40); count = 0 },
+                    onClick = { vibrate(40); onReset() },
                     colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF1E293B)),
                     shape = CircleShape,
                     modifier = Modifier.size(34.dp)
@@ -2007,17 +2048,13 @@ fun TasbihDialog(
                 Button(
                     onClick = {
                         vibrate(30)
-                        target = when (target) {
-                            33 -> 99
-                            99 -> 100
-                            else -> 33
-                        }
+                        onCycleTarget()
                     },
                     colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF1E293B)),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.height(34.dp)
                 ) {
-                    Text("$target", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("${state.target}", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 // Close
@@ -2153,6 +2190,7 @@ fun IslamicCalendarDialog(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun WeatherDetailsDialog(
+    weather: com.quran.watch8.util.WeatherSnapshot,
     onDismiss: () -> Unit,
     vibrate: (Long) -> Unit
 ) {
@@ -2169,27 +2207,22 @@ fun WeatherDetailsDialog(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text("⛅", fontSize = 26.sp)
+            Text(weather.icon, fontSize = 26.sp)
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "24°C",
+                text = weather.temperatureLabel,
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
-                text = "مشمس جزئياً · بوينس آيرس",
+                text = if (weather.isAvailable) "احتمال المطر ${weather.precipitationPercent ?: 0}%" else "بيانات الطقس غير متوفرة",
                 color = Color.LightGray,
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("💧 الرطوبة: 55%", color = Color(0xFF38BDF8), fontSize = 9.5.sp)
-                Text("💨 الرياح: 12km/h", color = Color(0xFFFDE68A), fontSize = 9.5.sp)
-            }
+            Text(weather.summary, color = Color(0xFF38BDF8), fontSize = 9.5.sp)
             Spacer(modifier = Modifier.height(10.dp))
             Button(
                 onClick = { vibrate(30); onDismiss() },
@@ -2208,6 +2241,7 @@ fun WeatherDetailsDialog(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SunriseSunsetDialog(
+    prayers: PrayerTimesHelper.DayPrayers?,
     onDismiss: () -> Unit,
     vibrate: (Long) -> Unit
 ) {
@@ -2239,15 +2273,15 @@ fun SunriseSunsetDialog(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("الشروق", color = Color.LightGray, fontSize = 10.sp)
-                    Text("07:12", color = Color(0xFFF59E0B), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(prayers?.sunrise?.formatted ?: "—:—", color = Color(0xFFF59E0B), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("الغروب", color = Color.LightGray, fontSize = 10.sp)
-                    Text("18:35", color = Color(0xFFEF4444), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(prayers?.maghrib?.formatted ?: "—:—", color = Color(0xFFEF4444), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(6.dp))
-            Text("طول النهار: 11س 23د", color = Color(0xFF38BDF8), fontSize = 10.sp)
+            Text(if (prayers == null) "طول النهار: غير متاح" else "المواقيت حسب موقعك المحفوظ", color = Color(0xFF38BDF8), fontSize = 10.sp)
             Spacer(modifier = Modifier.height(10.dp))
             Button(
                 onClick = { vibrate(30); onDismiss() },
@@ -2354,11 +2388,11 @@ fun HealthActivityDialog(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("الخطوات", color = Color.LightGray, fontSize = 10.sp)
-                    Text("6,420", color = Color(0xFF34D399), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("غير متاح", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("النبض", color = Color.LightGray, fontSize = 10.sp)
-                    Text("72 bpm", color = Color(0xFFEF4444), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("غير متاح", color = Color.LightGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -2563,6 +2597,12 @@ fun VisualWatchFaceCarousel(
                     WatchFaceModelId.EDGE_TYPOGRAPHY_FULL -> "الخط الممتد"
                     WatchFaceModelId.QURANIC_AMBIENT_ORBIT -> "المداري القرآني"
                     WatchFaceModelId.SOLAR_HORIZON_FULL -> "الأفق الشمسي"
+                    WatchFaceModelId.FAJR_MIHRAB -> "محراب الفجر"
+                    WatchFaceModelId.DHIKR_PULSE -> "نبض الذكر"
+                    WatchFaceModelId.QIBLA_SERENITY -> "بوصلة السكينة"
+                    WatchFaceModelId.QURAN_GALLERY -> "رِواق الآية"
+                    WatchFaceModelId.DAILY_ORBITS -> "مدارات اليوم"
+                    WatchFaceModelId.BELIEVER_MOSAIC -> "فسيفساء المؤمن"
                 }
 
                 Column(
@@ -2704,6 +2744,12 @@ fun VisualWatchFaceCarousel(
                                     Text("12:45", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Color.White)
                                 }
                             }
+                            WatchFaceModelId.FAJR_MIHRAB -> NewFaceThumbnail("⌂", "06:12", Color(0xFF35E6D0))
+                            WatchFaceModelId.DHIKR_PULSE -> NewFaceThumbnail("◉", "27/33", Color(0xFF52E59A))
+                            WatchFaceModelId.QIBLA_SERENITY -> NewFaceThumbnail("➤", "القبلة", Color(0xFFF3C969))
+                            WatchFaceModelId.QURAN_GALLERY -> NewFaceThumbnail("📖", "الآية", Color(0xFFF3C969))
+                            WatchFaceModelId.DAILY_ORBITS -> NewFaceThumbnail("◜ ◝", "10:08", Color(0xFF34D9FF))
+                            WatchFaceModelId.BELIEVER_MOSAIC -> NewFaceThumbnail("▦", "21:06", Color(0xFF8A7CFF))
                         }
                     }
 
@@ -2734,6 +2780,14 @@ fun VisualWatchFaceCarousel(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NewFaceThumbnail(icon: String, label: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(icon, color = color, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
