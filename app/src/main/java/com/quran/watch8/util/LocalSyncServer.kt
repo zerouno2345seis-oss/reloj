@@ -279,9 +279,18 @@ object LocalSyncServer {
 
         val tilesObj = root.optJSONObject("tilesConfig") ?: root.optJSONObject("tiles")
         if (tilesObj != null) {
-            val config = TileConfig.fromJson(tilesObj.toString())
-            if (config.isValid()) {
-                prefs.setTilesConfigJson(config.toJson())
+            // Only replace the watch's layout when the payload actually carries a
+            // non-empty tiles array. Otherwise TileConfig.fromJson() falls back to
+            // its 6-tile default and we would silently wipe the user's design.
+            val incomingTiles = tilesObj.optJSONArray("tiles")
+            if (incomingTiles != null && incomingTiles.length() > 0) {
+                val config = TileConfig.fromJson(tilesObj.toString())
+                if (config.isValid()) {
+                    prefs.setTilesConfigJson(config.toJson())
+                    Log.i(TAG, "applied ${config.tiles.size} tiles from cloud sync")
+                }
+            } else {
+                Log.w(TAG, "cloud payload had no tiles array; keeping current watch layout")
             }
         }
 
