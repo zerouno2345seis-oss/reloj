@@ -1277,6 +1277,10 @@ function renderCanvas(fast) {
     const appearance = getAppearance();
     canvas.className = `watch-screen watch-pattern-${appearance.pattern} icon-palette-${appearance.iconPalette}`;
     canvas.innerHTML = '<div class="safe-area-ring" aria-hidden="true"></div>';
+    // fontSize / iconSize are authored as pixels on a 438px watch. Scale them to
+    // the current preview width so the studio matches the device 1:1 (the watch
+    // applies the mirror of this in HomeScreen.kt: screenWidth / 438).
+    const renderScale = Math.max(0.7, Math.min(1.25, (canvas.getBoundingClientRect().width || 438) / 438));
     const insets = getCanvasInsets();
     Object.entries(insets).forEach(([edge, size]) => {
         if (!size) return;
@@ -1347,7 +1351,7 @@ function renderCanvas(fast) {
             i.className = 'canvas-icon' + (slot.iconStyle === 'animated' ? ' animated-icon-pulse' : '');
             i.style.left = (slot.iconX !== undefined ? slot.iconX : 50) + '%';
             i.style.top = (slot.iconY !== undefined ? slot.iconY : 30) + '%';
-            i.style.fontSize = (slot.iconSize || 24) + 'px';
+            i.style.fontSize = ((slot.iconSize || 24) * renderScale) + 'px';
             i.textContent = getIcon(slot.id, slot.iconType);
             i.style.color = slot.iconColorHex || '#ffffff';
             i.dataset.index = idx;
@@ -1372,7 +1376,7 @@ function renderCanvas(fast) {
                 resume.className = 'quran-resume-content quran-resume-line';
                 resume.style.color = slot.fontColorHex || '#ffffff';
                 resume.style.fontFamily = "'Amiri', serif";
-                resume.style.fontSize = Math.max(9, slot.fontSize || 13) + 'px';
+                resume.style.fontSize = (Math.max(9, slot.fontSize || 13) * renderScale) + 'px';
                 const meta = document.createElement('strong');
                 meta.className = 'quran-resume-meta';
                 meta.textContent = 'سورة الكهف · 18 ';
@@ -1385,7 +1389,7 @@ function renderCanvas(fast) {
                 txt.className = 'canvas-text align-' + textAlign;
                 txt.style.left = (slot.textX !== undefined ? slot.textX : 50) + '%';
                 txt.style.top = (slot.textY !== undefined ? slot.textY : 50) + '%';
-                txt.style.fontSize = Math.max(9, (slot.fontSize || 14)) + 'px';
+                txt.style.fontSize = (Math.max(9, (slot.fontSize || 14)) * renderScale) + 'px';
                 txt.style.color = slot.fontColorHex || '#ffffff';
                 txt.style.textAlign = textAlign;
                 
