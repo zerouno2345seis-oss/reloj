@@ -30,6 +30,8 @@ import java.util.*
  */
 object LocalSyncServer {
     private const val TAG = "LocalSyncServer"
+    /** Marks a pull result that actually changed local state. */
+    const val APPLIED_PREFIX = "APPLIED:"
     const val FIXED_PORT = 41331
     const val CLOUD_RELAY_URL = "https://quran-watch8-hub.vercel.app/api/sync?code=41331"
 
@@ -192,8 +194,13 @@ object LocalSyncServer {
                     if (remoteVer > lastSyncedVersion) {
                         lastSyncedVersion = remoteVer
                         importDataJson(dataObj.toString(), dbRepo, prefs)
+                        Log.i(TAG, "applied cloud config version $remoteVer")
+                        // APPLIED_PREFIX lets the caller tell "something changed"
+                        // from "checked, nothing new" and only speak up for the first.
+                        Pair(true, "${APPLIED_PREFIX}✓ تم تطبيق التصميم من السحابة")
+                    } else {
+                        Pair(true, "لا جديد في السحابة")
                     }
-                    Pair(true, "✓ تمت المزامنة وتحديث البلاطات")
                 } else {
                     conn.disconnect()
                     Pair(false, "تعذر الجلب السحابي ($code)")

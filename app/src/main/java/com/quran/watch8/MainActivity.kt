@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -42,6 +45,26 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         handlePresetIntent(intent)
+    }
+
+    /**
+     * Pull the cloud config every time the app comes to the foreground. Without
+     * this the watch only checked once per cold start, so a design synced from
+     * the web while the app was already open never arrived. One HTTPS GET on
+     * resume costs nothing while the app is closed, unlike background polling.
+     */
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            val (ok, message) = com.quran.watch8.util.LocalSyncServer.syncWithCloud(applicationContext, "pull")
+            if (ok && message.startsWith(com.quran.watch8.util.LocalSyncServer.APPLIED_PREFIX)) {
+                Toast.makeText(
+                    this@MainActivity,
+                    message.removePrefix(com.quran.watch8.util.LocalSyncServer.APPLIED_PREFIX),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
     }
 
     private fun handlePresetIntent(intent: android.content.Intent?) {
