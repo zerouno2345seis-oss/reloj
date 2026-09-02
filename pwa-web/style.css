@@ -1241,21 +1241,22 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 @media (max-width: 760px) { .app-toast { bottom: 84px; } }
 
 /* ════════════════ DESIGNER: FIXED WATCH LEFT, SCROLLING PANELS ════════════════
-   The watch is what you are editing, so it stays put on the left while the
-   layers and properties columns scroll inside themselves. Above 900px only;
-   the mobile block above still stacks everything. */
-@media (min-width: 901px) {
+   The watch is what you are editing, so it stays put while the layers and
+   properties columns scroll inside themselves. Three columns need real width,
+   so three columns start at 1200px, two columns from 940px, and below that the
+   watch sits on top. Collapsing the sidebar buys ~190px toward the next tier. */
+@media (min-width: 1200px) {
   .designer-grid {
     direction: ltr; /* physical order: watch · layers · properties */
-    grid-template-columns: minmax(300px, 430px) minmax(0, 1fr) minmax(240px, 310px);
+    grid-template-columns: minmax(320px, 1.1fr) minmax(260px, 1fr) minmax(260px, 1fr);
     align-items: start;
     gap: 16px;
   }
   .designer-grid > * { direction: rtl; }
 
-  /* All three sit on row 1. Without the explicit row, grid auto-placement
-     refuses to move backwards from the layers panel (column 2) to the watch
-     (column 1) and pushes the watch onto a second row. */
+  /* All three sit on row 1. Grid auto-placement will not move backwards from
+     the layers panel (column 2) to the watch (column 1), so without this the
+     watch dropped onto a second row and left the first one blank. */
   .canvas-column,
   .layers-panel,
   .inspector-panel { grid-row: 1; }
@@ -1270,9 +1271,62 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
   .canvas-sticky { position: static; top: auto; }
 
   .layers-panel { grid-column: 2; }
-  .inspector-panel { grid-column: 3; }
+  /* Undo the narrow-screen rule that turns the inspector into a 3-column grid
+     spanning the whole width; here it is a single scrolling column. */
+  .inspector-panel {
+    grid-column: 3;
+    display: block;
+    grid-template-columns: none;
+  }
+  .inspector-panel .panel-title { border-left: 0; border-bottom: 1px solid var(--finder-border); }
+  .inspector-colors { border-top: 1px solid var(--finder-border); border-right: 0; }
+}
 
-  /* Each panel scrolls on its own so the watch never leaves the screen. */
+/* Two columns: watch pinned left, the panels stacked in a scrolling column. */
+@media (min-width: 940px) and (max-width: 1199px) {
+  .designer-grid {
+    direction: ltr;
+    grid-template-columns: minmax(300px, 1fr) minmax(320px, 1fr);
+    align-items: start;
+    gap: 14px;
+  }
+  .designer-grid > * { direction: rtl; }
+
+  .canvas-column {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 84px;
+    align-self: start;
+    min-height: 0;
+  }
+  .canvas-sticky { position: static; top: auto; }
+
+  .layers-panel { grid-column: 2; grid-row: 1; max-height: 44vh; }
+  .inspector-panel {
+    grid-column: 2;
+    grid-row: 2;
+    display: block;
+    grid-template-columns: none;
+    max-height: calc(56vh - 130px);
+  }
+}
+
+/* Mid widths: watch on top and still sticky, panels side by side underneath. */
+@media (min-width: 901px) and (max-width: 939px) {
+  .designer-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
+  }
+  .canvas-column { grid-column: 1 / -1; grid-row: 1; min-height: 0; }
+  .layers-panel { grid-column: 1; grid-row: 2; }
+  .inspector-panel { grid-column: 2; grid-row: 2; display: block; grid-template-columns: none; }
+  .canvas-sticky { position: sticky; top: 84px; z-index: 8; background: var(--finder-bg); }
+}
+
+/* Panels scroll on their own so the watch never leaves the screen. */
+@media (min-width: 901px) {
   .layers-panel,
   .inspector-panel {
     max-height: calc(100vh - 104px);

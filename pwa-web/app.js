@@ -3231,57 +3231,16 @@ function initBookmarksUI() {
     loadUserBookmarks();
     renderBookmarksList();
 
-    const addBar = document.getElementById('bookmarkAddBar');
+    // Bookmarks are made from a verse you found, not from a surah number and an
+    // ayah number typed by hand. The button sends you to the search box; each
+    // result carries its own "add bookmark" action.
     const btnOpen = document.getElementById('btnOpenAddBookmarkModal');
-    const btnCancel = document.getElementById('btnCancelAddBookmark');
-    const btnSave = document.getElementById('btnSaveNewBookmark');
-    const selectSurah = document.getElementById('bmSelectSurah');
-
-    if (selectSurah && selectSurah.options.length === 0) {
-        const surahs = [
-            "الفاتحة", "البقرة", "آل عمران", "النساء", "المائدة", "الأنعام", "الأعراف", "الأنفال", "التوبة",
-            "يونس", "هود", "يوسف", "الرعد", "إبراهيم", "الحجر", "النحل", "الإسراء", "الكهف", "مريم", "طه",
-            "الأنبياء", "الحج", "المؤمنون", "النور", "الفرقان", "الشعراء", "النمل", "القصص", "العنكبوت", "الروم",
-            "لقمان", "السجدة", "الأحزاب", "سبأ", "فاطر", "يس", "الصافات", "ص", "الزمر", "غافر", "فصلت", "الشورى",
-            "الزخرف", "الدخان", "الجاثية", "الأحقاف", "محمد", "الفتح", "الحجرات", "ق", "الذاريات", "الطور", "النجم",
-            "القمر", "الرحمن", "الواقعة", "الحديد", "المجادلة", "الحشر", "الممتحنة", "الصف", "الجمعة", "المنافقون",
-            "التغابن", "الطلاق", "التحريم", "الملك", "القلم", "الحاقة", "المعارج", "نوح", "الجن", "المزمل", "المدثر",
-            "القيامة", "الإنسان", "المرسلات", "النبأ", "النازعات", "عبس", "التكوير", "الانفطار", "المطففين", "الانشقاق",
-            "البروج", "الطارق", "الأعلى", "الغاشية", "الفجر", "البلد", "الشمس", "الليل", "الضحى", "الشرح", "التين",
-            "العلق", "القدر", "البينة", "الزلزلة", "العاديات", "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش",
-            "الماعون", "الكوثر", "الكافرون", "النصر", "المسد", "الإخلاص", "الفلق", "الناس"
-        ];
-        selectSurah.innerHTML = surahs.map((s, i) => `<option value="${i+1}">سورة ${s}</option>`).join('');
-    }
-
     btnOpen?.addEventListener('click', () => {
-        if (addBar) addBar.style.display = addBar.style.display === 'none' ? 'block' : 'none';
-    });
-
-    btnCancel?.addEventListener('click', () => {
-        if (addBar) addBar.style.display = 'none';
-    });
-
-    btnSave?.addEventListener('click', () => {
-        const surahNum = parseInt(selectSurah.value, 10) || 1;
-        const surahName = selectSurah.options[selectSurah.selectedIndex].text;
-        const ayahNum = parseInt(document.getElementById('bmInputAyah')?.value, 10) || 1;
-        const note = document.getElementById('bmInputNote')?.value || '';
-
-        userBookmarks.unshift({
-            id: 'bm_' + Date.now(),
-            surahName: surahName,
-            surahNum: surahNum,
-            ayahNum: ayahNum,
-            note: note,
-            date: 'الآن'
-        });
-
-        saveUserBookmarks();
-        if (addBar) addBar.style.display = 'none';
-        document.getElementById('bmInputAyah').value = '';
-        document.getElementById('bmInputNote').value = '';
-        showToast('تمت إضافة الإشارة المرجعية بنجاح');
+        const search = document.getElementById('quranSearchInput');
+        if (!search) return;
+        search.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        search.focus();
+        showToast('ابحث عن الآية، ثم اضغط «إضافة علامة» بجانبها');
     });
 }
 
