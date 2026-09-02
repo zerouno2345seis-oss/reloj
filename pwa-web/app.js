@@ -2329,6 +2329,24 @@ function restoreLocalDraft() {
     }
 }
 
+// A transient bottom toast. Called from ~14 places and, until now, never
+// defined -- every call threw ReferenceError, which the sync path caught and
+// reported as "showToast is not defined", making a successful sync look failed.
+let toastTimer = null;
+function showToast(message) {
+    let el = document.getElementById('appToast');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'appToast';
+        el.className = 'app-toast';
+        document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2600);
+}
+
 function updateSyncStatus(message, tone = '') {
     const pill = document.getElementById('syncStatus');
     const feedback = document.getElementById('syncFeedback');
