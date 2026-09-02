@@ -3125,13 +3125,13 @@ function getComplicationPresentation(compId) {
     const comp = COMPLICATION_TYPES.find(c => c.id === compId) || COMPLICATION_TYPES[0];
     let sampleText = '';
     switch (compId) {
-        case 'NEXT_PRAYER': sampleText = 'المغرب 18:34'; break;
+        case 'NEXT_PRAYER': sampleText = 'المغرب 1h 24m'; break;
         case 'BATTERY': sampleText = '78%'; break;
         case 'HIJRI_DATE': sampleText = hijriToday(); break;
-        case 'GREGORIAN_DATE': sampleText = '17 سبتمبر'; break;
-        case 'QURAN_RESUME': sampleText = 'الكهف: 18'; break;
+        case 'GREGORIAN_DATE': sampleText = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); break;
+        case 'QURAN_RESUME': sampleText = 'الفاتحة · 1'; break;
         case 'QIBLA': sampleText = 'اتجاه القبلة'; break;
-        case 'TASBIH': sampleText = '33/33'; break;
+        case 'TASBIH': sampleText = '27/33'; break;
         case 'WEATHER': sampleText = '24°C'; break;
         case 'SUNRISE_SUNSET': sampleText = '06:12 · 19:03'; break;
         case 'DAILY_ATHKAR': sampleText = 'أذكار'; break;
@@ -3169,42 +3169,63 @@ function getNewFaceSlotHtml(slotKey, className, expectedId = null, expectedHtml 
 
 const NEW_WATCH_FACE_IDS = new Set(['FAJR_MIHRAB', 'DHIKR_PULSE', 'QIBLA_SERENITY', 'QURAN_GALLERY', 'DAILY_ORBITS', 'BELIEVER_MOSAIC']);
 
+// One source for every value the previews show, mirroring the watch's
+// WatchFaceLiveData. Time / date / Hijri are real; the browser has no live
+// prayer or weather feed, so those stay representative but consistent across
+// all six layouts and match the watch's fallback strings.
+function webFaceData() {
+    const now = new Date();
+    return {
+        time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        hijri: hijriToday(),
+        weekdayDay: `${weekdayToday()} ${now.getDate()}`,
+        nextPrayerName: 'المغرب',
+        countdown: '1h 24m',
+        prayers: [['فجر', '04:28'], ['ظهر', '12:34'], ['عصر', '15:47'], ['مغرب', '19:08'], ['عشاء', '20:38']],
+        tasbihCount: 27, tasbihTarget: 33, dhikr: 'سبحان الله',
+        readingSurah: 'الفاتحة', readingAyah: 1,
+        ayahText: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+        battery: '78%', sunrise: '06:12', sunset: '19:03', weatherTemp: '24°C', daylight: '64%'
+    };
+}
+
 function renderNewWatchFacePreview(model) {
+    const d = webFaceData();
     switch (model) {
         case 'FAJR_MIHRAB': return `
             <div class="wf-v2 wf-v2-fajr-mihrab">
-                ${getNewFaceSlotHtml('topSlot', 'wf-v2-hijri')}
-                <div class="wf-v2-mihrab"><strong data-action="calendar">06:12</strong>${getNewFaceSlotHtml('rightSlot', 'wf-v2-mihrab-slot', 'NEXT_PRAYER', '<span>الفجر بعد 18 د</span>')}</div>
-                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-prayers', 'NEXT_PRAYER', '<span>فجر<small>06:30</small></span><span>ظهر<small>12:35</small></span><span>عصر<small>15:55</small></span><span>مغرب<small>18:20</small></span><span>عشاء<small>19:50</small></span>')}
-                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill')}
+                ${getNewFaceSlotHtml('topSlot', 'wf-v2-hijri', 'HIJRI_DATE', `<span>${d.hijri}</span>`)}
+                <div class="wf-v2-mihrab"><strong data-action="calendar">${d.time}</strong>${getNewFaceSlotHtml('rightSlot', 'wf-v2-mihrab-slot', 'NEXT_PRAYER', `<span>${d.nextPrayerName} بعد ${d.countdown}</span>`)}</div>
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-prayers', 'SUNRISE_SUNSET', d.prayers.map(([n, t]) => `<span>${n}<small>${t}</small></span>`).join(''))}
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill', 'QURAN_RESUME', `<span>📖 ${d.readingSurah} · ${d.readingAyah}</span>`)}
             </div>`;
         case 'DHIKR_PULSE': return `
             <div class="wf-v2 wf-v2-dhikr-pulse">
-                ${getNewFaceSlotHtml('topSlot', 'wf-v2-top-pill')}<div class="wf-v2-ring"></div>
-                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right')}
-                <div class="wf-v2-center" data-action="tasbih"><span>سبحان الله</span><strong>18:34</strong><em>27 / 33</em></div>
-                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill')}
+                ${getNewFaceSlotHtml('topSlot', 'wf-v2-top-pill', 'NEXT_PRAYER', `<span>${d.nextPrayerName} ${d.countdown}</span>`)}<div class="wf-v2-ring"></div>
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left', 'BATTERY', `<span>🔋</span><b>${d.battery}</b>`)}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right', 'WEATHER', `<span>⛅</span><b>${d.weatherTemp}</b>`)}
+                <div class="wf-v2-center" data-action="tasbih"><span>${d.dhikr}</span><strong>${d.time}</strong><em>${d.tasbihCount} / ${d.tasbihTarget}</em></div>
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill', 'QURAN_RESUME', `<span>📖 ${d.readingSurah} · ${d.readingAyah}</span>`)}
             </div>`;
         case 'QIBLA_SERENITY': return `
-            <div class="wf-v2 wf-v2-qibla-serenity">${getNewFaceSlotHtml('topSlot', 'wf-v2-top-pill')}
-                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right')}
-                <div class="wf-v2-qibla-arrow" data-action="qibla">➤<span>القبلة</span></div>${getNewFaceSlotHtml('bottomSlot', 'wf-v2-prayer-pill')}
-                <div class="wf-v2-sun" data-action="sun">☀ 06:12 · 19:03 ☾</div></div>`;
+            <div class="wf-v2 wf-v2-qibla-serenity">${getNewFaceSlotHtml('topSlot', 'wf-v2-top-pill', 'GREGORIAN_DATE', `<span>${d.weekdayDay}</span>`)}
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left', 'WEATHER', `<span>⛅</span><b>${d.weatherTemp}</b>`)}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right', 'BATTERY', `<span>🔋</span><b>${d.battery}</b>`)}
+                <div class="wf-v2-qibla-arrow" data-action="qibla">➤<span>القبلة</span></div>${getNewFaceSlotHtml('bottomSlot', 'wf-v2-prayer-pill', 'NEXT_PRAYER', `<span>${d.nextPrayerName}</span><b>${d.countdown}</b>`)}
+                <div class="wf-v2-sun" data-action="sun">☀ ${d.sunrise} · ${d.sunset} ☾</div></div>`;
         case 'QURAN_GALLERY': return `
-            <div class="wf-v2 wf-v2-quran-gallery"><div class="wf-v2-quran-time"><strong data-action="calendar">12:45</strong>${getNewFaceSlotHtml('topSlot', 'wf-v2-quran-sub')}</div>
+            <div class="wf-v2 wf-v2-quran-gallery"><div class="wf-v2-quran-time"><strong data-action="calendar">${d.time}</strong>${getNewFaceSlotHtml('topSlot', 'wf-v2-quran-sub', 'HIJRI_DATE', `<span>${d.hijri}</span>`)}</div>
                 ${getNewFaceSlotHtml('leftSlot', 'wf-v2-side wf-v2-left')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-side wf-v2-right')}
                 <div class="wf-v2-ayah" data-action="quran"><b>سورة الفاتحة · 1 </b>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
-                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-quran-footer')}</div>`;
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-quran-footer', 'NEXT_PRAYER', `<span>${d.nextPrayerName} ${d.countdown}</span>`)}</div>`;
         case 'DAILY_ORBITS': return `
             <div class="wf-v2 wf-v2-daily-orbits"><div class="wf-v2-orbit-ring"></div>
-                ${getNewFaceSlotHtml('topSlot', 'wf-v2-orbit-label ol1')}<div class="wf-v2-orbit-label ol2" data-action="sun">ضوء النهار<b>64%</b></div>
-                <div class="wf-v2-orbit-clock" data-action="calendar">10:08<small>الثلاثاء 23</small></div>
-                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-orbit-label ol3')}${getNewFaceSlotHtml('rightSlot', 'wf-v2-orbit-label ol4')}
-                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-orbit-prayer')}</div>`;
+                ${getNewFaceSlotHtml('topSlot', 'wf-v2-orbit-label ol1', 'BATTERY', `<span>🔋 ${d.battery}</span>`)}<div class="wf-v2-orbit-label ol2" data-action="sun">ضوء النهار<b>64%</b></div>
+                <div class="wf-v2-orbit-clock" data-action="calendar">${d.time}<small>${d.weekdayDay}</small></div>
+                ${getNewFaceSlotHtml('leftSlot', 'wf-v2-orbit-label ol3', 'SUNRISE_SUNSET', `<span>🌅 ${d.sunrise}</span>`)}${getNewFaceSlotHtml('rightSlot', 'wf-v2-orbit-label ol4', 'TASBIH', `<span>📿 ${d.tasbihCount}/${d.tasbihTarget}</span>`)}
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-orbit-prayer', 'NEXT_PRAYER', `<span>${d.nextPrayerName} ${d.countdown}</span>`)}</div>`;
         case 'BELIEVER_MOSAIC': return `
-            <div class="wf-v2 wf-v2-believer-mosaic">${getNewFaceSlotHtml('topSlot', 'wf-v2-weather')}
-                <div class="wf-v2-mosaic-row">${getNewFaceSlotHtml('leftSlot', '')}<strong data-action="calendar">21:06</strong>${getNewFaceSlotHtml('rightSlot', '')}</div>
-                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill')}<div class="wf-v2-mosaic-bottom"><em data-action="tasbih">📿 33</em><span data-action="prayers">فجر<br>04:28</span><span data-action="prayers">ظهر<br>12:34</span><span data-action="prayers">عصر<br>15:47</span><span data-action="prayers">مغرب<br>19:08</span><span data-action="prayers">عشاء<br>20:38</span></div></div>`;
+            <div class="wf-v2 wf-v2-believer-mosaic">${getNewFaceSlotHtml('topSlot', 'wf-v2-weather', 'WEATHER', `<span>⛅ ${d.weatherTemp}</span>`)}
+                <div class="wf-v2-mosaic-row">${getNewFaceSlotHtml('leftSlot', '', 'BATTERY', `<span>🔋</span><b>${d.battery}</b>`)}<strong data-action="calendar">${d.time}</strong>${getNewFaceSlotHtml('rightSlot', '', 'QIBLA', `<span>🕋</span><b>القبلة</b>`)}</div>
+                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill', 'QURAN_RESUME', `<span>📖 ${d.readingSurah} · ${d.readingAyah}</span>`)}<div class="wf-v2-mosaic-bottom"><em data-action="tasbih">📿 ${d.tasbihCount}</em>${d.prayers.map(([n,t]) => `<span data-action="prayers">${n}<br>${t}</span>`).join('')}</div></div>`;
         default: return '';
     }
 }
