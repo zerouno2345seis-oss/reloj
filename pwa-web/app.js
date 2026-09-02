@@ -47,6 +47,37 @@ let watchSettings = {
     tilesDefaultMode: 'text'
 };
 
+// ── Saved locations (synced to the watch's SavedLocation table) ──────────────
+let savedLocations = [];
+function loadSavedLocations() {
+    try { savedLocations = JSON.parse(localStorage.getItem('quran_saved_locations') || '[]'); }
+    catch (_) { savedLocations = []; }
+}
+function persistSavedLocations() {
+    try { localStorage.setItem('quran_saved_locations', JSON.stringify(savedLocations)); } catch (_) {}
+}
+function addSavedLocation(loc) {
+    const id = loc.id || `loc_web_${Date.now()}`;
+    const lat = Number(loc.latitude), lng = Number(loc.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !loc.name) return;
+    if (savedLocations.some(l => l.id === id || (l.name === loc.name && Math.abs(l.latitude - lat) < 1e-4 && Math.abs(l.longitude - lng) < 1e-4))) return;
+    savedLocations.push({ id, name: String(loc.name).trim(), latitude: lat, longitude: lng });
+    persistSavedLocations(); renderLocations(); scheduleAutoSync();
+}
+function removeSavedLocation(id) {
+    savedLocations = savedLocations.filter(l => l.id !== id);
+    persistSavedLocations(); renderLocations(); scheduleAutoSync();
+}
+function promptCustomLocation() {
+    const name = window.prompt('اسم الموقع:');
+    if (!name) return;
+    const lat = window.prompt('خط العرض (latitude):');
+    if (lat === null) return;
+    const lng = window.prompt('خط الطول (longitude):');
+    if (lng === null) return;
+    addSavedLocation({ name, latitude: lat, longitude: lng });
+}
+
 // Selection, History & Drag State
 let selectedIndices = new Set([0]);
 let primarySelectedIdx = 0;
@@ -483,7 +514,9 @@ function initApp() {
     setupCanvasEvents();
     setupQuranSearch();
     renderBookmarks();
+    loadSavedLocations();
     renderLocations();
+    document.getElementById('btnAddCustomLocation')?.addEventListener('click', promptCustomLocation);
     setupSettingsTab();
     setupPresetsManager();
     setupKeyboardShortcuts();
@@ -2467,6 +2500,45 @@ function renderLocations() {
     if (!list) return;
     list.replaceChildren();
 
+    // ── Section 1: the user's own saved locations (these sync to the watch) ──
+    if (savedLocations.length) {
+        const head = document.createElement('small');
+        head.className = 'locations-subhead';
+        head.textContent = `المحفوظة لديك (${savedLocations.length}) — تُزامَن إلى الساعة`;
+        list.appendChild(head);
+    }
+    savedLocations.forEach(loc => {
+        const isActive = loc.id === watchSettings.selectedLocationId;
+        const card = document.createElement('div');
+        card.className = `location-row${isActive ? ' active' : ''}`;
+        const pin = document.createElement('span');
+        pin.textContent = '⌖';
+        const info = document.createElement('div');
+        const name = document.createElement('strong');
+        name.textContent = loc.name;
+        const meta = document.createElement('small');
+        meta.textContent = `${Number(loc.latitude).toFixed(3)}, ${Number(loc.longitude).toFixed(3)}`;
+        info.append(name, meta);
+        const select = document.createElement('button');
+        select.type = 'button';
+        select.className = 'button';
+        select.textContent = isActive ? 'نشط' : 'تفعيل';
+        select.addEventListener('click', () => selectLocation({ id: loc.id, name: loc.name, lat: loc.latitude, lng: loc.longitude }));
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'button danger';
+        del.textContent = 'حذف';
+        del.addEventListener('click', () => removeSavedLocation(loc.id));
+        card.append(pin, info, select, del);
+        list.appendChild(card);
+    });
+
+    // ── Section 2: preset cities — one tap adds them to the synced list ──
+    const presetHead = document.createElement('small');
+    presetHead.className = 'locations-subhead';
+    presetHead.textContent = 'أضف من قائمة المدن';
+    list.appendChild(presetHead);
+
     const recent = document.getElementById('recentLocations');
     if (recent) {
         recent.replaceChildren();
@@ -2502,12 +2574,14 @@ function renderLocations() {
         map.target = '_blank';
         map.rel = 'noopener noreferrer';
         map.textContent = 'الخريطة';
-        const select = document.createElement('button');
-        select.type = 'button';
-        select.className = 'button';
-        select.textContent = loc.id === watchSettings.selectedLocationId ? 'نشط' : 'تفعيل';
-        select.addEventListener('click', () => selectLocation(loc));
-        card.append(pin, info, select, map);
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'button';
+        const already = savedLocations.some(l => l.name === loc.name);
+        add.textContent = already ? 'مضافة' : 'إضافة';
+        add.disabled = already;
+        add.addEventListener('click', () => addSavedLocation({ id: loc.id, name: loc.name, latitude: loc.lat, longitude: loc.lng }));
+        card.append(pin, info, add, map);
         list.appendChild(card);
     });
 }
@@ -2518,6 +2592,11 @@ function selectLocation(loc) {
     watchSettings.selectedLat = loc.lat;
     watchSettings.selectedLng = loc.lng;
     watchSettings.recentLocationIds = [loc.id, ...(watchSettings.recentLocationIds || []).filter(id => id !== loc.id)].slice(0, 3);
+    // The active location must be in the synced list so the watch has its coords.
+    if (!savedLocations.some(l => l.id === loc.id)) {
+        savedLocations.push({ id: loc.id, name: loc.name, latitude: Number(loc.lat), longitude: Number(loc.lng) });
+        persistSavedLocations();
+    }
     const city = document.getElementById('settingActiveCity');
     if (city) city.value = loc.id;
     renderLocations();
@@ -2731,7 +2810,12 @@ async function syncAll(isManual = false) {
         version: tileConfig.version,
         tilesConfig: tileConfig,
         watchFaceConfig: watchFaceConfig,
-        settings: syncedSettings
+        settings: syncedSettings,
+        // The watch's importDataJson reconciles both of these against its tables.
+        locations: savedLocations.map(l => ({ id: l.id, name: l.name, latitude: l.latitude, longitude: l.longitude })),
+        bookmarks: (typeof userBookmarks !== 'undefined' ? userBookmarks : []).map(b => ({
+            id: b.id, surah: b.surahNum, ayahNumber: b.ayahNum, ayahText: b.note || '', createdAt: b.createdAt || Date.now()
+        }))
     };
     
     saveLocalDraft();
@@ -2797,6 +2881,24 @@ async function pullFromCloud() {
         if (data.watchFaceConfig) {
             watchFaceConfig = { ...watchFaceConfig, ...data.watchFaceConfig };
             localStorage.setItem('quran_watch_wf_config', JSON.stringify(watchFaceConfig));
+        }
+        if (Array.isArray(data.locations)) {
+            savedLocations = data.locations
+                .filter(l => l && l.name && Number.isFinite(Number(l.latitude)))
+                .map(l => ({ id: l.id || `loc_web_${Date.now()}`, name: l.name, latitude: Number(l.latitude), longitude: Number(l.longitude) }));
+            persistSavedLocations();
+            renderLocations();
+        }
+        if (Array.isArray(data.bookmarks) && typeof userBookmarks !== 'undefined') {
+            userBookmarks = data.bookmarks.map(b => ({
+                id: b.id || `bm_${Date.now()}`,
+                surahName: b.surahNameAr || b.surahName || `سورة ${b.surah || b.surahNum || 1}`,
+                surahNum: b.surah || b.surahNum || 1,
+                ayahNum: b.ayahNumber || b.ayahNum || 1,
+                note: b.ayahText || b.note || '',
+                date: ''
+            }));
+            saveUserBookmarks();
         }
         selectedIndices.clear();
         primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
