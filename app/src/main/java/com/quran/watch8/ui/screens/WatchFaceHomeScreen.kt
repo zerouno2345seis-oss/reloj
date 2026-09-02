@@ -650,10 +650,13 @@ private fun UltraDigitalFaceView(
                 modifier = Modifier.padding(bottom = 2.dp)
             ) {
                 if (isAlertActive && config.topSlot != ComplicationType.HIDDEN) {
+                    // Calm panel + hairline, same as every other complication —
+                    // only the amber text still carries the urgency.
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1E293B).copy(alpha = 0.8f))
+                            .background(TilePanel)
+                            .border(1.dp, ComplicationHairline, RoundedCornerShape(12.dp))
                             .padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
                         Text(
@@ -1475,16 +1478,29 @@ private fun SolarHorizonFullFaceView(
             val center = Offset(size.width / 2f, size.height / 2f)
             val radius = size.minDimension / 2f - 2.dp.toPx()
 
-            drawArc(
-                brush = Brush.horizontalGradient(
-                    colors = if (isAlertActive) listOf(Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFFF59E0B))
-                    else listOf(Color(0xFF0284C7), Color(0xFFF59E0B), Color(0xFF0284C7))
-                ),
-                startAngle = 190f,
-                sweepAngle = 160f,
-                useCenter = false,
-                style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
-            )
+            // The alert state keeps its loud amber/red gradient — that's a real
+            // signal a prayer is close. At rest the ring used to run a permanent
+            // cyan/gold gradient purely for decoration; it now sits as a single
+            // quiet hairline stroke, matching the calm system everywhere else.
+            if (isAlertActive) {
+                drawArc(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(Color(0xFFF59E0B), Color(0xFFEF4444), Color(0xFFF59E0B))
+                    ),
+                    startAngle = 190f,
+                    sweepAngle = 160f,
+                    useCenter = false,
+                    style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
+                )
+            } else {
+                drawArc(
+                    color = AccentGold.copy(alpha = 0.35f),
+                    startAngle = 190f,
+                    sweepAngle = 160f,
+                    useCenter = false,
+                    style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
         }
 
         Column(
@@ -1623,6 +1639,11 @@ private fun ComplicationSlotWrapper(
     }
 }
 
+// A neutral hairline (no accent to tint with here, unlike the tiles) that
+// matches the weight of TILE_BORDER_ALPHA so the complication chrome reads
+// as the same "hairline on a dark panel" language.
+private val ComplicationHairline = Color(0x1FFFFFFF)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Reusable Complication Renderer (Proportional Text & Icons, Zero Truncation)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1637,10 +1658,14 @@ private fun RenderComplicationContent(
     if (type == ComplicationType.HIDDEN) return
     val liveData = LocalWatchFaceLiveData.current
 
+    // Same calm system as the tiles: a dark panel and a hairline instead of a
+    // saturated slate block, so every complication on the nine original faces
+    // reads like the six new ones and the tile grid, not a separate language.
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF0F172A).copy(alpha = 0.75f))
+            .background(TilePanel)
+            .border(1.dp, ComplicationHairline, RoundedCornerShape(12.dp))
             .padding(horizontal = 8.dp, vertical = 3.5.dp),
         contentAlignment = Alignment.Center
     ) {
