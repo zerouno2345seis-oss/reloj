@@ -35,7 +35,7 @@ test('Android and web expose exactly the same fifteen face identifiers', () => {
 test('new faces use the 438 reference grid and 53px circular safe inset', () => {
   assert.match(newFaces, /REFERENCE_SIZE\s*=\s*438f/);
   assert.match(newFaces, /SAFE_INSET\s*=\s*53f/);
-  assert.doesNotMatch(newFaces, /renderDialHours|N\/E\/S\/W|0\.\.360|STEP_COUNTER|HEART_RATE/);
+  assert.doesNotMatch(newFaces, /renderDialHours|N\/E\/S\/W|"6\.4k"|"72 bpm"|72 نبضة/);
 });
 
 test('every new model has a dedicated web renderer and model-specific slot profile', () => {
