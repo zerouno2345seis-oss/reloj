@@ -27,6 +27,12 @@ const requiredControlIds = [
   'btnExpandTile',
   'btnDeleteTile',
   'btnSaveTilesToWatch',
+  'btnOpenDesignerMore',
+  'btnOpenLayersPanel',
+  'designerAddMenu',
+  'designerMoreMenu',
+  'designerLayersMenu',
+  'designerInspectorPanel',
   'btnCloudPush',
   'btnCloudPull',
   'btnLocalSync',
@@ -113,6 +119,22 @@ test('auto-layout control sits in the two-row watch toolbar, not the distant lay
   assert.doesNotMatch(html.match(/<div class="add-menu">[\s\S]*?<\/div>/)?.[0] ?? '', /btnAutoLayout/);
   assert.match(css, /\.canvas-toolbar-row\s*\{/);
   assert.match(css, /\.smart-layout-button\s*\{/);
+});
+
+test('canvas-first designer keeps the watch clear with menus and fixed properties', () => {
+  assert.match(html, /id=["']designerAddMenu["'][^>]*role=["']menu["']/);
+  assert.match(html, /id=["']designerMoreMenu["'][^>]*role=["']menu["']/);
+  assert.match(html, /id=["']designerLayersMenu["'][^>]*role=["']menu["']/);
+  assert.match(html, /id=["']designerInspectorPanel["']/);
+  assert.doesNotMatch(html, /designerInspectorDrawer|designerDrawerBackdrop/);
+  for (const section of ['المحتوى', 'التفاعل', 'التخطيط', 'الخط والأيقونة', 'الألوان']) {
+    assert.match(html, new RegExp(`<summary>${section}</summary>`));
+  }
+  assert.match(app, /function initDesignerPanels\s*\(/);
+  assert.match(app, /function closeDesignerSurfaces\s*\(/);
+  assert.match(css, /DESIGNER: CANVAS FIRST \+ FIXED PROPERTIES/);
+  assert.match(css, /\.designer-inspector-panel\s*\{[^}]*position:\s*sticky/);
+  assert.match(css, /@media \(max-width: 940px\)/);
 });
 
 test('settings expose watch-compatible reader styles and specialised notifications', () => {

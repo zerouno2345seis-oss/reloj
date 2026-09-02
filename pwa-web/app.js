@@ -440,6 +440,10 @@ function deleteSelectedTiles() {
 // ── KEYBOARD SHORTCUTS LISTENER ──
 function setupKeyboardShortcuts() {
     window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && closeDesignerSurfaces()) {
+            e.preventDefault();
+            return;
+        }
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
         if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
 
@@ -474,6 +478,7 @@ function initApp() {
     validateAndPackGrid();
     captureInitialLayout();
     renderCanvas();
+    updateEditor();
     setupCanvasEvents();
     setupQuranSearch();
     renderBookmarks();
@@ -482,6 +487,7 @@ function initApp() {
     setupPresetsManager();
     setupKeyboardShortcuts();
     setupFinderControls();
+    initDesignerPanels();
     
     // Toolbar Buttons
     document.getElementById('btnUndo')?.addEventListener('click', undo);
@@ -510,9 +516,6 @@ function initApp() {
         }
     });
 
-    // Add Tile (Appends to grid and packs)
-    document.getElementById('btnAddTile')?.addEventListener('click', () => addTile('new-row'));
-    
     // Auto Layout Grid & Color Palette Shuffler
     document.getElementById('btnAutoLayout')?.addEventListener('click', () => {
         pushHistory();
@@ -616,6 +619,71 @@ function setupFinderControls() {
     document.getElementById('btnSaveCurrentPresetPrompt')?.addEventListener('click', saveCurrentPresetFromPrompt);
     document.getElementById('safeAreaToggle')?.addEventListener('change', event => {
         document.getElementById('watchScreenSimulator')?.classList.toggle('hide-safe-area', !event.target.checked);
+    });
+}
+
+// ── DESIGNER MENUS ──
+// Properties stay in the fixed left panel. Only compact command menus open here.
+
+function setDesignerMenu(menuId, triggerId, open) {
+    const menu = document.getElementById(menuId);
+    const trigger = document.getElementById(triggerId);
+    if (!menu || !trigger) return false;
+    const shouldOpen = open ?? menu.hidden;
+    menu.hidden = !shouldOpen;
+    trigger.setAttribute('aria-expanded', String(shouldOpen));
+    if (shouldOpen) {
+        document.querySelectorAll('.designer-popover').forEach(other => {
+            if (other !== menu) other.hidden = true;
+        });
+        document.querySelectorAll('[aria-controls="designerAddMenu"], [aria-controls="designerMoreMenu"], [aria-controls="designerLayersMenu"]').forEach(button => {
+            if (button !== trigger) button.setAttribute('aria-expanded', 'false');
+        });
+    }
+    return shouldOpen;
+}
+
+function closeDesignerSurfaces() {
+    let closed = false;
+    ['designerAddMenu', 'designerMoreMenu', 'designerLayersMenu'].forEach(menuId => {
+        const menu = document.getElementById(menuId);
+        if (!menu || menu.hidden) return;
+        menu.hidden = true;
+        const trigger = document.querySelector(`[aria-controls="${menuId}"]`);
+        trigger?.setAttribute('aria-expanded', 'false');
+        closed = true;
+    });
+    return closed;
+}
+
+function initDesignerPanels() {
+    const addButton = document.getElementById('btnAddTile');
+    const moreButton = document.getElementById('btnOpenDesignerMore');
+    const layersButton = document.getElementById('btnOpenLayersPanel');
+
+    addButton?.addEventListener('click', () => setDesignerMenu('designerAddMenu', 'btnAddTile'));
+    moreButton?.addEventListener('click', () => setDesignerMenu('designerMoreMenu', 'btnOpenDesignerMore'));
+    layersButton?.addEventListener('click', () => setDesignerMenu('designerLayersMenu', 'btnOpenLayersPanel'));
+    document.querySelectorAll('[data-close-designer-menu]').forEach(button => {
+        button.addEventListener('click', () => {
+            const menuId = button.dataset.closeDesignerMenu;
+            const menu = document.getElementById(menuId);
+            const trigger = document.querySelector(`[aria-controls="${menuId}"]`);
+            if (menu) menu.hidden = true;
+            trigger?.setAttribute('aria-expanded', 'false');
+            trigger?.focus?.();
+        });
+    });
+    ['btnAddTileRight', 'btnAddTileLeft', 'btnAddRow', 'btnAddPrayerStrip'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => setDesignerMenu('designerAddMenu', 'btnAddTile', false));
+    });
+    document.addEventListener('pointerdown', event => {
+        if (event.target.closest('.designer-popover, .designer-more-button, #btnAddTile, #btnOpenLayersPanel')) return;
+        ['designerAddMenu', 'designerMoreMenu', 'designerLayersMenu'].forEach(menuId => {
+            const menu = document.getElementById(menuId);
+            const triggerId = menuId === 'designerAddMenu' ? 'btnAddTile' : menuId === 'designerMoreMenu' ? 'btnOpenDesignerMore' : 'btnOpenLayersPanel';
+            if (!menu?.hidden) setDesignerMenu(menuId, triggerId, false);
+        });
     });
 }
 
@@ -1023,6 +1091,7 @@ function renderTileLayers() {
             primarySelectedIdx = index;
             renderCanvas();
             updateEditor();
+            setDesignerMenu('designerLayersMenu', 'btnOpenLayersPanel', false);
         });
         container.appendChild(row);
     });
@@ -1237,9 +1306,9 @@ function updateEditor() {
     const noMsg = document.getElementById('noTileSelectedMsg');
     
     if(primarySelectedIdx >= 0 && primarySelectedIdx < tileConfig.tiles.length) {
-        if (rightPanel) rightPanel.style.display = 'block';
-        if (leftPanel) leftPanel.style.display = 'block';
-        if (noMsg) noMsg.style.display = 'none';
+        if (rightPanel) rightPanel.hidden = false;
+        if (leftPanel) leftPanel.hidden = false;
+        if (noMsg) noMsg.hidden = true;
         
         let slot = tileConfig.tiles[primarySelectedIdx];
         populateFeatureActions(slot.id);
@@ -1264,9 +1333,9 @@ function updateEditor() {
 
         renderFolderItemsEditor(slot);
     } else {
-        if (rightPanel) rightPanel.style.display = 'none';
-        if (leftPanel) leftPanel.style.display = 'none';
-        if (noMsg) noMsg.style.display = 'block';
+        if (rightPanel) rightPanel.hidden = true;
+        if (leftPanel) leftPanel.hidden = true;
+        if (noMsg) noMsg.hidden = false;
         document.getElementById('folderItemsEditor')?.setAttribute('hidden', '');
     }
 
@@ -3403,4 +3472,3 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnImportBackupSettings')?.addEventListener('click', triggerImportBackup);
     document.getElementById('backupFileInput')?.addEventListener('change', handleBackupFileSelected);
 });
-
