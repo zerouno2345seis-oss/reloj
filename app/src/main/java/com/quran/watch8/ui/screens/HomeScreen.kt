@@ -198,6 +198,15 @@ fun HomeScreen(
     val lastPosition by viewModel.lastReadingPosition.collectAsState()
     val prayers = viewModel.prayerTimes
 
+    // Live values the tiles display instead of their own names.
+    val activeLocationName by viewModel.selectedLocationName.collectAsState()
+    val latitude by viewModel.selectedLat.collectAsState()
+    val longitude by viewModel.selectedLng.collectAsState()
+    val bookmarkList by viewModel.bookmarks.collectAsState()
+    val qiblaDeg = remember(latitude, longitude) {
+        com.quran.watch8.ui.screens.watchfaces.qiblaBearing(latitude, longitude).toInt()
+    }
+
     var tasbihCount by remember { mutableStateOf(0) }
     var tasbihDhikrIndex by remember { mutableStateOf(0) }
     val dhikrList = listOf("سبحان الله", "الحمد لله", "لا إله إلا الله", "الله أكبر", "أستغفر الله")
@@ -368,6 +377,11 @@ fun HomeScreen(
                         onFolderClick = { activeFolderSlot = slot },
                         liveStep = liveStep,
                         screenWidth = screenWidth,
+                        batteryPercent = viewModel.batteryPercentage,
+                        weather = viewModel.weatherSnapshot,
+                        qiblaDeg = qiblaDeg,
+                        locationName = activeLocationName,
+                        bookmarkCount = bookmarkList.size,
                         modifier = Modifier
                             .absoluteOffset(
                                 x = Dp(offsetX),
@@ -774,6 +788,12 @@ private fun SmartWatchFaceTile(
     tasbihCount: Int,
     currentDhikr: String,
     screenWidth: Float,
+    // Live values so a tile shows its information, not just its name.
+    batteryPercent: Int,
+    weather: com.quran.watch8.util.WeatherSnapshot,
+    qiblaDeg: Int,
+    locationName: String,
+    bookmarkCount: Int,
     onTasbihClick: () -> Unit,
     onFolderClick: () -> Unit,
     liveStep: Int,
@@ -829,27 +849,29 @@ private fun SmartWatchFaceTile(
             java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.ENGLISH)
         )
     }
-    // Keep these strings identical to the web studio's getPreviewLabel() so the
-    // preview and the watch show the same label for every tile.
+    // A tile shows its *information* wherever one exists — the next prayer's
+    // time, the real bearing, the live temperature — and falls back to a name
+    // only for launchers and folders that have nothing to display.
+    // getPreviewLabel() in the web studio mirrors this list.
     val displayTitle = when (activeActionId) {
         "folder_islamic"   -> "إسلاميات"
         "folder_tools"     -> "الأدوات"
         "folder_custom"    -> "مجلد"
         "clock_big"        -> currentTime
         "date_big"         -> shortDate
-        "prayer"           -> "المواقيت"
+        "prayer"           -> "${nextPrayer?.nameAr ?: "الصلاة"} ${nextPrayer?.formatted ?: "—:—"}"
         "prayer_countdown" -> "${nextPrayer?.nameAr ?: "الصلاة"} $countdownStr"
         "prayer_elapsed"   -> "${nextPrayer?.nameAr ?: "الصلاة"} $elapsedStr"
         "tasbih"           -> "$currentDhikr $tasbihCount"
-        "qibla"            -> "72° NE"
+        "qibla"            -> "$qiblaDeg°"
         "quran"            -> "المصحف"
         "quran_resume"     -> lastPos?.surahNameAr ?: "سورة الكهف"
         "voice_notes"      -> "التسجيلات"
-        "bookmarks"        -> "العلامات"
-        "locations"        -> "المواقع"
+        "bookmarks"        -> if (bookmarkCount > 0) "العلامات · $bookmarkCount" else "العلامات"
+        "locations"        -> locationName.substringBefore(" (").trim().ifBlank { "المواقع" }
         "settings"         -> "الإعدادات"
-        "battery"          -> "100%"
-        "weather"          -> "24°C"
+        "battery"          -> "$batteryPercent%"
+        "weather"          -> weather.temperatureLabel
         "auto_layout"      -> "ترتيب جديد"
         else               -> def.title.replace(Regex("^\\S+\\s+"), "")
     }
@@ -892,7 +914,12 @@ private fun SmartWatchFaceTile(
     // is a dark panel and the user's colour survives as a tint plus a hairline,
     // instead of a saturated block that fights every neighbour.
     val resolvedBg = accent.copy(alpha = TILE_TINT_ALPHA).compositeOver(TilePanel)
-    val resolvedBorder = accent.copy(alpha = TILE_BORDER_ALPHA)
+    // Connected tiles share every edge, so two 1dp hairlines meet and would draw
+    // a double-weight seam. Halve them there so the grid reads as one thin rule.
+    val isConnected = tileShape == RectangleShape
+    val resolvedBorder = accent.copy(
+        alpha = if (isConnected) TILE_BORDER_ALPHA * 0.55f else TILE_BORDER_ALPHA
+    )
 
     Box(
         modifier = modifier

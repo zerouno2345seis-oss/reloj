@@ -722,10 +722,13 @@ function hexToRgb(hex) {
     return [1, 3, 5].map(i => parseInt(clean.slice(i, i + 2), 16));
 }
 
-function tileSurface(hex) {
+function tileSurface(hex, connected) {
     const rgb = hexToRgb(hex) || [51, 65, 85];
     const bg = rgb.map((v, i) => Math.round(v * TILE_TINT_ALPHA + TILE_PANEL_RGB[i] * (1 - TILE_TINT_ALPHA)));
-    return { bg: `rgb(${bg.join(',')})`, border: `rgba(${rgb.join(',')},${TILE_BORDER_ALPHA})` };
+    // Connected tiles share every edge, so two hairlines meet and would draw a
+    // double-weight seam. Halve them there so the grid reads as one thin rule.
+    const alpha = connected ? TILE_BORDER_ALPHA * 0.55 : TILE_BORDER_ALPHA;
+    return { bg: `rgb(${bg.join(',')})`, border: `rgba(${rgb.join(',')},${alpha.toFixed(3)})` };
 }
 
 function normalizeHex(value) {
@@ -1215,17 +1218,17 @@ function getPreviewLabel(slot) {
         date_big: now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
         prayer_countdown: 'المغرب 1h 24m',
         prayer_elapsed: 'المغرب 18m',
-        prayer: 'المواقيت',
+        prayer: 'المغرب 18:36',
         prayer_strip_5: 'مواقيت اليوم',
         quran_resume: 'سورة الكهف',
         quran: 'المصحف',
         tasbih: 'سبحان الله 33',
-        battery: '100%',
+        battery: '78%',
         weather: '24°C',
-        qibla: '72° NE',
-        bookmarks: 'العلامات',
+        qibla: '72°',
+        bookmarks: 'العلامات · 12',
         voice_notes: 'التسجيلات',
-        locations: 'المواقع',
+        locations: 'بوينس آيرس',
         settings: 'الإعدادات',
         folder_islamic: 'إسلاميات',
         folder_tools: 'الأدوات',
@@ -1332,8 +1335,6 @@ function renderCanvas(fast) {
     tileConfig.tiles.forEach((slot, idx) => {
         const isSelected = selectedIndices.has(idx);
         const isDragging = (dragType === 'grid-tile' && primarySelectedIdx === idx);
-        const surface = tileSurface(slot.colorHex);
-
         const t = document.createElement('div');
         // Mirror the watch: the studio can pick oval / mixed / circle, so the
         // preview has to show it, not always draw a flat connected square.
@@ -1341,6 +1342,7 @@ function renderCanvas(fast) {
         const shapeClass = shape === 'mixed'
             ? (idx % 3 === 1 ? 'tile-shape-oval' : 'tile-shape-square-connected')
             : `tile-shape-${shape}`;
+        const surface = tileSurface(slot.colorHex, shapeClass === 'tile-shape-square-connected');
         t.className = `canvas-tile ${shapeClass}` + (isSelected ? ' selected' : '') + (isDragging ? ' is-dragging' : '');
         t.style.left = slot.x + '%';
         t.style.top = slot.y + '%';

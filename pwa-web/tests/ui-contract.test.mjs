@@ -121,10 +121,15 @@ test('studio and watch renderers agree on scale, labels and anchor model', () =>
   assert.match(app, /translate\(\$\{-tx\}%, \$\{-ty\}%\)/);
   assert.match(app, /translate\(\$\{-ix\}%, \$\{-iy\}%\)/);
   // Same tile labels on both sides.
-  for (const label of ['المواقع', 'العلامات', 'التسجيلات', 'المصحف']) {
+  for (const label of ['التسجيلات', 'المصحف', 'الإعدادات', 'إسلاميات']) {
     assert.match(app, new RegExp(label));
     assert.match(home, new RegExp(label));
   }
+  // A tile shows its information, not its name, wherever live data exists.
+  assert.match(home, /"prayer"\s*->\s*"\$\{nextPrayer\?\.nameAr/);
+  assert.match(home, /"battery"\s*->\s*"\$batteryPercent%"/);
+  assert.match(home, /"weather"\s*->\s*weather\.temperatureLabel/);
+  assert.match(home, /"qibla"\s*->\s*"\$qiblaDeg°"/);
 });
 
 test('auto-layout control sits in the two-row watch toolbar, not the distant layers panel', () => {
