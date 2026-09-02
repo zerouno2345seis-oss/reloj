@@ -3,11 +3,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const projectRoot = new URL('../', import.meta.url);
-const [html, css, app, serviceWorker] = await Promise.all([
+const repoRoot = new URL('../../', import.meta.url);
+const [html, css, app, serviceWorker, home] = await Promise.all([
   readFile(new URL('index.html', projectRoot), 'utf8'),
   readFile(new URL('style.css', projectRoot), 'utf8'),
   readFile(new URL('app.js', projectRoot), 'utf8'),
   readFile(new URL('sw.js', projectRoot), 'utf8'),
+  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/HomeScreen.kt', repoRoot), 'utf8'),
 ]);
 
 const requiredControlIds = [
@@ -104,10 +106,25 @@ test('smart grid redistributes tiles, protects text, and formats the Quran resum
   assert.match(app, /tile\.colorHex = color/);
   assert.match(app, /tile\.fontSize = natural === 12/);
   assert.match(app, /tile\.manualLayout = false/);
-  assert.match(app, /quran_resume:\s*'الكهف 18'/);
+  // Label mirrors HomeScreen.kt's displayTitle map (parity with the watch).
+  assert.match(app, /quran_resume:\s*'سورة الكهف'/);
   assert.match(app, /وَتَحْسَبُهُمْ أَيْقَاظًا وَهُمْ رُقُودٌ/);
   assert.match(css, /\.canvas-tile\s*\{[^}]*overflow:\s*hidden/);
   assert.match(css, /-webkit-line-clamp:\s*2/);
+});
+
+test('studio and watch renderers agree on scale, labels and anchor model', () => {
+  // Shared 438px reference scale on both sides.
+  assert.match(app, /renderScale = Math\.max\([\s\S]*?\/ 438\)/);
+  assert.match(home, /renderScale = \(screenWidth \/ 438f\)/);
+  // Anchor model: translate(-x%, -y%) in the web mirrors BiasAlignment on the watch.
+  assert.match(app, /translate\(\$\{-tx\}%, \$\{-ty\}%\)/);
+  assert.match(app, /translate\(\$\{-ix\}%, \$\{-iy\}%\)/);
+  // Same tile labels on both sides.
+  for (const label of ['المواقع', 'العلامات', 'التسجيلات', 'المصحف']) {
+    assert.match(app, new RegExp(label));
+    assert.match(home, new RegExp(label));
+  }
 });
 
 test('auto-layout control sits in the two-row watch toolbar, not the distant layers panel', () => {

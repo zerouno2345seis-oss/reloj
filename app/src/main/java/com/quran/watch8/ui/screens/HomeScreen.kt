@@ -813,27 +813,34 @@ private fun SmartWatchFaceTile(
     val showIcon = slot.displayStyle == "icon" || slot.displayStyle == "both" || slot.displayStyle == "full"
     val showText = slot.displayStyle == "text" || slot.displayStyle == "both" || slot.displayStyle == "full"
 
+    val shortDate = remember {
+        java.time.LocalDate.now().format(
+            java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.ENGLISH)
+        )
+    }
+    // Keep these strings identical to the web studio's getPreviewLabel() so the
+    // preview and the watch show the same label for every tile.
     val displayTitle = when (activeActionId) {
         "folder_islamic"   -> "إسلاميات"
         "folder_tools"     -> "الأدوات"
         "folder_custom"    -> "مجلد"
         "clock_big"        -> currentTime
-        "date_big"         -> "30 Aug"
+        "date_big"         -> shortDate
         "prayer"           -> "المواقيت"
         "prayer_countdown" -> "${nextPrayer?.nameAr ?: "الصلاة"} $countdownStr"
         "prayer_elapsed"   -> "${nextPrayer?.nameAr ?: "الصلاة"} $elapsedStr"
         "tasbih"           -> "$currentDhikr $tasbihCount"
         "qibla"            -> "72° NE"
         "quran"            -> "المصحف"
-        "quran_resume"     -> lastPos?.surahNameAr ?: "آل عمران"
-        "voice_notes"      -> "تسجيل"
+        "quran_resume"     -> lastPos?.surahNameAr ?: "سورة الكهف"
+        "voice_notes"      -> "التسجيلات"
         "bookmarks"        -> "العلامات"
         "locations"        -> "المواقع"
         "settings"         -> "الإعدادات"
         "battery"          -> "100%"
         "weather"          -> "24°C"
         "auto_layout"      -> "ترتيب جديد"
-        else               -> def.title.replace(Regex("^[^\\\\s]+\\\\s+"), "")
+        else               -> def.title.replace(Regex("^\\S+\\s+"), "")
     }
 
     val iconText = getActionIcon(activeActionId, slot.iconType)
@@ -860,7 +867,7 @@ private fun SmartWatchFaceTile(
     val tileShape = when (appearance.tileShape) {
         "circle" -> CircleShape
         "oval" -> RoundedCornerShape(percent = 50)
-        "square-gapped" -> RoundedCornerShape(8.dp)
+        "square-gapped" -> RoundedCornerShape(10.dp)
         "mixed" -> if (index % 3 == 1) RoundedCornerShape(percent = 50) else RectangleShape
         else -> RectangleShape
     }
@@ -905,7 +912,7 @@ private fun SmartWatchFaceTile(
         // One scale shared with the web studio: fontSize / iconSize are authored
         // as pixels on a 438px watch, so the preview and the device agree. 438 is
         // the real screen width; the clamp only guards odd emulator sizes.
-        val renderScale = (screenWidth / 438f).coerceIn(0.7f, 1.25f)
+        val renderScale = (screenWidth / 438f).coerceIn(0.5f, 1.6f)
 
         val isPrayerStrip = slot.displayStyle == "prayer_strip_5" || activeActionId == "prayer_strip_5"
 
@@ -919,13 +926,16 @@ private fun SmartWatchFaceTile(
             )
             PrayerStripTable(pList)
         } else {
-            val textHorizBias = when (slot.textAlign) {
-                "right" -> 0.75f
-                "left" -> -0.75f
-                else -> (tx - 50f) / 50f
-            }
-            val textAlignment = androidx.compose.ui.BiasAlignment(textHorizBias, (ty - 50f) / 50f)
-            val iconAlignment = androidx.compose.ui.BiasAlignment((ix - 50f) / 50f, (iy - 50f) / 50f)
+            // Position is driven purely by textX / textY (same anchor model the
+            // web studio uses); slot.textAlign only sets the internal text-align.
+            val textAlignment = androidx.compose.ui.BiasAlignment(
+                ((tx - 50f) / 50f).coerceIn(-1f, 1f),
+                ((ty - 50f) / 50f).coerceIn(-1f, 1f)
+            )
+            val iconAlignment = androidx.compose.ui.BiasAlignment(
+                ((ix - 50f) / 50f).coerceIn(-1f, 1f),
+                ((iy - 50f) / 50f).coerceIn(-1f, 1f)
+            )
             val textAlignEnum = when (slot.textAlign) {
                 "right" -> TextAlign.End
                 "left" -> TextAlign.Start
@@ -983,7 +993,7 @@ private fun SmartWatchFaceTile(
                             text = readingLine,
                             fontSize = calibFontSize,
                             lineHeight = (slot.fontSize * fontScale * 1.3f).coerceAtLeast(8f).sp,
-                            textAlign = TextAlign.Start,
+                            textAlign = TextAlign.Right,
                             // The reading tile is the primary loop; give the
                             // verse a third line before it ellipsises.
                             maxLines = 3,
@@ -1020,7 +1030,7 @@ private fun SmartWatchFaceTile(
                                 fontSize = calibFontSize,
                                 color = fontColor,
                                 fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
+                                textAlign = textAlignEnum,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )

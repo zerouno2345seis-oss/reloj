@@ -161,14 +161,17 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 .icon-palette-monochrome .canvas-tile { background-color:#344253 !important; }.icon-palette-night .canvas-tile { background-color:#17263a !important; }.icon-palette-warm .canvas-tile { background-color:#8c591d !important; }
 .canvas-tile.selected { border: 1.5px solid #5ac8fa; box-shadow: 0 0 0 2px rgba(0,122,255,.55); overflow: visible !important; }
 .canvas-tile.is-dragging { cursor: grabbing; opacity: .82; }
-.canvas-icon, .canvas-text { position: absolute; max-width: calc(100% - 6px); max-height: calc(100% - 6px); transform: translate(-50%, -50%); cursor: move; touch-action: none; user-select: none; }
+/* transform is set per element in renderCanvas() as translate(-textX%, -textY%)
+   so an anchor at 0/50/100 maps to the same left-edge / centre / right-edge
+   positions Compose's BiasAlignment gives the watch. */
+.canvas-icon, .canvas-text { position: absolute; max-width: 100%; max-height: 100%; cursor: move; touch-action: none; user-select: none; }
 .canvas-tile.selected .canvas-text, .canvas-tile.selected .canvas-icon { outline: 1px dashed rgba(90,200,250,.7); outline-offset: 2px; }
-.canvas-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: visible; overflow-wrap: anywhere; line-height: 1.2; white-space: normal; }
+.canvas-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; line-height: 1.2; white-space: normal; }
 .canvas-text.align-right { text-align: right; }
 .canvas-text.align-center { text-align: center; }
 .canvas-text.align-left { text-align: left; }
-.quran-resume-content { position: absolute; inset: 0; padding: 4px 6px; overflow: hidden; text-align: right; direction: rtl; }
-.quran-resume-line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.35; overflow-wrap: anywhere; font-size: inherit; }
+.quran-resume-content { position: absolute; inset: 0; padding: 4px 10px; overflow: hidden; text-align: right; direction: rtl; }
+.quran-resume-line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 1.3; overflow-wrap: anywhere; font-size: inherit; }
 .quran-resume-meta { color: #ffe082; font-family: inherit; font-size: .88em; font-weight: 700; margin-left: 4px; display: inline; }
 .icon-scale-knob, .text-scale-knob { position: absolute; z-index: 25; left: -8px; bottom: -8px; width: 14px; height: 14px; border: 2px solid white; border-radius: 50%; background: #f59e0b; box-shadow: 0 1px 4px rgba(0,0,0,.7); cursor: nwse-resize; }
 .tile-resize-handle { position: absolute; z-index: 30; width: 12px; height: 12px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: var(--finder-blue); box-shadow: 0 1px 4px rgba(0,0,0,.7); cursor: nwse-resize; }

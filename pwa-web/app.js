@@ -1188,25 +1188,33 @@ function getPreviewLabel(slot) {
     const now = new Date();
     // The watch shows Latin digits everywhere; the "-u-nu-latn" locale keeps the
     // Arabic month names but stops "٠٦:٥٢" appearing under a face that reads "06:52".
+    // Keep these strings identical to HomeScreen.kt's displayTitle map so the
+    // studio preview and the watch show the same label for every tile.
     const labels = {
         clock_big: now.toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
-        date_big: now.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short' }),
-        prayer_countdown: 'المغرب · 01:24',
-        prayer_elapsed: 'منذ الصلاة 00:18',
-        prayer: 'مواقيت الصلاة',
+        date_big: now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        prayer_countdown: 'المغرب 1h 24m',
+        prayer_elapsed: 'المغرب 18m',
+        prayer: 'المواقيت',
         prayer_strip_5: 'مواقيت اليوم',
-        quran_resume: 'الكهف 18',
-        quran: 'القرآن الكريم',
-        tasbih: 'التسبيح · 33',
-        battery: 'البطارية · 78%',
-        weather: '18° · غائم جزئيًا',
-        qibla: 'القبلة · 72°',
-        locations: 'بوينس آيرس',
+        quran_resume: 'سورة الكهف',
+        quran: 'المصحف',
+        tasbih: 'سبحان الله 33',
+        battery: '100%',
+        weather: '24°C',
+        qibla: '72° NE',
+        bookmarks: 'العلامات',
+        voice_notes: 'التسجيلات',
+        locations: 'المواقع',
+        settings: 'الإعدادات',
+        folder_islamic: 'إسلاميات',
+        folder_tools: 'الأدوات',
+        folder_custom: 'مجلد',
         auto_layout: 'ترتيب جديد'
     };
     if (labels[slot.id]) return labels[slot.id];
     const definition = tileActionsList.find(action => action.id === slot.id);
-    return definition ? definition.title.replace(/^[^\s]+\s+/, '') : slot.id;
+    return definition ? definition.title.replace(/^\S+\s+/, '') : slot.id;
 }
 
 function renderTileLayers() {
@@ -1280,7 +1288,7 @@ function renderCanvas(fast) {
     // fontSize / iconSize are authored as pixels on a 438px watch. Scale them to
     // the current preview width so the studio matches the device 1:1 (the watch
     // applies the mirror of this in HomeScreen.kt: screenWidth / 438).
-    const renderScale = Math.max(0.7, Math.min(1.25, (canvas.getBoundingClientRect().width || 438) / 438));
+    const renderScale = Math.max(0.5, Math.min(1.6, (canvas.getBoundingClientRect().width || 438) / 438));
     const insets = getCanvasInsets();
     Object.entries(insets).forEach(([edge, size]) => {
         if (!size) return;
@@ -1349,8 +1357,11 @@ function renderCanvas(fast) {
         if((slot.displayStyle === 'both' || slot.displayStyle === 'icon') && slot.displayStyle !== 'color_only' && slot.id !== 'color_only') {
             const i = document.createElement('div');
             i.className = 'canvas-icon' + (slot.iconStyle === 'animated' ? ' animated-icon-pulse' : '');
-            i.style.left = (slot.iconX !== undefined ? slot.iconX : 50) + '%';
-            i.style.top = (slot.iconY !== undefined ? slot.iconY : 30) + '%';
+            const ix = slot.iconX !== undefined ? slot.iconX : 50;
+            const iy = slot.iconY !== undefined ? slot.iconY : 30;
+            i.style.left = ix + '%';
+            i.style.top = iy + '%';
+            i.style.transform = `translate(${-ix}%, ${-iy}%)`;
             i.style.fontSize = ((slot.iconSize || 24) * renderScale) + 'px';
             i.textContent = getIcon(slot.id, slot.iconType);
             i.style.color = slot.iconColorHex || '#ffffff';
@@ -1387,8 +1398,11 @@ function renderCanvas(fast) {
                 const txt = document.createElement('div');
                 const textAlign = slot.textAlign || 'center';
                 txt.className = 'canvas-text align-' + textAlign;
-                txt.style.left = (slot.textX !== undefined ? slot.textX : 50) + '%';
-                txt.style.top = (slot.textY !== undefined ? slot.textY : 50) + '%';
+                const tx = slot.textX !== undefined ? slot.textX : 50;
+                const ty = slot.textY !== undefined ? slot.textY : 50;
+                txt.style.left = tx + '%';
+                txt.style.top = ty + '%';
+                txt.style.transform = `translate(${-tx}%, ${-ty}%)`;
                 txt.style.fontSize = (Math.max(9, (slot.fontSize || 14)) * renderScale) + 'px';
                 txt.style.color = slot.fontColorHex || '#ffffff';
                 txt.style.textAlign = textAlign;
@@ -1400,7 +1414,18 @@ function renderCanvas(fast) {
                 else if (slot.fontFamily === 'Aref Ruqaa') txt.style.fontFamily = "'Aref Ruqaa', cursive";
                 else txt.style.fontFamily = "'Tajawal', sans-serif";
 
-                txt.textContent = getPreviewLabel(slot);
+                if (slot.id === 'clock_big') {
+                    // Mirror the watch: HH:MM plus a small gold AM/PM chip, LTR.
+                    const now = new Date();
+                    txt.style.direction = 'ltr';
+                    txt.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).replace(/\s?[AP]M$/i, '');
+                    const ampm = document.createElement('span');
+                    ampm.textContent = (now.getHours() < 12 ? ' AM' : ' PM');
+                    ampm.style.cssText = 'font-size:0.45em;color:#ffe082;font-weight:700;';
+                    txt.appendChild(ampm);
+                } else {
+                    txt.textContent = getPreviewLabel(slot);
+                }
                 txt.dataset.index = idx;
                 txt.dataset.role = 'text';
 
