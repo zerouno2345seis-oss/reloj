@@ -1239,3 +1239,89 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 }
 .app-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 760px) { .app-toast { bottom: 84px; } }
+
+/* ════════════════ DESIGNER: FIXED WATCH LEFT, SCROLLING PANELS ════════════════
+   The watch is what you are editing, so it stays put on the left while the
+   layers and properties columns scroll inside themselves. Above 900px only;
+   the mobile block above still stacks everything. */
+@media (min-width: 901px) {
+  .designer-grid {
+    direction: ltr; /* physical order: watch · layers · properties */
+    grid-template-columns: minmax(300px, 430px) minmax(0, 1fr) minmax(240px, 310px);
+    align-items: start;
+    gap: 16px;
+  }
+  .designer-grid > * { direction: rtl; }
+
+  /* All three sit on row 1. Without the explicit row, grid auto-placement
+     refuses to move backwards from the layers panel (column 2) to the watch
+     (column 1) and pushes the watch onto a second row. */
+  .canvas-column,
+  .layers-panel,
+  .inspector-panel { grid-row: 1; }
+
+  .canvas-column {
+    grid-column: 1;
+    position: sticky;
+    top: 84px;
+    align-self: start;
+    min-height: 0; /* replaces the tall spacer that used to drive the sticky */
+  }
+  .canvas-sticky { position: static; top: auto; }
+
+  .layers-panel { grid-column: 2; }
+  .inspector-panel { grid-column: 3; }
+
+  /* Each panel scrolls on its own so the watch never leaves the screen. */
+  .layers-panel,
+  .inspector-panel {
+    max-height: calc(100vh - 104px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .layers-panel::-webkit-scrollbar,
+  .inspector-panel::-webkit-scrollbar { width: 8px; }
+  .layers-panel::-webkit-scrollbar-thumb,
+  .inspector-panel::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--finder-secondary) 32%, transparent);
+  }
+  .layers-panel .panel-title,
+  .inspector-panel .panel-title {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--finder-surface);
+  }
+}
+
+/* ════════════════ COLLAPSIBLE SIDEBAR ════════════════ */
+.sidebar-collapse-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-inline-start: auto;
+  border: 1px solid var(--finder-border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--finder-secondary);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: .16s ease;
+}
+.sidebar-collapse-btn:hover { color: var(--finder-blue); border-color: var(--finder-blue); }
+
+@media (min-width: 761px) {
+  .app-shell.sidebar-collapsed { grid-template-columns: minmax(0, 1fr) 62px; }
+  .app-shell.sidebar-collapsed .finder-sidebar { padding-inline: 8px; }
+  .app-shell.sidebar-collapsed .brand-lockup div:last-child,
+  .app-shell.sidebar-collapsed .sidebar-label,
+  .app-shell.sidebar-collapsed .sidebar-status div { display: none; }
+  .app-shell.sidebar-collapsed .brand-lockup { justify-content: center; padding-inline: 0; }
+  .app-shell.sidebar-collapsed .nav-item { justify-content: center; gap: 0; padding-inline: 0; }
+  .app-shell.sidebar-collapsed .nav-item { font-size: 0; }
+  .app-shell.sidebar-collapsed .nav-item > span { font-size: 17px; }
+  .app-shell.sidebar-collapsed .sidebar-collapse-btn { margin-inline: auto; }
+}

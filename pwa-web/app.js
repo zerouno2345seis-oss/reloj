@@ -2002,7 +2002,11 @@ function addBookmark(chapter, surahName, ayah, textSnippet) {
         alert(`الآية ${ayah} من سورة ${surahName} محفوظة مسبقاً في الإشارات المرجعية.`);
         return;
     }
-    const defaultName = `سورة ${surahName} - آية ${ayah}`;
+    // Name the bookmark after the opening of the verse -- that is what you
+    // recognise in a list. The reference is kept as a suffix.
+    const opening = (textSnippet || '').trim().split(/\s+/).slice(0, 5).join(' ');
+    const reference = `سورة ${surahName} - آية ${ayah}`;
+    const defaultName = opening ? `${opening}… (${reference})` : reference;
     const customName = prompt('أدخل اسماً أو ملاحظة لهذه الإشارة المرجعية:', defaultName);
     if (customName === null) return;
     
@@ -3380,6 +3384,32 @@ function handleBackupFileSelected(event) {
 }
 
 // ════════════════ MOBILE DRAWER TOGGLE ════════════════
+// Collapse the sidebar to icons so the designer gets the width back.
+// The choice is remembered, because it is a workspace preference, not a mode.
+const SIDEBAR_COLLAPSED_KEY = 'quran_watch_sidebar_collapsed';
+function initSidebarCollapse() {
+    const shell = document.querySelector('.app-shell');
+    const btn = document.getElementById('btnCollapseSidebar');
+    if (!shell || !btn) return;
+
+    const apply = (collapsed) => {
+        shell.classList.toggle('sidebar-collapsed', collapsed);
+        btn.textContent = collapsed ? '⟩' : '⟨';
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        btn.title = collapsed ? 'توسيع الشريط الجانبي' : 'طيّ الشريط الجانبي';
+    };
+
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch (_) {}
+    apply(collapsed);
+
+    btn.addEventListener('click', () => {
+        collapsed = !shell.classList.contains('sidebar-collapsed');
+        apply(collapsed);
+        try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (_) {}
+    });
+}
+
 function initMobileDrawer() {
     const menuBtn = document.getElementById('mobileMenuBtn');
     const sidebar = document.querySelector('.finder-sidebar');
@@ -3406,6 +3436,7 @@ function initMobileDrawer() {
 // Attach Backup & Mobile Drawer Handlers on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     initMobileDrawer();
+    initSidebarCollapse();
 
     document.getElementById('btnExportBackupToolbar')?.addEventListener('click', exportBackupJson);
     document.getElementById('btnImportBackupToolbar')?.addEventListener('click', triggerImportBackup);

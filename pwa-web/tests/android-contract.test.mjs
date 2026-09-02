@@ -38,8 +38,11 @@ test('watch folder launcher is circular, translucent, balanced, and editable', (
 
 test('watch prayer strip is rendered as two explicit rows', () => {
   assert.match(home, /PrayerStripTable/);
-  assert.match(home, /pList\.map\s*\{\s*it\.first\s*\}/);
-  assert.match(home, /pList\.map\s*\{\s*it\.second\s*\}/);
+  // A names row and a times row, with the names row dropped when the columns
+  // are too narrow to hold them.
+  assert.match(home, /pList\.forEach\s*\{\s*\(name,\s*_\)\s*->/);
+  assert.match(home, /pList\.forEach\s*\{\s*\(_,\s*time\)\s*->/);
+  assert.match(home, /showNames/);
 });
 
 test('reader settings support the expanded range, fonts, and synced custom colours', () => {
