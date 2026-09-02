@@ -219,8 +219,9 @@ data class WatchAppearance(
 
 data class TileConfig(
     val tiles: List<SlotItem> = listOf(
-        SlotItem(id = "clock_big", colorHex = "#7C3AED", isLive = true, subActions = listOf("clock_big", "date_big"), x = 0f, y = 0f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 0, fontSize = 24, displayStyle = "text"),
-        SlotItem(id = "prayer_countdown", colorHex = "#10B981", isLive = true, subActions = listOf("prayer_countdown", "prayer", "prayer_elapsed"), x = 50f, y = 0f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 0, fontSize = 14, displayStyle = "text"),
+        // Layer 1 already shows the time on wrist-raise, so the tiles open with
+        // the prayer countdown across the top row instead of a second clock.
+        SlotItem(id = "prayer_countdown", colorHex = "#10B981", isLive = true, subActions = listOf("prayer_countdown", "prayer", "prayer_elapsed"), x = 0f, y = 0f, width = 100f, height = 33.33f, colSpan = 12, rowIndex = 0, fontSize = 20, displayStyle = "text"),
         SlotItem(id = "folder_islamic", colorHex = "#0284C7", folderItems = listOf("quran", "tasbih", "qibla", "prayer"), x = 0f, y = 33.33f, width = 33.33f, height = 33.33f, colSpan = 4, rowIndex = 1, fontSize = 14, displayStyle = "text"),
         SlotItem(id = "quran_resume", colorHex = "#0E7490", isLive = true, subActions = listOf("quran_resume", "tasbih"), x = 33.33f, y = 33.33f, width = 66.67f, height = 33.33f, colSpan = 8, rowIndex = 1, fontSize = 14, displayStyle = "text"),
         SlotItem(id = "folder_tools", colorHex = "#EA580C", folderItems = listOf("voice_notes", "bookmarks", "locations", "settings"), x = 0f, y = 66.67f, width = 33.33f, height = 33.33f, colSpan = 4, rowIndex = 2, fontSize = 14, displayStyle = "text"),
