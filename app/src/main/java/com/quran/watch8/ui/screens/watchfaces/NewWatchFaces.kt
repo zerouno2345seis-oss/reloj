@@ -515,16 +515,16 @@ fun DailyOrbitsFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: W
             arc(92f, data.tasbih.progress, Color(0xFFFF5D64))
         }
     }) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(0.66f), horizontalArrangement = Arrangement.SpaceBetween) {
             OrbitLabel(
-                Modifier.faceAction("top", config.topSlot, actions),
+                Modifier.weight(1f).faceAction("top", config.topSlot, actions),
                 if (config.topSlot == ComplicationType.BATTERY) "بطارية" else config.topSlot.title,
                 if (config.topSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.topSlot, data),
                 scale
             )
             OrbitLabel(
-                Modifier.faceAction("left", config.leftSlot, actions),
-                if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "ضوء النهار" else config.leftSlot.title,
+                Modifier.weight(1f).faceAction("left", config.leftSlot, actions),
+                if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "النهار" else config.leftSlot.title,
                 if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "${(daylight * 100).toInt()}%" else complicationCompactValue(config.leftSlot, data),
                 scale
             )
@@ -537,15 +537,15 @@ fun DailyOrbitsFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: W
             Text(time, color = Color.White, fontSize = scale.s(54f), fontWeight = FontWeight.Light, maxLines = 1)
             Text(date, color = Color.White, fontSize = scale.s(16f), maxLines = 1, modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions))
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.fillMaxWidth(0.66f), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
             OrbitLabel(
-                Modifier.faceAction("bottom", config.bottomSlot, actions),
+                Modifier.weight(1f).faceAction("bottom", config.bottomSlot, actions),
                 if (config.bottomSlot == ComplicationType.NEXT_PRAYER) data.nextPrayerName else config.bottomSlot.title,
                 if (config.bottomSlot == ComplicationType.NEXT_PRAYER) PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer) else complicationCompactValue(config.bottomSlot, data),
                 scale
             )
             OrbitLabel(
-                Modifier.faceAction("right", config.rightSlot, actions, tapOverride = if (config.rightSlot == ComplicationType.TASBIH) actions.onIncrementTasbih else null),
+                Modifier.weight(1f).faceAction("right", config.rightSlot, actions, tapOverride = if (config.rightSlot == ComplicationType.TASBIH) actions.onIncrementTasbih else null),
                 if (config.rightSlot == ComplicationType.TASBIH) "تسبيح" else config.rightSlot.title,
                 if (config.rightSlot == ComplicationType.TASBIH) "${data.tasbih.count}/${data.tasbih.target}" else complicationCompactValue(config.rightSlot, data),
                 scale
@@ -557,8 +557,8 @@ fun DailyOrbitsFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: W
 @Composable
 private fun OrbitLabel(modifier: Modifier, title: String, value: String, scale: FaceScale) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, color = Muted, fontSize = scale.s(12f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(value, color = Color.White, fontSize = scale.s(19f), fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = Muted, fontSize = scale.s(10.5f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = Color.White, fontSize = scale.s(17f), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
