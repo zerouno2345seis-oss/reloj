@@ -967,9 +967,11 @@ function activateTab(tabName) {
 
 function getPreviewLabel(slot) {
     const now = new Date();
+    // The watch shows Latin digits everywhere; the "-u-nu-latn" locale keeps the
+    // Arabic month names but stops "٠٦:٥٢" appearing under a face that reads "06:52".
     const labels = {
-        clock_big: now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
-        date_big: now.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' }),
+        clock_big: now.toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
+        date_big: now.toLocaleDateString('ar-EG-u-nu-latn', { day: 'numeric', month: 'short' }),
         prayer_countdown: 'المغرب · 01:24',
         prayer_elapsed: 'منذ الصلاة 00:18',
         prayer: 'مواقيت الصلاة',

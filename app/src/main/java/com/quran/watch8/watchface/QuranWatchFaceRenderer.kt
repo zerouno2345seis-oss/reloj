@@ -21,10 +21,15 @@ import com.quran.watch8.data.model.SlotItem
 import com.quran.watch8.data.model.TileActionCatalog
 import com.quran.watch8.data.model.TileConfig
 import com.quran.watch8.data.repository.PreferencesRepository
+import com.quran.watch8.util.HijriDate
 import com.quran.watch8.util.PrayerTimesHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -54,8 +59,9 @@ class QuranWatchFaceRenderer(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val prefs = PreferencesRepository(context)
 
-    private var currentConfig: TileConfig = TileConfig()
-    private var lastPrayerResult: PrayerTimesHelper.DayPrayers? = null
+    // Read on the render thread, written from the collectors below.
+    @Volatile private var currentConfig: TileConfig = TileConfig()
+    @Volatile private var lastPrayerResult: PrayerTimesHelper.DayPrayers? = null
 
     private val clickableTiles = mutableListOf<ClickableTile>()
 
@@ -91,11 +97,45 @@ class QuranWatchFaceRenderer(
                 }
             }
         }
+        // Prayer times now follow the location the user actually picked, and
+        // recompute whenever it changes or the day rolls over. The old code
+        // pinned one hardcoded point in Buenos Aires, so on any other location
+        // the countdown drifted (e.g. "0m to Fajr" late at night).
         scope.launch {
-            try {
-                lastPrayerResult = PrayerTimesHelper.calculate(-34.5721, -58.4239)
-            } catch (_: Exception) {}
+            combine(
+                prefs.selectedLat,
+                prefs.selectedLng,
+                prefs.selectedLocationName,
+                prefs.calculationMethod,
+            ) { lat, lng, name, method -> LocationParams(lat, lng, name, method) }
+                .collectLatest { p ->
+                    // collectLatest cancels this block on a new location or on
+                    // scope shutdown; delay() is the cancellation point.
+                    while (true) {
+                        runCatching {
+                            lastPrayerResult = PrayerTimesHelper.calculate(
+                                latitude = p.lat,
+                                longitude = p.lng,
+                                methodName = p.method,
+                                locationName = p.name,
+                            )
+                        }
+                        // Refresh across midnight so tomorrow's Fajr is used.
+                        delay(15 * 60 * 1000L)
+                    }
+                }
         }
+    }
+
+    private data class LocationParams(
+        val lat: Double,
+        val lng: Double,
+        val name: String,
+        val method: String,
+    )
+
+    override fun onDestroy() {
+        scope.cancel()
     }
 
     override suspend fun createSharedAssets(): SharedAssets {
@@ -252,7 +292,7 @@ class QuranWatchFaceRenderer(
 
                 subTextPaint.textSize = if (isLarge) 16f else 12f
                 subTextPaint.color = Color.parseColor("#FEF08A")
-                canvas.drawText("١٨ صفر ١٤٤٨ هـ", centerX, centerY + 20f, subTextPaint)
+                canvas.drawText(HijriDate.shortArabic(), centerX, centerY + 20f, subTextPaint)
             }
             "prayer_countdown" -> {
                 val nextPrayer = lastPrayerResult?.nextPrayer
@@ -316,7 +356,7 @@ class QuranWatchFaceRenderer(
 
         subTextPaint.textSize = 17f
         subTextPaint.color = Color.parseColor("#94A3B8")
-        canvas.drawText("١٨ صفر ١٤٤٨ هـ", centerX, centerY + 30f, subTextPaint)
+        canvas.drawText(HijriDate.arabic(), centerX, centerY + 30f, subTextPaint)
 
         val next = lastPrayerResult?.nextPrayer
         if (next != null) {

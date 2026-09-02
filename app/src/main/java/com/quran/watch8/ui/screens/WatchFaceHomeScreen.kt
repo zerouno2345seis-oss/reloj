@@ -39,6 +39,7 @@ import com.quran.watch8.data.model.WatchFaceConfig
 import com.quran.watch8.data.model.WatchFaceModelId
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
+import com.quran.watch8.util.HijriDate
 import com.quran.watch8.util.PrayerTimesHelper
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -1630,7 +1631,7 @@ private fun RenderComplicationContent(
                     Text("🌙", fontSize = 10.sp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "19 Safar",
+                        text = HijriDate.latin(),
                         color = AccentGold,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -2110,7 +2111,7 @@ fun IslamicCalendarDialog(
             Text("🌙", fontSize = 22.sp)
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "19 صفر 1448 هـ",
+                text = HijriDate.arabic(),
                 color = AccentGold,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
@@ -2592,7 +2593,7 @@ fun VisualWatchFaceCarousel(
                         when (model) {
                             WatchFaceModelId.ULTRA_DIGITAL_CLASSIC, WatchFaceModelId.ULTRA_DIGITAL_LATIN_ALERT -> {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("🌙 19 Safar", fontSize = 9.sp, color = AccentGold)
+                                    Text("🌙 " + HijriDate.latin(), fontSize = 9.sp, color = AccentGold)
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text("12:45", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Color.White)
                                     Spacer(modifier = Modifier.height(2.dp))
