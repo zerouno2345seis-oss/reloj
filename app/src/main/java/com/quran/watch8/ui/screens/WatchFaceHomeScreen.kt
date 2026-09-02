@@ -447,6 +447,24 @@ fun WatchFaceHomeScreen(
         }
         }
 
+        // One shared affordance, on every one of the fifteen faces: two page dots
+        // saying "there is a second screen". Swiping left already opened the
+        // tiles, but nothing on screen ever said so. Tapping them does the same.
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 5.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { vibrate(30); onNavigate("tiles") })
+                }
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.55f)))
+            Box(Modifier.size(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.20f)))
+        }
+
         // ─────────────────────────────────────────────────────────────────────
         // 1. Popup: All Prayer Times Schedule + Elapsed/Remaining Times
         // ─────────────────────────────────────────────────────────────────────

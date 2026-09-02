@@ -1272,6 +1272,48 @@ function renderTileLayers() {
     });
 }
 
+// The overview used to print invented numbers (78% battery, "12 آية", a fake
+// prayer countdown) that never changed. The browser cannot know the watch's
+// battery or compute prayer times, so it now reports only what it genuinely
+// knows — and says "—" rather than inventing a value.
+const TILE_SHAPE_LABELS = {
+    'square-connected': 'مربّعات ملتحمة',
+    'square-gapped': 'مربّعات متباعدة',
+    oval: 'بيضاوية',
+    circle: 'دائرية',
+    mixed: 'مختلطة'
+};
+
+// Set by syncAll()/pullFromCloud() so the overview can report a real timestamp.
+let lastSyncedAt = null;
+let lastSyncStorage = null;
+
+function renderOverviewMetrics() {
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    const tiles = tileConfig.tiles?.length || 0;
+    const shape = tileConfig.appearance?.tileShape || 'square-connected';
+    const tileWord = tiles === 1 ? 'بلاطة' : tiles === 2 ? 'بلاطتان' : tiles <= 10 ? 'بلاطات' : 'بلاطة';
+    set('overviewDesign', `${tiles} ${tileWord}`);
+    set('overviewDesignMeta', TILE_SHAPE_LABELS[shape] || shape);
+
+    const locationName = (watchSettings.selectedLocationName || '').split(' (')[0] || '—';
+    set('overviewLocation', locationName);
+    set('overviewLocationMeta', `طريقة الحساب: ${watchSettings.calculationMethod || '—'}`);
+
+    let bookmarks = [];
+    try { bookmarks = JSON.parse(localStorage.getItem('quran_bookmarks') || '[]'); } catch (_) {}
+    set('overviewBookmarks', String(bookmarks.length));
+
+    const stamp = lastSyncedAt
+        ? new Date(lastSyncedAt).toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        : '—';
+    set('overviewSync', stamp);
+    set('overviewSyncMeta', lastSyncStorage === 'vercel-kv' ? 'محفوظ في السحابة' : lastSyncedAt ? 'مؤقّت — بلا تخزين دائم' : 'لم تتم بعد');
+
+    const presetName = document.getElementById('overviewPresetName');
+    if (presetName) presetName.textContent = tiles ? 'تصميمي الحالي' : 'لا يوجد تصميم';
+}
+
 function renderOverviewPreview() {
     const preview = document.getElementById('overviewWatchPreview');
     if (!preview) return;
@@ -1283,6 +1325,7 @@ function renderOverviewPreview() {
     const detail = document.createElement('small');
     detail.textContent = secondary ? getPreviewLabel(secondary) : 'تصميم هادئ ومركّز';
     preview.append(time, detail);
+    renderOverviewMetrics();
 }
 
 // ── CANVAS ENGINE ──
@@ -2708,6 +2751,9 @@ async function syncAll(isManual = false) {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || `الخادم ردّ بالرمز ${response.status}`);
         cloudOk = true;
+        lastSyncedAt = Date.now();
+        lastSyncStorage = result.storage || null;
+        renderOverviewMetrics();
         // The relay says whether it reached durable storage, so a silent
         // fallback to instance memory is visible instead of looking like success.
         if (result.storage === 'memory') {
