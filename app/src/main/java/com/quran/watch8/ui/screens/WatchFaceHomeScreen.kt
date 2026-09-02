@@ -611,7 +611,7 @@ private fun UltraDigitalFaceView(
                             .padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = "🔔 $nextPrayerName · ${minutesToNextPrayer}m",
+                            text = "🔔 $nextPrayerName · ${PrayerTimesHelper.formatCountdown(minutesToNextPrayer)}",
                             color = Color(0xFFF59E0B),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -1606,7 +1606,7 @@ private fun RenderComplicationContent(
                     Text("🕌", fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "${minutesToNextPrayer}m",
+                        text = PrayerTimesHelper.formatCountdown(minutesToNextPrayer),
                         color = Color(0xFF38BDF8),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -1701,7 +1701,7 @@ private fun RenderComplicationContent(
                 ComplicationType.PRAYER_ALERT -> {
                     Text("🔔", fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("${minutesToNextPrayer}m", color = Color(0xFFF59E0B), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(PrayerTimesHelper.formatCountdown(minutesToNextPrayer), color = Color(0xFFF59E0B), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
                 ComplicationType.HIDDEN -> {
                     // Handled above

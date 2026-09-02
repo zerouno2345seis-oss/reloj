@@ -791,7 +791,10 @@ private fun SmartWatchFaceTile(
     val allPrayers = if (prayers != null) listOf(prayers.fajr, prayers.sunrise, prayers.dhuhr, prayers.asr, prayers.maghrib, prayers.isha) else emptyList()
     val pastPrayers = allPrayers.filter { it.time.isBefore(now) }
     val lastPrayer = pastPrayers.lastOrNull() ?: prayers?.isha
-    val nextPrayer = allPrayers.firstOrNull { it.time.isAfter(now) } ?: prayers?.fajr
+    // PrayerTimesHelper already rolls this over to tomorrow's Fajr after Isha.
+    // Re-scanning today's list here fell back to a time ~18h in the past and
+    // the countdown clamped to "0m" all night.
+    val nextPrayer = prayers?.nextPrayer ?: prayers?.fajr
 
     val elapsedSec = if (lastPrayer != null) (now.epochSecond - lastPrayer.time.epochSecond).coerceAtLeast(0) else 0L
     val elapsedH = elapsedSec / 3600
@@ -799,10 +802,9 @@ private fun SmartWatchFaceTile(
     val remainingSec = if (nextPrayer != null) (nextPrayer.time.epochSecond - now.epochSecond).coerceAtLeast(0) else 0L
     val remainingH = remainingSec / 3600
     val remainingM = (remainingSec % 3600) / 60
-    val elapsedStr = if (elapsedH > 0) "${elapsedH}h ${elapsedM}m" else "${elapsedM}m"
-
+    val elapsedStr = PrayerTimesHelper.formatCountdown((elapsedSec / 60).toInt())
     val countdownStr = if (nextPrayer != null) {
-        if (remainingH > 0) "${remainingH}h ${remainingM}m" else "${remainingM}m"
+        PrayerTimesHelper.formatCountdown((remainingSec / 60).toInt())
     } else {
         "1h 23m"
     }
@@ -1027,18 +1029,50 @@ private fun SmartWatchFaceTile(
 
 @Composable
 private fun PrayerStripTable(pList: List<Pair<String, String>>) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Row(modifier = Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            pList.map { it.first }.forEach { name ->
-                Text(name, modifier = Modifier.weight(1f), color = AccentGold, fontSize = 8.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 2.dp)) {
+        val columns = pList.size.coerceAtLeast(1)
+        val columnWidth = maxWidth / columns
+        // Five Arabic names need real width. In a narrow tile each column got
+        // ~15dp, which clipped every name to a letter or two and rendered the
+        // whole strip as noise -- so below that, drop the names and keep the
+        // times, which stay readable and hold the same information.
+        val showNames = columnWidth >= 30.dp
+        val nameSize = (columnWidth.value * 0.26f).coerceIn(7f, 11f).sp
+        val timeSize = (columnWidth.value * 0.30f).coerceIn(7f, 12f).sp
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center
+        ) {
+            if (showNames) {
+                Row(modifier = Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    pList.forEach { (name, _) ->
+                        Text(
+                            name,
+                            modifier = Modifier.weight(1f),
+                            color = AccentGold,
+                            fontSize = nameSize,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                        )
+                    }
+                }
             }
-        }
-        Row(modifier = Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            pList.map { it.second }.forEach { time ->
-                Text(time, modifier = Modifier.weight(1f), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, maxLines = 1)
+            Row(modifier = Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                pList.forEach { (_, time) ->
+                    Text(
+                        time,
+                        modifier = Modifier.weight(1f),
+                        color = Color.White,
+                        fontSize = timeSize,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                    )
+                }
             }
         }
     }

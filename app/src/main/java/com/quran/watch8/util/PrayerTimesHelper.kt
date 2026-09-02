@@ -43,6 +43,17 @@ object PrayerTimesHelper {
         val methodName: String = "ISNA"
     )
 
+    /**
+     * A countdown to any prayer: hours and minutes while it is more than an
+     * hour away, plain minutes under that. "386m" for tomorrow's Fajr is not
+     * something you can read at a glance.
+     */
+    fun formatCountdown(totalMinutes: Int): String {
+        val minutes = totalMinutes.coerceAtLeast(0)
+        val hours = minutes / 60
+        return if (hours > 0) "${hours}h ${minutes % 60}m" else "${minutes}m"
+    }
+
     fun calculate(
         latitude: Double,
         longitude: Double,
