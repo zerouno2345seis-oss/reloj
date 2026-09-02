@@ -719,17 +719,6 @@ function rebalanceRowWidths(rowIndex, target, requestedSpan) {
     otherTiles[otherTiles.length - 1].colSpan += 12 - finalSum;
 }
 
-function rebalanceRowHeights(rowIndex, requestedWeight) {
-    const rows = [...new Set(tileConfig.tiles.map(tile => tile.rowIndex || 0))].sort((a, b) => a - b);
-    const nextWeights = { ...(tileConfig.rowWeights || {}) };
-    nextWeights[rowIndex] = Math.max(.22, Math.min(4, requestedWeight));
-    rows.forEach(row => {
-        if (row !== rowIndex && !Number.isFinite(Number(nextWeights[row]))) nextWeights[row] = 1;
-    });
-    tileConfig.rowWeights = nextWeights;
-    validateAndPackGrid();
-}
-
 function pickWeightedLayoutPattern() {
     const available = AUTO_LAYOUT_PATTERNS.filter(pattern => !recentAutoLayoutPatterns.includes(pattern.id));
     const pool = available.length ? available : AUTO_LAYOUT_PATTERNS;

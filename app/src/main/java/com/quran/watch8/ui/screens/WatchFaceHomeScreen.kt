@@ -74,9 +74,10 @@ private const val FLEX_SLOT = "bottom"
  *     • STEP_COUNTER / HEART_RATE -> Opens Health & Activity Dialog.
  *     • FASTING_TRACKER -> Opens Voluntary Fasting & Imsak Dialog.
  *     • HIDDEN -> Opens Complication Chooser Dialog to activate.
- * - Single Tap Quran Emblem 📖: Enters Tiles (Layer 2).
+ * - Single Tap Quran Emblem 📖 or swipe left: Enters Tiles (Layer 2).
  * - Long Press Quran Emblem 📖: Opens Full Luxury Prayer Times Popup with Elapsed/Remaining.
  * - Long Press Background: Large Frameless Visual Dial Carousel (Tap any face to apply).
+ * - Swipe up: App Drawer. Swipe right / swipe down: left to Wear OS (back, quick settings).
  */
 @Composable
 fun WatchFaceHomeScreen(
@@ -215,22 +216,18 @@ fun WatchFaceHomeScreen(
                     onDragEnd = {
                         val absY = kotlin.math.abs(totalDragY)
                         val absX = kotlin.math.abs(totalDragX)
+                        // Only two app gestures now. Swipe right (system back /
+                        // dismiss) and swipe down (system quick settings) are
+                        // left to Wear OS, and the prayer schedule moved to a
+                        // long press on the emblem or the prayer complication.
                         if (absY > absX && totalDragY < -25f) {
-                            // Swiped UP from bottom -> Open App Drawer
+                            // Swipe up -> App Drawer
                             vibrate(40)
                             onOpenAppDrawer()
-                        } else if (absX > absY && totalDragX > 30f) {
-                            // Swiped RIGHT -> Open Tiles (Layer 2)
+                        } else if (absX > absY && totalDragX < -30f) {
+                            // Swipe left -> forward into the tiles (Layer 2)
                             vibrate(40)
                             onNavigate("tiles")
-                        } else if (absX > absY && totalDragX < -30f) {
-                            // Swiped LEFT -> Open Notifications & Daily Alerts
-                            vibrate(40)
-                            showPrayerSchedulePopup = true
-                        } else if (absY > absX && totalDragY > 35f) {
-                            // Swiped DOWN -> Open Quick Control / Prayer Schedule
-                            vibrate(40)
-                            showPrayerSchedulePopup = true
                         }
                     },
                     onDrag = { change, dragAmount ->

@@ -314,11 +314,12 @@ fun HomeScreen(
                             onDragEnd = {
                                 val absY = kotlin.math.abs(totalDragY)
                                 val absX = kotlin.math.abs(totalDragX)
+                                // Mirror of Layer 1: swipe up for the drawer,
+                                // swipe right to go back to the watch face (the
+                                // same direction Wear OS uses for dismiss).
                                 if (absY > absX && totalDragY < -25f) {
-                                    // Swiped UP from bottom -> Open App Drawer
                                     onNavigate("app_drawer")
-                                } else if (absX > absY && (totalDragX < -30f || totalDragX > 30f)) {
-                                    // Swiped LEFT or RIGHT -> Return to Watch Face
+                                } else if (absX > absY && totalDragX > 30f) {
                                     onNavigate("watchface")
                                 }
                             },
@@ -851,7 +852,16 @@ private fun SmartWatchFaceTile(
     // which kept the whole grid invalidating at the display refresh rate.
     val animatedIconScale = rememberIconPulse(slot.iconStyle == "animated")
 
-    val tileShape = RectangleShape
+    // Honour the shape the web studio set. "mixed" alternates oval and square
+    // so a connected grid still gets some rhythm; "square-connected" stays a
+    // plain rectangle so neighbouring tiles read as one surface.
+    val tileShape = when (appearance.tileShape) {
+        "circle" -> CircleShape
+        "oval" -> RoundedCornerShape(percent = 50)
+        "square-gapped" -> RoundedCornerShape(8.dp)
+        "mixed" -> if (index % 3 == 1) RoundedCornerShape(percent = 50) else RectangleShape
+        else -> RectangleShape
+    }
     val resolvedBg = when (appearance.iconPalette) {
         "monochrome" -> Color(0xFF344253)
         "night" -> Color(0xFF17263A)
@@ -967,7 +977,9 @@ private fun SmartWatchFaceTile(
                             fontSize = calibFontSize,
                             lineHeight = (slot.fontSize * fontScale * 1.3f).coerceAtLeast(8f).sp,
                             textAlign = TextAlign.Start,
-                            maxLines = 2,
+                            // The reading tile is the primary loop; give the
+                            // verse a third line before it ellipsises.
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 4.dp)
                         )

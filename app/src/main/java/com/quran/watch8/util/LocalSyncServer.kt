@@ -1,7 +1,7 @@
 package com.quran.watch8.util
 
 import android.content.Context
-import android.net.wifi.WifiManager
+import android.util.Log
 import com.quran.watch8.data.db.QuranDatabase
 import com.quran.watch8.data.db.entities.BookmarkEntity
 import com.quran.watch8.data.db.entities.ReadingPositionEntity
@@ -29,6 +29,7 @@ import java.util.*
  *  - On-demand Cloud Relay sync (HTTPS).
  */
 object LocalSyncServer {
+    private const val TAG = "LocalSyncServer"
     const val FIXED_PORT = 41331
     const val CLOUD_RELAY_URL = "https://quran-watch8-hub.vercel.app/api/sync?code=41331"
 
@@ -61,17 +62,23 @@ object LocalSyncServer {
                 launch {
                     try {
                         syncWithCloud(context, "pull")
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        Log.w(TAG, "startup cloud pull failed", e)
+                    }
                 }
 
                 while (isRunning && serverSocket?.isClosed == false) {
                     try {
                         val client = serverSocket?.accept() ?: break
                         handleClient(client, dbRepo, prefs)
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        // A closed socket during shutdown is expected; anything
+                        // else is worth a line.
+                        if (isRunning) Log.w(TAG, "accept loop error", e)
+                    }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "sync server crashed on startup", e)
             }
         }
     }
@@ -80,35 +87,6 @@ object LocalSyncServer {
         isRunning = false
         runCatching { serverSocket?.close() }
         serverSocket = null
-    }
-
-    /**
-     * Returns current Wi-Fi IPv4 address of the watch
-     */
-    fun getWatchIpAddress(context: Context): String {
-        try {
-            val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
-            for (intf in interfaces) {
-                if (intf.name.contains("wlan") || intf.name.contains("eth")) {
-                    val addrs = Collections.list(intf.inetAddresses)
-                    for (addr in addrs) {
-                        if (!addr.isLoopbackAddress && addr is Inet4Address) {
-                            return addr.hostAddress ?: ""
-                        }
-                    }
-                }
-            }
-            // Fallback to any non-loopback IPv4
-            for (intf in interfaces) {
-                val addrs = Collections.list(intf.inetAddresses)
-                for (addr in addrs) {
-                    if (!addr.isLoopbackAddress && addr is Inet4Address) {
-                        return addr.hostAddress ?: ""
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-        return "192.168.1.190"
     }
 
     private fun handleClient(socket: Socket, dbRepo: DatabaseRepository, prefs: PreferencesRepository) {
@@ -161,7 +139,10 @@ object LocalSyncServer {
                 }
 
                 socket.close()
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.w(TAG, "client request failed", e)
+                runCatching { socket.close() }
+            }
         }
     }
 
@@ -285,6 +266,9 @@ object LocalSyncServer {
 
     suspend fun importDataJson(jsonStr: String, dbRepo: DatabaseRepository, prefs: PreferencesRepository) {
         val root = JSONObject(jsonStr)
+        // When the payload was built. A watch-local entry created after this is
+        // never deleted by a reconcile below.
+        val payloadVersion = root.optLong("version", System.currentTimeMillis())
 
         val tilesObj = root.optJSONObject("tilesConfig") ?: root.optJSONObject("tiles")
         if (tilesObj != null) {
@@ -344,7 +328,8 @@ object LocalSyncServer {
         }
 
         val bookmarksArr = root.optJSONArray("bookmarks")
-        if (bookmarksArr != null) {
+        if (bookmarksArr != null && bookmarksArr.length() > 0) {
+            val incomingIds = HashSet<String>()
             for (i in 0 until bookmarksArr.length()) {
                 val b = bookmarksArr.getJSONObject(i)
                 val bm = com.quran.watch8.data.model.Bookmark(
@@ -354,12 +339,22 @@ object LocalSyncServer {
                     textSnippet = if (b.has("ayahText")) b.getString("ayahText") else b.optString("textSnippet", ""),
                     timestamp = b.optLong("createdAt", System.currentTimeMillis())
                 )
+                incomingIds.add(bm.id)
                 dbRepo.addBookmark(bm)
+            }
+            // Propagate deletions: a bookmark removed in the web studio is gone
+            // from this list, so drop it here too -- unless it was added on the
+            // watch after the payload was built.
+            dbRepo.bookmarks.first().forEach { existing ->
+                if (existing.id !in incomingIds && existing.timestamp < payloadVersion) {
+                    dbRepo.removeBookmark(existing.id)
+                }
             }
         }
 
         val locationsArr = root.optJSONArray("locations")
-        if (locationsArr != null) {
+        if (locationsArr != null && locationsArr.length() > 0) {
+            val incomingIds = HashSet<String>()
             for (i in 0 until locationsArr.length()) {
                 val l = locationsArr.getJSONObject(i)
                 val loc = com.quran.watch8.data.model.SavedLocation(
@@ -369,7 +364,13 @@ object LocalSyncServer {
                     longitude = l.optDouble("longitude", -58.42),
                     type = com.quran.watch8.data.model.LocationType.IMPORTANT
                 )
+                incomingIds.add(loc.id)
                 dbRepo.addLocation(loc)
+            }
+            dbRepo.locations.first().forEach { existing ->
+                if (existing.id !in incomingIds && existing.timestamp < payloadVersion) {
+                    dbRepo.removeLocation(existing.id)
+                }
             }
         }
     }

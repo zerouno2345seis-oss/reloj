@@ -53,7 +53,10 @@ test('reader settings support the expanded range, fonts, and synced custom colou
 });
 
 test('mixed oval and square mode is honoured by the actual watch renderer', () => {
-  assert.match(home, /appearance\.tileShape\s*==\s*"mixed"/);
+  // The tile shape is driven by appearance.tileShape, and "mixed" alternates
+  // by tile index so a connected grid still gets some rhythm.
+  assert.match(home, /appearance\.tileShape/);
+  assert.match(home, /"mixed"\s*->/);
   assert.match(home, /index\s*%\s*3/);
 });
 

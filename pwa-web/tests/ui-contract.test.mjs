@@ -104,7 +104,9 @@ test('smart grid redistributes tiles, protects text, and formats the Quran resum
 
 test('auto-layout control sits in the two-row watch toolbar, not the distant layers panel', () => {
   const toolbarStart = html.indexOf('<div class="canvas-toolbar">');
-  const watchStart = html.indexOf('<div class="watch-stage">');
+  // The Layer 1 tab also has a .watch-stage, so scope to the one that follows
+  // this toolbar rather than the first in the document.
+  const watchStart = html.indexOf('<div class="watch-stage">', toolbarStart);
   const toolbar = html.slice(toolbarStart, watchStart);
   assert.match(toolbar, /id="btnAutoLayout"/);
   assert.doesNotMatch(html.match(/<div class="add-menu">[\s\S]*?<\/div>/)?.[0] ?? '', /btnAutoLayout/);
@@ -168,8 +170,9 @@ test('tile resizing is driven from all four edges and keeps neighbouring tiles p
     assert.match(css, new RegExp(`\\.tile-resize-${edge}\\s*\\{`));
   }
   assert.match(app, /function resizeTileFromEdge\s*\(/);
-  assert.match(app, /rebalanceRowWidths\(/);
-  assert.match(app, /rebalanceRowHeights\(/);
+  assert.match(app, /function resizeGridTileWidth\s*\(/);
+  assert.match(app, /function resizeGridRowHeight\s*\(/);
+  assert.match(app, /rebalanceRowWidths\(/); // still used by the explicit colSpan buttons
 });
 
 test('automatic layout offers a broad weighted catalogue and text alignment controls', () => {
