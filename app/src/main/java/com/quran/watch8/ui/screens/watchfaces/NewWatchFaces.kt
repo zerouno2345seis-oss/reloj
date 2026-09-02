@@ -534,40 +534,41 @@ private fun OrbitLabel(modifier: Modifier, title: String, value: String, scale: 
 @Composable
 fun BelieverMosaicFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
     val time = clockOf(data.nowMillis)
+    // Three bands, not four: a header pill, the three-tile heart, and one footer
+    // row that carries the reading slot and the tasbih. The standalone prayer
+    // strip is gone — the countdown already lives on the other faces.
     Column(
-        Modifier.fillMaxSize().padding(horizontal = scale.d(10f)).padding(top = scale.d(12f), bottom = scale.d(12f)),
+        Modifier.fillMaxSize().padding(horizontal = scale.d(12f)).padding(top = scale.d(18f), bottom = scale.d(18f)),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(scale.d(9f), Alignment.CenterVertically)
+        verticalArrangement = Arrangement.spacedBy(scale.d(12f), Alignment.CenterVertically)
     ) {
         SlotPill(Modifier.faceAction("top", config.topSlot, actions), "top", config.topSlot, ComplicationType.WEATHER, data, scale, actions) {
-            Text(data.weather.icon, fontSize = scale.s(14f))
-            Text(data.weather.temperatureLabel, color = Color.White, fontSize = scale.s(14f), fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(data.weather.icon, fontSize = scale.s(15f))
+            Text(data.weather.temperatureLabel, color = Color.White, fontSize = scale.s(15f), fontWeight = FontWeight.Bold, maxLines = 1)
         }
-        Row(Modifier.fillMaxWidth().height(scale.d(112f)), horizontalArrangement = Arrangement.spacedBy(scale.d(9f))) {
-            GlassCard(Modifier.weight(1f).fillMaxHeight().faceAction("left", config.leftSlot, actions), RoundedCornerShape(scale.d(18f))) {
+        Row(Modifier.fillMaxWidth().height(scale.d(124f)), horizontalArrangement = Arrangement.spacedBy(scale.d(10f))) {
+            GlassCard(Modifier.weight(1f).fillMaxHeight().faceAction("left", config.leftSlot, actions), RoundedCornerShape(scale.d(20f))) {
                 MosaicCell(if (config.leftSlot == ComplicationType.QIBLA || config.leftSlot == ComplicationType.HIDDEN) "🕋" else config.leftSlot.icon,
                     if (config.leftSlot == ComplicationType.QIBLA || config.leftSlot == ComplicationType.HIDDEN) "القبلة" else complicationCompactValue(config.leftSlot, data), scale)
             }
-            GlassCard(Modifier.weight(1.6f).fillMaxHeight().fixedAction(ComplicationType.GREGORIAN_DATE, actions), RoundedCornerShape(scale.d(30f)), Gold.copy(alpha = 0.55f)) {
-                Text(time, color = Color.White, fontSize = scale.s(48f), fontWeight = FontWeight.Light, maxLines = 1)
+            GlassCard(Modifier.weight(1.7f).fillMaxHeight().fixedAction(ComplicationType.GREGORIAN_DATE, actions), RoundedCornerShape(scale.d(32f)), Gold.copy(alpha = 0.55f)) {
+                Text(time, color = Color.White, fontSize = scale.s(52f), fontWeight = FontWeight.Light, maxLines = 1)
             }
-            GlassCard(Modifier.weight(1f).fillMaxHeight().faceAction("right", config.rightSlot, actions), RoundedCornerShape(scale.d(18f))) {
+            GlassCard(Modifier.weight(1f).fillMaxHeight().faceAction("right", config.rightSlot, actions), RoundedCornerShape(scale.d(20f))) {
                 MosaicCell(if (config.rightSlot == ComplicationType.BATTERY || config.rightSlot == ComplicationType.HIDDEN) "🔋" else config.rightSlot.icon,
                     if (config.rightSlot == ComplicationType.BATTERY || config.rightSlot == ComplicationType.HIDDEN) "${data.batteryPercent}%" else complicationCompactValue(config.rightSlot, data), scale)
             }
         }
-        SlotPill(Modifier.faceAction("bottom", config.bottomSlot, actions), "bottom", config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale, actions) {
-            Text("📖", fontSize = scale.s(12f))
-            Text("${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}", color = Color.White, fontSize = scale.s(13f), fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-        Row(Modifier.fillMaxWidth().height(scale.d(64f)), horizontalArrangement = Arrangement.spacedBy(scale.d(11f)), verticalAlignment = Alignment.CenterVertically) {
-            GlassCard(Modifier.weight(1f).fillMaxHeight().fixedAction(ComplicationType.NEXT_PRAYER, actions), RoundedCornerShape(scale.d(16f))) {
-                PrayerRow(data, scale, Modifier.fillMaxWidth().padding(horizontal = scale.d(6f)))
+        Row(Modifier.fillMaxWidth().height(scale.d(52f)), horizontalArrangement = Arrangement.spacedBy(scale.d(10f)), verticalAlignment = Alignment.CenterVertically) {
+            SlotPill(Modifier.weight(1f), "bottom", config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale, actions) {
+                Text("📖", fontSize = scale.s(12f))
+                Text("${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}",
+                    color = Color.White, fontSize = scale.s(14f), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Box(Modifier.size(scale.d(58f)).clip(CircleShape).border(1.dp, Gold.copy(alpha = 0.6f), CircleShape)
+            Box(Modifier.size(scale.d(52f)).clip(CircleShape).border(1.dp, Gold.copy(alpha = 0.6f), CircleShape)
                 .faceAction("tasbih", ComplicationType.TASBIH, actions, tapOverride = actions.onIncrementTasbih, longOverride = actions.onOpenTasbih),
                 contentAlignment = Alignment.Center) {
-                Text("${data.tasbih.count}", color = Gold, fontSize = scale.s(17f), fontWeight = FontWeight.Bold, maxLines = 1)
+                Text("📿 ${data.tasbih.count}", color = Gold, fontSize = scale.s(12f), fontWeight = FontWeight.Bold, maxLines = 1)
             }
         }
     }

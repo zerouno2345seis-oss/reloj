@@ -3294,8 +3294,8 @@ function renderNewWatchFacePreview(model) {
                 ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-orbit-prayer', 'NEXT_PRAYER', `<span>${d.nextPrayerName} ${d.countdown}</span>`)}</div>`;
         case 'BELIEVER_MOSAIC': return `
             <div class="wf-v2 wf-v2-believer-mosaic">${getNewFaceSlotHtml('topSlot', 'wf-v2-weather', 'WEATHER', `<span>⛅ ${d.weatherTemp}</span>`)}
-                <div class="wf-v2-mosaic-row">${getNewFaceSlotHtml('leftSlot', '', 'BATTERY', `<span>🔋</span><b>${d.battery}</b>`)}<strong data-action="calendar">${d.time}</strong>${getNewFaceSlotHtml('rightSlot', '', 'QIBLA', `<span>🕋</span><b>القبلة</b>`)}</div>
-                ${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill', 'QURAN_RESUME', `<span>📖 ${d.readingSurah} · ${d.readingAyah}</span>`)}<div class="wf-v2-mosaic-bottom"><em data-action="tasbih">📿 ${d.tasbihCount}</em>${d.prayers.map(([n,t]) => `<span data-action="prayers">${n}<br>${t}</span>`).join('')}</div></div>`;
+                <div class="wf-v2-mosaic-row">${getNewFaceSlotHtml('leftSlot', '', 'QIBLA', `<span>🕋</span><b>القبلة</b>`)}<strong data-action="calendar">${d.time}</strong>${getNewFaceSlotHtml('rightSlot', '', 'BATTERY', `<span>🔋</span><b>${d.battery}</b>`)}</div>
+                <div class="wf-v2-mosaic-foot">${getNewFaceSlotHtml('bottomSlot', 'wf-v2-pill', 'QURAN_RESUME', `<span>📖 ${d.readingSurah} · ${d.readingAyah}</span>`)}<em data-action="tasbih">📿 ${d.tasbihCount}</em></div></div>`;
         default: return '';
     }
 }
