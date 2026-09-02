@@ -1089,13 +1089,12 @@ function renderCanvas() {
             t.classList.add('folder-launcher');
             const orb = document.createElement('div');
             orb.className = 'folder-preview-orb';
-            const items = (slot.folderItems?.length ? slot.folderItems : ['quran', 'tasbih', 'qibla', 'prayer']).slice(0, 6);
-            items.forEach(actionId => {
-                const item = document.createElement('span');
-                item.className = 'folder-preview-item';
-                item.innerHTML = `<i>${getIcon(actionId)}</i><small>${getPreviewLabel({ id: actionId })}</small>`;
-                orb.appendChild(item);
-            });
+            // The watch draws a folder as one icon + its name, then opens the
+            // full circular launcher on tap. Four shrunken icons with clipped
+            // labels never fit a 1.3" tile, so the preview mirrors the device.
+            const items = slot.folderItems?.length ? slot.folderItems : ['quran', 'tasbih', 'qibla', 'prayer'];
+            const name = getTileDisplayName(slot.id).replace(/^\S+\s+/, '') || 'مجلد';
+            orb.innerHTML = `<i>📁</i><b>${name}</b><small>${items.length} عناصر</small>`;
             t.appendChild(orb);
             if (isSelected && idx === primarySelectedIdx) appendResizeHandles(t, idx);
             canvas.appendChild(t);

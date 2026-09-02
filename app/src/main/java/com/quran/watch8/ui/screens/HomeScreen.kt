@@ -530,7 +530,7 @@ private fun QuickEditTileModal(
             item {
                 Text("الميزة المعروضة:", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
             }
-            items(TileActionCatalog.actions) { act ->
+            items(TileActionCatalog.assignableTiles) { act ->
                 Chip(
                     onClick = { selectedAction = act.id },
                     label = {

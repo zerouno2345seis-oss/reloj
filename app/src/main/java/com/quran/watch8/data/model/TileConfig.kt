@@ -12,6 +12,7 @@ data class TileActionItem(
 
 object TileActionCatalog {
     val actions = listOf(
+        TileActionItem("color_only", "🎨 بلاطة لون فقط (تزيينية)", "🎨", ""),
         TileActionItem("clock_big", "⏰ الساعة الرقمية", "⏰", ""),
         TileActionItem("prayer_countdown", "⏳ متبقي الصلاة القادمة", "⏳", "prayer"),
         TileActionItem("prayer_elapsed", "⌛ الوقت المنقضي على الصلاة", "⌛", "prayer"),
@@ -64,6 +65,26 @@ object TileActionCatalog {
     fun getDef(id: String): TileActionItem {
         return actions.find { it.id == id } ?: TileActionItem(id, id, "⭐", id)
     }
+
+    /**
+     * Ids a tile can actually *be*: places you open and live readings you glance
+     * at. The rest of [actions] are in-tile commands (reset the tasbih, next
+     * ayah, calibrate the compass…) that only make sense inside their own
+     * screen or as a tap/long-press action, never as a standalone tile. Kept in
+     * step with tileActionsList in pwa-web/app.js so the watch editor and the
+     * web studio offer the same set.
+     */
+    private val assignableIds = listOf(
+        "color_only", "clock_big", "prayer_countdown", "prayer_elapsed", "prayer",
+        "prayer_strip_5", "quran_resume", "quran", "tasbih", "qibla",
+        "folder_islamic", "folder_tools", "folder_custom", "date_big", "bookmarks",
+        "voice_notes", "locations", "settings", "battery", "weather",
+        "auto_layout", "palette_shuffle", "presets"
+    )
+
+    /** The curated list shown in the watch's tile editor. */
+    val assignableTiles: List<TileActionItem> =
+        assignableIds.mapNotNull { id -> actions.find { it.id == id } }
 }
 
 data class SlotItem(
