@@ -167,6 +167,24 @@ test('canvas-first designer keeps the watch clear with menus and fixed propertie
   assert.match(css, /@media \(max-width: 940px\)/);
 });
 
+test('the calm tile surface uses the same numbers in the studio and on the watch', () => {
+  // A tile is a dark panel + the user's colour as a tint and a hairline. If these
+  // drift the designer stops predicting what the watch draws.
+  assert.match(app, /const TILE_PANEL_RGB = \[12, 19, 25\]/);
+  assert.match(app, /const TILE_TINT_ALPHA = 0\.14/);
+  assert.match(app, /const TILE_BORDER_ALPHA = 0\.38/);
+  assert.match(app, /function tileSurface\s*\(/);
+  assert.match(app, /t\.style\.backgroundColor = surface\.bg/);
+  assert.match(app, /t\.style\.borderColor = surface\.border/);
+  assert.match(home, /val TilePanel = Color\(0xFF0C1319\)/);
+  assert.match(home, /const val TILE_TINT_ALPHA = 0\.14f/);
+  assert.match(home, /const val TILE_BORDER_ALPHA = 0\.38f/);
+  assert.match(home, /accent\.copy\(alpha = TILE_TINT_ALPHA\)\.compositeOver\(TilePanel\)/);
+  // The ground behind the tiles has to stay darker than the panels.
+  assert.match(home, /else -> Color\(0xFF05090C\)/);
+  assert.match(css, /\.watch-pattern-star-eight \{ background-color:#05090C/);
+});
+
 test('tile colours are a fixed-palette dropdown that normalises hex for reliable sync', () => {
   assert.match(html, /<select class="color-select" id="tileBgColor">/);
   assert.match(html, /<select class="color-select" id="tileFontColor">/);

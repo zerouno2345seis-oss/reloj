@@ -708,6 +708,26 @@ const DESIGNER_PALETTE = [
 ];
 const PALETTE_HEXES = DESIGNER_PALETTE.map(([hex]) => hex);
 
+// ── Shared calm tile system ──────────────────────────────────────────────────
+// These three numbers are the mirror of TilePanel / TILE_TINT_ALPHA /
+// TILE_BORDER_ALPHA in HomeScreen.kt, so a tile looks the same here and on the
+// watch: a dark panel, with the user's colour surviving as a tint + a hairline.
+const TILE_PANEL_RGB = [12, 19, 25];
+const TILE_TINT_ALPHA = 0.14;
+const TILE_BORDER_ALPHA = 0.38;
+
+function hexToRgb(hex) {
+    const clean = normalizeHex(hex);
+    if (!/^#[0-9A-F]{6}$/i.test(clean)) return null;
+    return [1, 3, 5].map(i => parseInt(clean.slice(i, i + 2), 16));
+}
+
+function tileSurface(hex) {
+    const rgb = hexToRgb(hex) || [51, 65, 85];
+    const bg = rgb.map((v, i) => Math.round(v * TILE_TINT_ALPHA + TILE_PANEL_RGB[i] * (1 - TILE_TINT_ALPHA)));
+    return { bg: `rgb(${bg.join(',')})`, border: `rgba(${rgb.join(',')},${TILE_BORDER_ALPHA})` };
+}
+
 function normalizeHex(value) {
     let hex = String(value || '').trim();
     if (/^#?[0-9a-fA-F]{3}$/.test(hex)) {
@@ -1312,6 +1332,7 @@ function renderCanvas(fast) {
     tileConfig.tiles.forEach((slot, idx) => {
         const isSelected = selectedIndices.has(idx);
         const isDragging = (dragType === 'grid-tile' && primarySelectedIdx === idx);
+        const surface = tileSurface(slot.colorHex);
 
         const t = document.createElement('div');
         // Mirror the watch: the studio can pick oval / mixed / circle, so the
@@ -1325,7 +1346,8 @@ function renderCanvas(fast) {
         t.style.top = slot.y + '%';
         t.style.width = slot.width + '%';
         t.style.height = slot.height + '%';
-        t.style.backgroundColor = slot.colorHex;
+        t.style.backgroundColor = surface.bg;
+        t.style.borderColor = surface.border;
         t.dataset.index = idx;
 
         const isFolder = slot.id.startsWith('folder') || Array.isArray(slot.folderItems);

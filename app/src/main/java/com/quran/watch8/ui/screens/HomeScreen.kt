@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -100,6 +101,14 @@ fun generateAutomaticLayout(config: TileConfig, variant: Int): TileConfig {
     return config.copy(tiles = nextTiles, version = System.currentTimeMillis())
 }
 
+// ── Shared calm tile system ──────────────────────────────────────────────────
+// The same three numbers drive renderCanvas() in the web studio, so a tile looks
+// identical in the designer and on the watch: a dark panel, the user's colour
+// kept as a tint and a hairline, and text that reads on both.
+val TilePanel = Color(0xFF0C1319)
+const val TILE_TINT_ALPHA = 0.14f
+const val TILE_BORDER_ALPHA = 0.38f
+
 fun parseHexColor(hexString: String?, fallback: Color): Color {
     if (hexString.isNullOrBlank() || !hexString.startsWith("#")) return fallback
     return try {
@@ -110,15 +119,17 @@ fun parseHexColor(hexString: String?, fallback: Color): Color {
     }
 }
 
+// The ground sits *behind* the tile panels, so it has to stay darker than them
+// or the grid stops reading. Each pattern keeps a hint of its hue, near black.
 fun watchBackgroundFor(pattern: String): Color = when (pattern) {
-    "andalusian", "moroccan" -> Color(0xFF18313B)
-    "damascene", "arabesque" -> Color(0xFF172030)
-    "egyptian", "african" -> Color(0xFF2C1D14)
-    "ottoman", "persian" -> Color(0xFF1B1730)
-    "central-asian", "indonesian", "indian" -> Color(0xFF102A27)
-    "geometric", "global" -> Color(0xFF0B1821)
-    "none" -> Color(0xFF101216)
-    else -> Color(0xFF101B2B)
+    "andalusian", "moroccan" -> Color(0xFF040C0F)
+    "damascene", "arabesque" -> Color(0xFF05080F)
+    "egyptian", "african" -> Color(0xFF0C0704)
+    "ottoman", "persian" -> Color(0xFF07050F)
+    "central-asian", "indonesian", "indian" -> Color(0xFF030C0B)
+    "geometric", "global" -> Color(0xFF03070A)
+    "none" -> Color(0xFF05070A)
+    else -> Color(0xFF05090C)
 }
 
 fun getActionIcon(actionId: String, iconType: String?): String {
@@ -871,17 +882,23 @@ private fun SmartWatchFaceTile(
         "mixed" -> if (index % 3 == 1) RoundedCornerShape(percent = 50) else RectangleShape
         else -> RectangleShape
     }
-    val resolvedBg = when (appearance.iconPalette) {
+    val accent = when (appearance.iconPalette) {
         "monochrome" -> Color(0xFF344253)
         "night" -> Color(0xFF17263A)
         "warm" -> Color(0xFF8C591D)
         else -> bgColor
     }
+    // Shared calm system (mirrored by renderCanvas in the web studio): the tile
+    // is a dark panel and the user's colour survives as a tint plus a hairline,
+    // instead of a saturated block that fights every neighbour.
+    val resolvedBg = accent.copy(alpha = TILE_TINT_ALPHA).compositeOver(TilePanel)
+    val resolvedBorder = accent.copy(alpha = TILE_BORDER_ALPHA)
 
     Box(
         modifier = modifier
             .scale(scale)
             .background(resolvedBg, tileShape)
+            .border(1.dp, resolvedBorder, tileShape)
             .clip(tileShape)
             .clipToBounds()
             .pointerInput(activeActionId, isFolder) {
