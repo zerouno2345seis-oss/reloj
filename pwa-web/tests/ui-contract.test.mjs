@@ -28,11 +28,12 @@ const requiredControlIds = [
   'btnDeleteTile',
   'btnSaveTilesToWatch',
   'btnOpenDesignerMore',
-  'btnOpenLayersPanel',
   'designerAddMenu',
   'designerMoreMenu',
-  'designerLayersMenu',
   'designerInspectorPanel',
+  'designerLayersPanel',
+  'btnToggleAllDetails',
+  'tileLayersList',
   'btnCloudPush',
   'btnCloudPull',
   'btnLocalSync',
@@ -124,17 +125,41 @@ test('auto-layout control sits in the two-row watch toolbar, not the distant lay
 test('canvas-first designer keeps the watch clear with menus and fixed properties', () => {
   assert.match(html, /id=["']designerAddMenu["'][^>]*role=["']menu["']/);
   assert.match(html, /id=["']designerMoreMenu["'][^>]*role=["']menu["']/);
-  assert.match(html, /id=["']designerLayersMenu["'][^>]*role=["']menu["']/);
   assert.match(html, /id=["']designerInspectorPanel["']/);
   assert.doesNotMatch(html, /designerInspectorDrawer|designerDrawerBackdrop/);
+  // The layers list is a fixed panel directly under the watch, not a popover menu.
+  assert.doesNotMatch(html, /id=["']designerLayersMenu["']/);
+  assert.doesNotMatch(html, /id=["']btnOpenLayersPanel["']/);
+  const stageAt = html.indexOf('<div class="watch-stage">', html.indexOf('canvas-toolbar'));
+  assert.ok(html.indexOf('id="designerLayersPanel"') > stageAt, 'layers panel sits after the watch stage');
+  assert.match(html, /id=["']designerLayersPanel["'][\s\S]{0,200}id=["']tileLayersList["']/);
   for (const section of ['المحتوى', 'التفاعل', 'التخطيط', 'الخط والأيقونة', 'الألوان']) {
     assert.match(html, new RegExp(`<summary>${section}</summary>`));
   }
+  // All five property groups start expanded, with a single expand/collapse-all control.
+  for (const sid of ['secContent', 'secInteract', 'secLayout', 'secFont', 'secColors']) {
+    assert.match(html, new RegExp(`id=["']${sid}["'][^>]*\\sopen`));
+  }
+  assert.match(html, /id=["']btnToggleAllDetails["']/);
+  assert.match(html, /data-section-toggle="secColors"/);
+  assert.match(app, /function initInspectorToolbar\s*\(/);
   assert.match(app, /function initDesignerPanels\s*\(/);
   assert.match(app, /function closeDesignerSurfaces\s*\(/);
   assert.match(css, /DESIGNER: CANVAS FIRST \+ FIXED PROPERTIES/);
   assert.match(css, /\.designer-inspector-panel\s*\{[^}]*position:\s*sticky/);
   assert.match(css, /@media \(max-width: 940px\)/);
+});
+
+test('tile colours are a fixed-palette dropdown that normalises hex for reliable sync', () => {
+  assert.match(html, /<select class="color-select" id="tileBgColor">/);
+  assert.match(html, /<select class="color-select" id="tileFontColor">/);
+  assert.match(html, /<select class="color-select" id="tileIconColor">/);
+  assert.doesNotMatch(html, /<input type="color"/);
+  assert.match(app, /function normalizeHex\s*\(/);
+  assert.match(app, /function initColorSelects\s*\(/);
+  assert.match(app, /function setColorSelect\s*\(/);
+  assert.match(app, /const DESIGNER_PALETTE/);
+  assert.match(app, /slot\.colorHex = normalizeHex\(/);
 });
 
 test('settings expose watch-compatible reader styles and specialised notifications', () => {

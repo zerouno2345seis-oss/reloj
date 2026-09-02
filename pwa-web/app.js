@@ -475,6 +475,7 @@ function initApp() {
     restoreLocalDraft();
     setupTabs();
     populateSelects();
+    initColorSelects();
     validateAndPackGrid();
     captureInitialLayout();
     renderCanvas();
@@ -488,7 +489,8 @@ function initApp() {
     setupKeyboardShortcuts();
     setupFinderControls();
     initDesignerPanels();
-    
+    initInspectorToolbar();
+
     // Toolbar Buttons
     document.getElementById('btnUndo')?.addEventListener('click', undo);
     document.getElementById('btnRedo')?.addEventListener('click', redo);
@@ -581,12 +583,18 @@ function setupFinderControls() {
             onEditorChange('tileFontSize');
         });
     });
+    const fontRange = document.getElementById('tileFontSizeRange');
+    if (fontRange) {
+        // Live drag: repaint only the watch, commit history + sync on release.
+        fontRange.addEventListener('input', () => applyFontSize(parseInt(fontRange.value), false));
+        fontRange.addEventListener('change', () => applyFontSize(parseInt(fontRange.value), true));
+    }
     document.querySelectorAll('[data-swatch]').forEach(button => {
         button.style.background = button.dataset.swatch;
         button.addEventListener('click', () => {
             const field = document.getElementById('tileBgColor');
             if (!field) return;
-            field.value = button.dataset.swatch;
+            setColorSelect('tileBgColor', button.dataset.swatch, '#334155');
             onEditorChange('tileBgColor');
         });
     });
@@ -659,11 +667,9 @@ function closeDesignerSurfaces() {
 function initDesignerPanels() {
     const addButton = document.getElementById('btnAddTile');
     const moreButton = document.getElementById('btnOpenDesignerMore');
-    const layersButton = document.getElementById('btnOpenLayersPanel');
 
     addButton?.addEventListener('click', () => setDesignerMenu('designerAddMenu', 'btnAddTile'));
     moreButton?.addEventListener('click', () => setDesignerMenu('designerMoreMenu', 'btnOpenDesignerMore'));
-    layersButton?.addEventListener('click', () => setDesignerMenu('designerLayersMenu', 'btnOpenLayersPanel'));
     document.querySelectorAll('[data-close-designer-menu]').forEach(button => {
         button.addEventListener('click', () => {
             const menuId = button.dataset.closeDesignerMenu;
@@ -678,13 +684,134 @@ function initDesignerPanels() {
         document.getElementById(id)?.addEventListener('click', () => setDesignerMenu('designerAddMenu', 'btnAddTile', false));
     });
     document.addEventListener('pointerdown', event => {
-        if (event.target.closest('.designer-popover, .designer-more-button, #btnAddTile, #btnOpenLayersPanel')) return;
-        ['designerAddMenu', 'designerMoreMenu', 'designerLayersMenu'].forEach(menuId => {
+        if (event.target.closest('.designer-popover, .designer-more-button, #btnAddTile')) return;
+        ['designerAddMenu', 'designerMoreMenu'].forEach(menuId => {
             const menu = document.getElementById(menuId);
-            const triggerId = menuId === 'designerAddMenu' ? 'btnAddTile' : menuId === 'designerMoreMenu' ? 'btnOpenDesignerMore' : 'btnOpenLayersPanel';
+            const triggerId = menuId === 'designerAddMenu' ? 'btnAddTile' : 'btnOpenDesignerMore';
             if (!menu?.hidden) setDesignerMenu(menuId, triggerId, false);
         });
     });
+}
+
+// ── COLOR DROPDOWNS ──
+// Colours are picked from a fixed palette so every value round-trips to the
+// watch identically (a free-form hex from the native picker was the sync gap).
+const DESIGNER_PALETTE = [
+    ['#0E7490', 'فيروزي'], ['#0284C7', 'أزرق'], ['#1D4ED8', 'أزرق ملكي'],
+    ['#2563EB', 'أزرق فاتح'], ['#7C3AED', 'بنفسجي'], ['#AF52DE', 'بنفسجي فاتح'],
+    ['#DB2777', 'وردي'], ['#DC2626', 'أحمر'], ['#EA580C', 'برتقالي'],
+    ['#D97706', 'ذهبي'], ['#F59E0B', 'كهرماني'], ['#CA8A04', 'خردلي'],
+    ['#16A34A', 'أخضر'], ['#10B981', 'أخضر نعناعي'], ['#059669', 'زمردي'], ['#0D9488', 'أخضر مزرق'],
+    ['#334155', 'أردوازي'], ['#1F2937', 'فحمي'], ['#1C1C1E', 'أسود'],
+    ['#0B1120', 'أسود داكن'], ['#64748B', 'رمادي'], ['#94A3B8', 'رمادي فاتح'],
+    ['#E2E8F0', 'رمادي باهت'], ['#F8FAFC', 'أبيض مطفأ'], ['#FFFFFF', 'أبيض'],
+];
+const PALETTE_HEXES = DESIGNER_PALETTE.map(([hex]) => hex);
+
+function normalizeHex(value) {
+    let hex = String(value || '').trim();
+    if (/^#?[0-9a-fA-F]{3}$/.test(hex)) {
+        hex = hex.replace('#', '');
+        hex = '#' + hex.split('').map(c => c + c).join('');
+    }
+    if (!hex.startsWith('#')) hex = '#' + hex;
+    return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.toUpperCase() : hex;
+}
+
+function initColorSelects() {
+    ['tileBgColor', 'tileFontColor', 'tileIconColor'].forEach(id => {
+        const select = document.getElementById(id);
+        if (!select || select.tagName !== 'SELECT' || select.options.length) return;
+        DESIGNER_PALETTE.forEach(([hex, name]) => {
+            const option = document.createElement('option');
+            option.value = hex;
+            option.textContent = `${name} — ${hex}`;
+            select.appendChild(option);
+        });
+    });
+}
+
+function setColorSelect(id, value, fallback) {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const hex = normalizeHex(value || fallback);
+    // Keep any earlier custom option from lingering.
+    [...select.querySelectorAll('option[data-custom]')].forEach(o => o.remove());
+    if (!PALETTE_HEXES.includes(hex)) {
+        const option = document.createElement('option');
+        option.value = hex;
+        option.dataset.custom = '1';
+        option.textContent = `مخصص — ${hex}`;
+        select.insertBefore(option, select.firstChild);
+    }
+    select.value = hex;
+}
+
+// ── INSPECTOR: EXPAND / COLLAPSE ALL + SECTION VISIBILITY ──
+const INSPECTOR_SECTIONS = ['secContent', 'secInteract', 'secLayout', 'secFont', 'secColors'];
+const INSPECTOR_PREFS_KEY = 'quran_watch_inspector_prefs';
+
+function loadInspectorPrefs() {
+    try { return JSON.parse(localStorage.getItem(INSPECTOR_PREFS_KEY)) || {}; }
+    catch (_) { return {}; }
+}
+function saveInspectorPrefs(prefs) {
+    try { localStorage.setItem(INSPECTOR_PREFS_KEY, JSON.stringify(prefs)); } catch (_) {}
+}
+
+function syncToggleAllButton() {
+    const button = document.getElementById('btnToggleAllDetails');
+    if (!button) return;
+    const anyOpen = INSPECTOR_SECTIONS
+        .map(sid => document.getElementById(sid))
+        .some(el => el && !el.hidden && el.open);
+    button.dataset.allOpen = String(anyOpen);
+    button.textContent = anyOpen ? 'طيّ الكل' : 'توسيع الكل';
+}
+
+function initInspectorToolbar() {
+    const prefs = loadInspectorPrefs();
+    INSPECTOR_SECTIONS.forEach(sid => {
+        const details = document.getElementById(sid);
+        if (!details) return;
+        if (prefs[sid] && prefs[sid].shown === false) details.hidden = true;
+        details.open = !(prefs[sid] && prefs[sid].open === false);
+        const checkbox = document.querySelector(`[data-section-toggle="${sid}"]`);
+        if (checkbox) checkbox.checked = !details.hidden;
+        details.addEventListener('toggle', () => {
+            const current = loadInspectorPrefs();
+            current[sid] = { ...(current[sid] || {}), open: details.open };
+            saveInspectorPrefs(current);
+            syncToggleAllButton();
+        });
+    });
+
+    document.querySelectorAll('[data-section-toggle]').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            const sid = checkbox.dataset.sectionToggle;
+            const details = document.getElementById(sid);
+            if (details) details.hidden = !checkbox.checked;
+            const current = loadInspectorPrefs();
+            current[sid] = { ...(current[sid] || {}), shown: checkbox.checked };
+            saveInspectorPrefs(current);
+            syncToggleAllButton();
+        });
+    });
+
+    document.getElementById('btnToggleAllDetails')?.addEventListener('click', () => {
+        const open = document.getElementById('btnToggleAllDetails').dataset.allOpen !== 'true';
+        const current = loadInspectorPrefs();
+        INSPECTOR_SECTIONS.forEach(sid => {
+            const details = document.getElementById(sid);
+            if (!details || details.hidden) return;
+            details.open = open;
+            current[sid] = { ...(current[sid] || {}), open };
+        });
+        saveInspectorPrefs(current);
+        syncToggleAllButton();
+    });
+
+    syncToggleAllButton();
 }
 
 function setTileAlignment(axis, value) {
@@ -704,6 +831,19 @@ function setTileAlignment(axis, value) {
     });
     renderCanvas();
     scheduleAutoSync();
+}
+
+function applyFontSize(size, commit) {
+    if (primarySelectedIdx < 0 || !tileConfig.tiles[primarySelectedIdx]) return;
+    const clamped = Math.max(8, Math.min(48, Math.round(size) || 14));
+    if (commit) pushHistory();
+    selectedIndices.forEach(idx => { if (tileConfig.tiles[idx]) tileConfig.tiles[idx].fontSize = clamped; });
+    const num = document.getElementById('tileFontSize');
+    const range = document.getElementById('tileFontSizeRange');
+    if (num) num.value = clamped;
+    if (range && range.value !== String(clamped)) range.value = clamped;
+    renderCanvas(!commit);
+    if (commit) scheduleAutoSync();
 }
 
 function onEditorChange(id) {
@@ -728,13 +868,13 @@ function onEditorChange(id) {
                     : ['quran', 'tasbih', 'qibla', 'prayer'];
             }
         }
-        if(id === 'tileBgColor') slot.colorHex = document.getElementById('tileBgColor').value;
-        if(id === 'tileFontColor') slot.fontColorHex = document.getElementById('tileFontColor').value;
+        if(id === 'tileBgColor') slot.colorHex = normalizeHex(document.getElementById('tileBgColor').value);
+        if(id === 'tileFontColor') slot.fontColorHex = normalizeHex(document.getElementById('tileFontColor').value);
         if(id === 'tileFontSize') slot.fontSize = parseInt(document.getElementById('tileFontSize').value) || 14;
         if(id === 'tileFontFamily') slot.fontFamily = document.getElementById('tileFontFamily').value;
         if(id === 'tileDisplayStyle') slot.displayStyle = document.getElementById('tileDisplayStyle').value;
         if(id === 'tileIconStyle') slot.iconStyle = document.getElementById('tileIconStyle').value;
-        if(id === 'tileIconColor') slot.iconColorHex = document.getElementById('tileIconColor').value;
+        if(id === 'tileIconColor') slot.iconColorHex = normalizeHex(document.getElementById('tileIconColor').value);
         if(id === 'tileIconType') slot.iconType = document.getElementById('tileIconType').value;
         if(id === 'tileTapAction') slot.tapAction = document.getElementById('tileTapAction').value;
         if(id === 'tileLongPressAction') slot.longPressAction = document.getElementById('tileLongPressAction').value;
@@ -920,10 +1060,11 @@ window.quickSetFontSize = function(sz) {
 window.quickSetBgColor = function(color) {
     if (primarySelectedIdx < 0) return;
     pushHistory();
+    const hex = normalizeHex(color);
     selectedIndices.forEach(idx => {
-        tileConfig.tiles[idx].colorHex = color;
+        tileConfig.tiles[idx].colorHex = hex;
     });
-    if (document.getElementById('tileBgColor')) document.getElementById('tileBgColor').value = color;
+    setColorSelect('tileBgColor', hex, '#334155');
     renderCanvas();
     scheduleAutoSync();
 };
@@ -931,10 +1072,11 @@ window.quickSetBgColor = function(color) {
 window.quickSetFontColor = function(color) {
     if (primarySelectedIdx < 0) return;
     pushHistory();
+    const hex = normalizeHex(color);
     selectedIndices.forEach(idx => {
-        tileConfig.tiles[idx].fontColorHex = color;
+        tileConfig.tiles[idx].fontColorHex = hex;
     });
-    if (document.getElementById('tileFontColor')) document.getElementById('tileFontColor').value = color;
+    setColorSelect('tileFontColor', hex, '#FFFFFF');
     renderCanvas();
     scheduleAutoSync();
 };
@@ -942,10 +1084,11 @@ window.quickSetFontColor = function(color) {
 window.quickSetIconColor = function(color) {
     if (primarySelectedIdx < 0) return;
     pushHistory();
+    const hex = normalizeHex(color);
     selectedIndices.forEach(idx => {
-        tileConfig.tiles[idx].iconColorHex = color;
+        tileConfig.tiles[idx].iconColorHex = hex;
     });
-    if (document.getElementById('tileIconColor')) document.getElementById('tileIconColor').value = color;
+    setColorSelect('tileIconColor', hex, '#FFFFFF');
     renderCanvas();
     scheduleAutoSync();
 };
@@ -1069,6 +1212,8 @@ function getPreviewLabel(slot) {
 function renderTileLayers() {
     const container = document.getElementById('tileLayersList');
     if (!container) return;
+    const count = document.getElementById('layersCount');
+    if (count) count.textContent = `${tileConfig.tiles.length} عنصر`;
     container.replaceChildren();
     tileConfig.tiles.forEach((slot, index) => {
         const row = document.createElement('button');
@@ -1091,7 +1236,6 @@ function renderTileLayers() {
             primarySelectedIdx = index;
             renderCanvas();
             updateEditor();
-            setDesignerMenu('designerLayersMenu', 'btnOpenLayersPanel', false);
         });
         container.appendChild(row);
     });
@@ -1125,7 +1269,9 @@ function appendResizeHandles(tileElement, tileIndex) {
     });
 }
 
-function renderCanvas() {
+// `fast` skips the layers list and overview mini-preview so a live drag
+// (text move, font/icon scaling, tile resize) only repaints the watch itself.
+function renderCanvas(fast) {
     const canvas = document.getElementById('watchScreenSimulator');
     if (!canvas) return;
     const appearance = getAppearance();
@@ -1271,8 +1417,10 @@ function renderCanvas() {
         
         canvas.appendChild(t);
     });
-    renderTileLayers();
-    renderOverviewPreview();
+    if (!fast) {
+        renderTileLayers();
+        renderOverviewPreview();
+    }
 }
 
 function getIcon(id, iconType) {
@@ -1304,25 +1452,29 @@ function updateEditor() {
     const rightPanel = document.getElementById('selectedTileEditorRight');
     const leftPanel = document.getElementById('selectedTileEditorLeft');
     const noMsg = document.getElementById('noTileSelectedMsg');
-    
+    const toolbar = document.getElementById('inspectorToolbar');
+
     if(primarySelectedIdx >= 0 && primarySelectedIdx < tileConfig.tiles.length) {
         if (rightPanel) rightPanel.hidden = false;
         if (leftPanel) leftPanel.hidden = false;
+        if (toolbar) toolbar.hidden = false;
         if (noMsg) noMsg.hidden = true;
-        
+
         let slot = tileConfig.tiles[primarySelectedIdx];
         populateFeatureActions(slot.id);
         const selectedName = document.getElementById('selectedTileName');
         if (selectedName) selectedName.textContent = getPreviewLabel(slot);
         document.getElementById('tileAction').value = slot.id;
-        document.getElementById('tileBgColor').value = slot.colorHex || '#334155';
-        document.getElementById('tileFontColor').value = slot.fontColorHex || '#FFFFFF';
+        setColorSelect('tileBgColor', slot.colorHex, '#334155');
+        setColorSelect('tileFontColor', slot.fontColorHex, '#FFFFFF');
         document.getElementById('tileFontSize').value = slot.fontSize || 14;
+        const fontRange = document.getElementById('tileFontSizeRange');
+        if (fontRange) fontRange.value = slot.fontSize || 14;
         if(document.getElementById('tileFontFamily')) document.getElementById('tileFontFamily').value = slot.fontFamily || 'Uthmanic';
         document.getElementById('tileDisplayStyle').value = slot.displayStyle || 'text';
         document.getElementById('tileIconStyle').value = slot.iconStyle || 'static';
         document.getElementById('tileIconType').value = slot.iconType || 'default';
-        document.getElementById('tileIconColor').value = slot.iconColorHex || '#FFFFFF';
+        setColorSelect('tileIconColor', slot.iconColorHex, '#FFFFFF');
         if(document.getElementById('tileTapAction')) document.getElementById('tileTapAction').value = [...document.getElementById('tileTapAction').options].some(option => option.value === (slot.tapAction || '')) ? slot.tapAction || '' : '';
         if(document.getElementById('tileLongPressAction')) document.getElementById('tileLongPressAction').value = [...document.getElementById('tileLongPressAction').options].some(option => option.value === (slot.longPressAction || 'quick_edit')) ? slot.longPressAction || 'quick_edit' : 'quick_edit';
         
@@ -1335,6 +1487,7 @@ function updateEditor() {
     } else {
         if (rightPanel) rightPanel.hidden = true;
         if (leftPanel) leftPanel.hidden = true;
+        if (toolbar) toolbar.hidden = true;
         if (noMsg) noMsg.hidden = false;
         document.getElementById('folderItemsEditor')?.setAttribute('hidden', '');
     }
@@ -1522,7 +1675,25 @@ function setupCanvasEvents() {
             }
         }
 
-        // 2. Check for Tile Click (Any child element inside canvas-tile)
+        // 2. Grab the text or icon of the already-selected tile to move it inside
+        //    the tile. First click selects the tile; a second press on its label
+        //    or glyph starts a nested drag instead of moving the whole tile.
+        const roleEl = target.closest('[data-role="text"], [data-role="icon"]');
+        if (roleEl && !isShift && !isCtrl) {
+            const rIdx = parseInt(roleEl.dataset.index);
+            if (!isNaN(rIdx) && rIdx === primarySelectedIdx && selectedIndices.has(rIdx) && selectedIndices.size === 1) {
+                dragType = roleEl.dataset.role; // 'text' or 'icon'
+                dragStartPointerX = clientX;
+                dragStartPointerY = clientY;
+                startTilesSnapshot = JSON.parse(JSON.stringify(tileConfig.tiles));
+                startRowWeightsSnapshot = JSON.parse(JSON.stringify(tileConfig.rowWeights || {}));
+                ghostTargetSlot = null;
+                interactionHistoryPushed = false;
+                return;
+            }
+        }
+
+        // 3. Check for Tile Click (Any child element inside canvas-tile)
         const tileEl = target.closest('.canvas-tile') || target.closest('[data-index]');
         if (tileEl && tileEl.dataset.index !== undefined) {
             const clickedIdx = parseInt(tileEl.dataset.index);
@@ -1552,7 +1723,7 @@ function setupCanvasEvents() {
             }
         }
 
-        // 3. Clicked empty background inside canvas
+        // 4. Clicked empty background inside canvas
         if (target === canvas || target.classList.contains('safe-area-ring') || target.classList.contains('edge-margin-guide')) {
             selectedIndices.clear();
             primarySelectedIdx = -1;
@@ -1735,16 +1906,19 @@ function onPointerMove(e) {
 
     // ── Interactive Scale Knobs ──
     if (dragType === 'scale-text') {
-        let newSize = Math.round(Math.max(8, Math.min(36, (orig.fontSize || 14) + (dx * 0.4))));
-        slot.fontSize = newSize;
-        if (document.getElementById('tileFontSize')) document.getElementById('tileFontSize').value = newSize;
-        renderCanvas();
+        let newSize = Math.round(Math.max(8, Math.min(48, (orig.fontSize || 14) + (dx * 0.6))));
+        selectedIndices.forEach(idx => { if (tileConfig.tiles[idx]) tileConfig.tiles[idx].fontSize = newSize; });
+        const num = document.getElementById('tileFontSize');
+        const range = document.getElementById('tileFontSizeRange');
+        if (num) num.value = newSize;
+        if (range) range.value = newSize;
+        renderCanvas(true);
         return;
     }
     if (dragType === 'scale-icon') {
-        let newSize = Math.round(Math.max(14, Math.min(48, (orig.iconSize || 24) + (dx * 0.4))));
-        slot.iconSize = newSize;
-        renderCanvas();
+        let newSize = Math.round(Math.max(14, Math.min(48, (orig.iconSize || 24) + (dx * 0.6))));
+        selectedIndices.forEach(idx => { if (tileConfig.tiles[idx]) tileConfig.tiles[idx].iconSize = newSize; });
+        renderCanvas(true);
         return;
     }
 
@@ -1754,29 +1928,29 @@ function onPointerMove(e) {
         } else {
             resizeTileWithRatio(slot, orig, dragResizeCorner, dx, dy);
         }
-        renderCanvas();
+        renderCanvas(true);
         return;
     }
 
     // ── Direct Text and Icon Dragging ──
     if (dragType === 'text') {
-        let tileWidthPx = (orig.width / 100) * canvasRect.width;
-        let tileHeightPx = (orig.height / 100) * canvasRect.height;
+        let tileWidthPx = ((orig.width || 100) / 100) * canvasRect.width || canvasRect.width;
+        let tileHeightPx = ((orig.height || 100) / 100) * canvasRect.height || canvasRect.height;
         let dTx = ((e.clientX - dragStartPointerX) / tileWidthPx) * 100;
         let dTy = ((e.clientY - dragStartPointerY) / tileHeightPx) * 100;
-        slot.textX = Math.round(Math.max(20, Math.min(80, (orig.textX || 50) + dTx)));
-        slot.textY = Math.round(Math.max(20, Math.min(80, (orig.textY || 50) + dTy)));
-        renderCanvas();
+        slot.textX = Math.round(Math.max(12, Math.min(88, (orig.textX || 50) + dTx)));
+        slot.textY = Math.round(Math.max(12, Math.min(88, (orig.textY || 50) + dTy)));
+        renderCanvas(true);
         return;
     }
     if (dragType === 'icon') {
-        let tileWidthPx = (orig.width / 100) * canvasRect.width;
-        let tileHeightPx = (orig.height / 100) * canvasRect.height;
+        let tileWidthPx = ((orig.width || 100) / 100) * canvasRect.width || canvasRect.width;
+        let tileHeightPx = ((orig.height || 100) / 100) * canvasRect.height || canvasRect.height;
         let dIx = ((e.clientX - dragStartPointerX) / tileWidthPx) * 100;
         let dIy = ((e.clientY - dragStartPointerY) / tileHeightPx) * 100;
-        slot.iconX = Math.round(Math.max(20, Math.min(80, (orig.iconX || 50) + dIx)));
-        slot.iconY = Math.round(Math.max(20, Math.min(80, (orig.iconY || 30) + dIy)));
-        renderCanvas();
+        slot.iconX = Math.round(Math.max(12, Math.min(88, (orig.iconX || 50) + dIx)));
+        slot.iconY = Math.round(Math.max(12, Math.min(88, (orig.iconY || 30) + dIy)));
+        renderCanvas(true);
         return;
     }
 
@@ -1791,7 +1965,7 @@ function onPointerMove(e) {
         slot.rowIndex = Math.max(0, Math.min(MAX_EDITOR_ROWS - 1, targetRow));
         slot.manualLayout = false;
         validateAndPackGrid();
-        renderCanvas();
+        renderCanvas(true);
     }
 }
 

@@ -1240,115 +1240,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 .app-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 760px) { .app-toast { bottom: 84px; } }
 
-/* ════════════════ DESIGNER: FIXED WATCH LEFT, SCROLLING PANELS ════════════════
-   The watch is what you are editing, so it stays put while the layers and
-   properties columns scroll inside themselves. Three columns need real width,
-   so three columns start at 1200px, two columns from 940px, and below that the
-   watch sits on top. Collapsing the sidebar buys ~190px toward the next tier. */
-@media (min-width: 1200px) {
-  .designer-grid {
-    direction: ltr; /* physical order: watch · layers · properties */
-    grid-template-columns: minmax(320px, 1.1fr) minmax(260px, 1fr) minmax(260px, 1fr);
-    align-items: start;
-    gap: 16px;
-  }
-  .designer-grid > * { direction: rtl; }
-
-  /* All three sit on row 1. Grid auto-placement will not move backwards from
-     the layers panel (column 2) to the watch (column 1), so without this the
-     watch dropped onto a second row and left the first one blank. */
-  .canvas-column,
-  .layers-panel,
-  .inspector-panel { grid-row: 1; }
-
-  .canvas-column {
-    grid-column: 1;
-    position: sticky;
-    top: 84px;
-    align-self: start;
-    min-height: 0; /* replaces the tall spacer that used to drive the sticky */
-  }
-  .canvas-sticky { position: static; top: auto; }
-
-  .layers-panel { grid-column: 2; }
-  /* Undo the narrow-screen rule that turns the inspector into a 3-column grid
-     spanning the whole width; here it is a single scrolling column. */
-  .inspector-panel {
-    grid-column: 3;
-    display: block;
-    grid-template-columns: none;
-  }
-  .inspector-panel .panel-title { border-left: 0; border-bottom: 1px solid var(--finder-border); }
-  .inspector-colors { border-top: 1px solid var(--finder-border); border-right: 0; }
-}
-
-/* Two columns: watch pinned left, the panels stacked in a scrolling column. */
-@media (min-width: 940px) and (max-width: 1199px) {
-  .designer-grid {
-    direction: ltr;
-    grid-template-columns: minmax(300px, 1fr) minmax(320px, 1fr);
-    align-items: start;
-    gap: 14px;
-  }
-  .designer-grid > * { direction: rtl; }
-
-  .canvas-column {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    position: sticky;
-    top: 84px;
-    align-self: start;
-    min-height: 0;
-  }
-  .canvas-sticky { position: static; top: auto; }
-
-  .layers-panel { grid-column: 2; grid-row: 1; max-height: 44vh; }
-  .inspector-panel {
-    grid-column: 2;
-    grid-row: 2;
-    display: block;
-    grid-template-columns: none;
-    max-height: calc(56vh - 130px);
-  }
-}
-
-/* Mid widths: watch on top and still sticky, panels side by side underneath. */
-@media (min-width: 901px) and (max-width: 939px) {
-  .designer-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: start;
-    gap: 14px;
-  }
-  .canvas-column { grid-column: 1 / -1; grid-row: 1; min-height: 0; }
-  .layers-panel { grid-column: 1; grid-row: 2; }
-  .inspector-panel { grid-column: 2; grid-row: 2; display: block; grid-template-columns: none; }
-  .canvas-sticky { position: sticky; top: 84px; z-index: 8; background: var(--finder-bg); }
-}
-
-/* Panels scroll on their own so the watch never leaves the screen. */
-@media (min-width: 901px) {
-  .layers-panel,
-  .inspector-panel {
-    max-height: calc(100vh - 104px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-  .layers-panel::-webkit-scrollbar,
-  .inspector-panel::-webkit-scrollbar { width: 8px; }
-  .layers-panel::-webkit-scrollbar-thumb,
-  .inspector-panel::-webkit-scrollbar-thumb {
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--finder-secondary) 32%, transparent);
-  }
-  .layers-panel .panel-title,
-  .inspector-panel .panel-title {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--finder-surface);
-  }
-}
-
 /* ════════════════ COLLAPSIBLE SIDEBAR ════════════════ */
 .sidebar-collapse-btn {
   display: grid;
@@ -1416,17 +1307,28 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 #tab-tiles .inspector-colors { display: grid; gap: 8px; padding: 10px; border: 0; }
 #tab-tiles .inspector-panel [hidden] { display: none !important; }
 #tab-tiles .inspector-panel .color-fields { padding: 0; }
-#tab-tiles .layers-list { max-height: min(44vh, 360px); padding: 9px; overflow-y: auto; }
-#tab-tiles .layer-row { min-height: 50px; padding: 8px; }
+/* Layers list now lives in a fixed panel directly under the watch. */
+.layers-below { margin-top: 10px; border: 1px solid var(--finder-border); border-radius: 12px; background: var(--finder-surface); overflow: hidden; }
+.layers-below-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--finder-border); font-size: 11px; font-weight: 700; color: var(--finder-text); }
+.layers-count { color: var(--finder-secondary); font-weight: 500; }
+#tab-tiles .layers-list { max-height: 240px; padding: 9px; overflow-y: auto; overscroll-behavior: contain; }
+#tab-tiles .layer-row { min-height: 46px; padding: 8px; }
 #tab-tiles .layer-row strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.layers-rail-hint { margin: 0; padding: 9px 12px 12px; color: var(--finder-secondary); border-top: 1px solid var(--finder-border); font-size: 10px; line-height: 1.5; }
+
+/* The global toolbar already carries the page title, subtitle and "apply"
+   action, so the designer heading collapses to one slim row. */
+#tab-tiles .section-heading { align-items: center; gap: 12px; margin: 0 0 12px; }
+#tab-tiles .section-heading > div { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+#tab-tiles .section-heading .eyebrow { flex: 0 0 auto; }
+#tab-tiles .section-heading h2 { margin: 0; font-size: 17px; letter-spacing: -.02em; white-space: nowrap; }
+#tab-tiles .section-heading p { display: none; }
+#tab-tiles .section-heading > .button { flex: 0 0 auto; }
 
 #tab-tiles .canvas-toolbar { position: relative; gap: 7px; margin-bottom: 10px; padding: 8px; }
 #tab-tiles .canvas-toolbar-actions { justify-content: flex-start; flex-wrap: wrap; }
 #tab-tiles .canvas-toolbar-actions .segmented { margin-inline-start: auto; }
 #tab-tiles .watch-stage { min-height: min(68vh, 650px); padding: clamp(18px, 3vw, 38px); }
 #tab-tiles .watch-frame { width: min(100%, 510px); }
-#tab-tiles #btnOpenLayersPanel { display: inline-flex; }
 
 .designer-popover {
   position: absolute;
@@ -1439,9 +1341,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
   box-shadow: 0 20px 46px rgba(25,35,50,.18);
 }
 .designer-popover[hidden] { display: none; }
-.designer-add-popover { right: 0; bottom: calc(100% + 6px); }
-.designer-layers-menu { right: 0; bottom: calc(100% + 6px); width: min(310px, calc(100vw - 32px)); }
-.designer-more-popover { bottom: calc(100% + 6px); left: 0; padding-bottom: 10px; }
+/* Open downward: the toolbar sits near the top of the page, so an upward
+   popover clipped against the viewport (the layers menu was half off-screen). */
+.designer-add-popover { right: 0; top: calc(100% + 6px); }
+.designer-more-popover { top: calc(100% + 6px); left: 0; padding-bottom: 10px; }
 .popover-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--finder-border); font-size: 11px; }
 .popover-close { display: grid; place-items: center; width: 23px; height: 23px; padding: 0; border: 0; border-radius: 6px; color: var(--finder-secondary); background: transparent; cursor: pointer; font-size: 18px; }
 .popover-close:hover { color: var(--finder-blue); background: var(--finder-selection); }
@@ -1473,6 +1376,53 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
   #tab-tiles .canvas-toolbar-actions > .button { flex: 1 1 auto; padding-inline: 8px; font-size: 10px; }
   #tab-tiles .watch-stage { min-height: min(74vw, 500px); padding: 16px 8px; }
   #tab-tiles .watch-frame { width: min(100%, 390px); }
-  .designer-more-popover { top: calc(100% + 6px); right: 0; bottom: auto; left: auto; width: min(280px, calc(100vw - 24px)); }
-  .designer-layers-menu { right: 0; bottom: calc(100% + 6px); left: auto; }
+  .designer-more-popover { right: 0; left: auto; width: min(280px, calc(100vw - 24px)); }
+}
+
+/* ════════════════ DESIGNER INSPECTOR: EXPAND/COLLAPSE + SECTION TOGGLES ════ */
+.inspector-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--finder-border);
+  background: var(--finder-surface);
+}
+.inspector-toolbar .button.tiny {
+  min-height: 28px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.inspector-section-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  flex: 1 1 100%;
+}
+.inspector-section-toggles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--finder-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+.inspector-section-toggles input { accent-color: var(--finder-blue); }
+.designer-detail[hidden] { display: none; }
+
+.range-field { display: flex; align-items: center; gap: 10px; }
+.range-field > span { flex: 0 0 auto; color: var(--finder-secondary); font-size: 11px; }
+.range-field input[type="range"] { flex: 1 1 auto; min-width: 0; accent-color: var(--finder-blue); }
+
+.color-select {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--finder-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--finder-text);
+  font-size: 12px;
 }
