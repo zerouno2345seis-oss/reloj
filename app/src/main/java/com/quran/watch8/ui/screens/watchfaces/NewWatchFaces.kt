@@ -179,127 +179,74 @@ private fun FaceSlotValue(
 }
 
 @Composable
-fun FajrMihrabFace(
-    config: WatchFaceConfig,
-    data: WatchFaceLiveData,
-    actions: WatchFaceActions
-) = FaceFrame { scale ->
-    val time = remember(data.nowMillis) { SimpleDateFormat("HH:mm", Locale.US).format(Date(data.nowMillis)) }
-    Canvas(Modifier.fillMaxSize()) {
-        val inset = SAFE_INSET / REFERENCE_SIZE * size.minDimension
-        val left = inset; val right = size.width - inset
-        val top = size.height * .19f; val bottom = size.height * .80f
-        val path = Path().apply {
-            moveTo(left, bottom)
-            lineTo(left, size.height * .51f)
-            cubicTo(left, size.height * .38f, size.width * .38f, size.height * .32f, size.width * .5f, top)
-            cubicTo(size.width * .62f, size.height * .32f, right, size.height * .38f, right, size.height * .51f)
-            lineTo(right, bottom)
-        }
-        drawPath(path, Brush.verticalGradient(listOf(Aqua, Aqua.copy(alpha = .28f))), style = Stroke(width = size.width * .006f))
-        drawLine(Gold.copy(alpha = .5f), Offset(size.width * .28f, size.height * .55f), Offset(size.width * .72f, size.height * .55f), size.width * .002f)
-    }
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = scale.d(SAFE_INSET), vertical = scale.d(48f)),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("☾", color = Gold, fontSize = scale.s(27f))
-        Box(Modifier.faceAction("top", config.topSlot, actions)) {
-            FaceSlotValue(config.topSlot, ComplicationType.HIJRI_DATE, data, scale) {
-                Text(HijriDate.arabic(), color = Color.White, fontSize = scale.s(16f), maxLines = 1)
-            }
-        }
-        Spacer(Modifier.height(scale.d(43f)))
-        Text(time, color = Color.White, fontSize = scale.s(74f), fontWeight = FontWeight.Light, maxLines = 1,
-            modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions))
-        Box(Modifier.faceAction("right", config.rightSlot, actions)) {
-            FaceSlotValue(config.rightSlot, ComplicationType.NEXT_PRAYER, data, scale) {
-                Text("${data.nextPrayerName} بعد ${PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer)}", color = Color.White,
-                    fontSize = scale.s(21f), fontWeight = FontWeight.Bold)
-            }
-        }
-        Spacer(Modifier.height(scale.d(22f)))
-        Box(Modifier.fillMaxWidth().height(scale.d(55f)).faceAction("left", config.leftSlot, actions), contentAlignment = Alignment.Center) {
-            FaceSlotValue(config.leftSlot, ComplicationType.SUNRISE_SUNSET, data, scale) { PrayerTable(data, scale, Modifier.fillMaxWidth()) }
-        }
-        Spacer(Modifier.weight(1f))
-        GlassCard(
-            Modifier.fillMaxWidth(.72f).height(scale.d(42f)).faceAction("bottom", config.bottomSlot, actions),
-            RoundedCornerShape(scale.d(22f))
-        ) {
-            FaceSlotValue(config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale) {
-                Text("📖  ${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}", color = Color.White,
-                    fontSize = scale.s(19f), fontWeight = FontWeight.Bold, maxLines = 1)
-            }
-        }
+private fun clockOf(millis: Long): String = SimpleDateFormat("HH:mm", Locale.US).format(Date(millis))
+
+/**
+ * Every face is one vertically-centred column that can never spill outside the
+ * 438px circle: the padding keeps content inside the inscribed square and
+ * SpaceEvenly distributes the bands so nothing overlaps. Decorative canvases go
+ * behind it. Tuned for the Galaxy Watch 8 / 8 Classic (1.34", 438×438).
+ */
+@Composable
+private fun FaceStack(
+    scale: FaceScale,
+    behind: (@Composable BoxScope.() -> Unit)? = null,
+    topPad: Float = 40f,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Box(Modifier.fillMaxSize()) {
+        behind?.invoke(this)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = scale.d(34f))
+                .padding(top = scale.d(topPad), bottom = scale.d(40f)),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly,
+            content = content
+        )
     }
 }
 
 @Composable
-fun DhikrPulseFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
-    val time = remember(data.nowMillis) { SimpleDateFormat("HH:mm", Locale.US).format(Date(data.nowMillis)) }
-    val progress = data.tasbih.progress
-    Canvas(Modifier.fillMaxSize()) {
-        val ring = size.minDimension * .29f
-        val topLeft = Offset(size.width / 2f - ring, size.height / 2f - ring + size.height * .015f)
-        val arcSize = androidx.compose.ui.geometry.Size(ring * 2f, ring * 2f)
-        drawArc(Color(0xFF143B32), -90f, 360f, false, topLeft, arcSize, style = Stroke(size.width * .018f, cap = StrokeCap.Round))
-        drawArc(Brush.sweepGradient(listOf(Green, Aqua, Green)), -90f, 360f * progress, false, topLeft, arcSize,
-            style = Stroke(size.width * .018f, cap = StrokeCap.Round))
+private fun SlotChip(
+    slot: String,
+    type: ComplicationType,
+    expected: ComplicationType,
+    data: WatchFaceLiveData,
+    scale: FaceScale,
+    actions: WatchFaceActions,
+    accent: Color = Aqua,
+    tapOverride: (() -> Unit)? = null,
+    defaultContent: @Composable () -> Unit
+) {
+    if (type == ComplicationType.HIDDEN) {
+        Spacer(Modifier.height(scale.d(2f)))
+        return
     }
     GlassCard(
-        Modifier.align(Alignment.TopCenter).offset(y = scale.d(55f)).width(scale.d(116f)).height(scale.d(50f))
-            .faceAction("top", config.topSlot, actions), RoundedCornerShape(scale.d(18f)), Green.copy(alpha = .5f)
+        Modifier
+            .widthIn(min = scale.d(72f), max = scale.d(250f))
+            .heightIn(min = scale.d(34f))
+            .faceAction(slot, type, actions, tapOverride = tapOverride),
+        RoundedCornerShape(scale.d(20f)),
+        accent.copy(alpha = 0.5f)
     ) {
-        FaceSlotValue(config.topSlot, ComplicationType.NEXT_PRAYER, data, scale) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(data.nextPrayerName, color = Color.White, fontSize = scale.s(15f), fontWeight = FontWeight.Bold)
-                Text(PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer), color = Gold, fontSize = scale.s(15f))
-            }
-        }
-    }
-    MiniStat(
-        Modifier.align(Alignment.CenterStart).offset(x = scale.d(55f), y = scale.d(13f)).size(scale.d(58f))
-        .faceAction("left", config.leftSlot, actions), if (config.leftSlot == ComplicationType.HIDDEN) "" else config.leftSlot.icon,
-        if (config.leftSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.leftSlot, data), scale, Green
-    )
-    MiniStat(
-        Modifier.align(Alignment.CenterEnd).offset(x = -scale.d(55f), y = scale.d(13f)).size(scale.d(58f))
-        .faceAction("right", config.rightSlot, actions), if (config.rightSlot == ComplicationType.HIDDEN) "" else if (config.rightSlot == ComplicationType.WEATHER) data.weather.icon else config.rightSlot.icon,
-        if (config.rightSlot == ComplicationType.WEATHER) data.weather.temperatureLabel else complicationCompactValue(config.rightSlot, data), scale, Aqua
-    )
-    Column(Modifier.align(Alignment.Center).offset(y = -scale.d(8f)), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(dhikrNames[data.tasbih.dhikrIndex % dhikrNames.size], color = Color.White, fontSize = scale.s(19f), fontWeight = FontWeight.Bold,
-            modifier = Modifier.faceAction("tasbih", ComplicationType.TASBIH, actions, longOverride = actions.onOpenTasbih))
-        Text(time, color = Color.White, fontSize = scale.s(61f), fontWeight = FontWeight.Light, maxLines = 1,
-            modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions))
-        GlassCard(
-            Modifier.size(scale.d(86f)).faceAction("center", ComplicationType.TASBIH, actions,
-                tapOverride = actions.onIncrementTasbih, longOverride = actions.onOpenTasbih),
-            RoundedCornerShape(scale.d(43f)), Gold.copy(alpha = .72f)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("${data.tasbih.count}", color = Green, fontSize = scale.s(33f), fontWeight = FontWeight.Bold)
-                Text("/ ${data.tasbih.target}", color = Color.White, fontSize = scale.s(15f))
-            }
-        }
-    }
-    GlassCard(
-        Modifier.align(Alignment.BottomCenter).offset(y = -scale.d(57f)).width(scale.d(210f)).height(scale.d(43f))
-            .faceAction("bottom", config.bottomSlot, actions), RoundedCornerShape(scale.d(22f)), Green.copy(alpha = .6f)
-    ) {
-        FaceSlotValue(config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale) {
-            Text("📖  ${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}", color = Color.White,
-                fontSize = scale.s(18f), fontWeight = FontWeight.Bold, maxLines = 1)
+        Box(Modifier.padding(horizontal = scale.d(14f), vertical = scale.d(6f)), contentAlignment = Alignment.Center) {
+            FaceSlotValue(type, expected, data, scale, defaultContent)
         }
     }
 }
 
 @Composable
 private fun MiniStat(modifier: Modifier, icon: String, value: String, scale: FaceScale, color: Color) {
-    Box(modifier.clip(CircleShape).background(Surface).border(1.dp, color.copy(alpha = .65f), CircleShape), contentAlignment = Alignment.Center) {
+    Box(
+        modifier.clip(CircleShape).background(Surface).border(1.dp, color.copy(alpha = 0.65f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(icon, fontSize = scale.s(15f)); Text(value, color = Color.White, fontSize = scale.s(15f), fontWeight = FontWeight.Bold)
+            Text(icon, fontSize = scale.s(14f), maxLines = 1)
+            Text(value, color = Color.White, fontSize = scale.s(13f), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -327,66 +274,185 @@ private fun rememberCompassHeading(): Pair<Float, Boolean> {
 }
 
 @Composable
+fun FajrMihrabFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
+    val time = clockOf(data.nowMillis)
+    FaceStack(scale, topPad = 34f, behind = {
+        Canvas(Modifier.fillMaxSize()) {
+            val ins = size.width * 0.15f
+            val path = Path().apply {
+                moveTo(ins, size.height * 0.82f)
+                lineTo(ins, size.height * 0.46f)
+                cubicTo(ins, size.height * 0.24f, size.width * 0.30f, size.height * 0.14f, size.width * 0.5f, size.height * 0.12f)
+                cubicTo(size.width * 0.70f, size.height * 0.14f, size.width - ins, size.height * 0.24f, size.width - ins, size.height * 0.46f)
+                lineTo(size.width - ins, size.height * 0.82f)
+            }
+            drawPath(path, Brush.verticalGradient(listOf(Aqua, Aqua.copy(alpha = 0.15f))), style = Stroke(width = size.width * 0.006f))
+        }
+    }) {
+        Text("☾", color = Gold, fontSize = scale.s(24f), modifier = Modifier.fixedAction(ComplicationType.HIJRI_DATE, actions))
+        SlotChip("top", config.topSlot, ComplicationType.HIJRI_DATE, data, scale, actions, Gold) {
+            Text(HijriDate.arabic(), color = Color.White, fontSize = scale.s(15f), maxLines = 1)
+        }
+        Text(
+            time, color = Color.White, fontSize = scale.s(62f), fontWeight = FontWeight.Light, maxLines = 1,
+            modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions)
+        )
+        SlotChip("right", config.rightSlot, ComplicationType.NEXT_PRAYER, data, scale, actions, Aqua) {
+            Text(
+                "${data.nextPrayerName} · ${PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer)}",
+                color = Color.White, fontSize = scale.s(16f), fontWeight = FontWeight.Bold, maxLines = 1
+            )
+        }
+        Box(Modifier.fillMaxWidth().faceAction("left", config.leftSlot, actions), contentAlignment = Alignment.Center) {
+            FaceSlotValue(config.leftSlot, ComplicationType.SUNRISE_SUNSET, data, scale) {
+                PrayerTable(data, scale, Modifier.fillMaxWidth())
+            }
+        }
+        SlotChip("bottom", config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale, actions, Aqua) {
+            Text(
+                "📖 ${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}",
+                color = Color.White, fontSize = scale.s(16f), fontWeight = FontWeight.Bold, maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+fun DhikrPulseFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
+    val time = clockOf(data.nowMillis)
+    val progress = data.tasbih.progress
+    FaceStack(scale, topPad = 30f, behind = {
+        Canvas(Modifier.fillMaxSize()) {
+            val ring = size.minDimension * 0.40f
+            val tl = Offset(size.width / 2f - ring, size.height / 2f - ring)
+            val sz = androidx.compose.ui.geometry.Size(ring * 2f, ring * 2f)
+            drawArc(Color(0xFF143B32), -90f, 360f, false, tl, sz, style = Stroke(size.width * 0.02f, cap = StrokeCap.Round))
+            drawArc(Brush.sweepGradient(listOf(Green, Aqua, Green)), -90f, 360f * progress, false, tl, sz, style = Stroke(size.width * 0.02f, cap = StrokeCap.Round))
+        }
+    }) {
+        SlotChip("top", config.topSlot, ComplicationType.NEXT_PRAYER, data, scale, actions, Green) {
+            Text(
+                "${data.nextPrayerName} ${PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer)}",
+                color = Color.White, fontSize = scale.s(14f), fontWeight = FontWeight.Bold, maxLines = 1
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+        ) {
+            MiniStat(
+                Modifier.size(scale.d(52f)).faceAction("left", config.leftSlot, actions),
+                if (config.leftSlot == ComplicationType.HIDDEN) "" else config.leftSlot.icon,
+                if (config.leftSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.leftSlot, data),
+                scale, Green
+            )
+            Text(
+                dhikrNames[data.tasbih.dhikrIndex % dhikrNames.size], color = Color.White, fontSize = scale.s(17f), fontWeight = FontWeight.Bold, maxLines = 1,
+                modifier = Modifier.weight(1f).padding(horizontal = scale.d(6f)).faceAction("tasbih", ComplicationType.TASBIH, actions, longOverride = actions.onOpenTasbih)
+            )
+            MiniStat(
+                Modifier.size(scale.d(52f)).faceAction("right", config.rightSlot, actions),
+                if (config.rightSlot == ComplicationType.HIDDEN) "" else if (config.rightSlot == ComplicationType.WEATHER) data.weather.icon else config.rightSlot.icon,
+                if (config.rightSlot == ComplicationType.WEATHER) data.weather.temperatureLabel else complicationCompactValue(config.rightSlot, data),
+                scale, Aqua
+            )
+        }
+        Text(
+            time, color = Color.White, fontSize = scale.s(52f), fontWeight = FontWeight.Light, maxLines = 1,
+            modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions)
+        )
+        Box(
+            Modifier.size(scale.d(78f)).clip(CircleShape).background(Gold.copy(alpha = 0.20f)).border(1.dp, Gold.copy(alpha = 0.7f), CircleShape)
+                .faceAction("center", ComplicationType.TASBIH, actions, tapOverride = actions.onIncrementTasbih, longOverride = actions.onOpenTasbih),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("${data.tasbih.count}", color = Green, fontSize = scale.s(28f), fontWeight = FontWeight.Bold, maxLines = 1)
+                Text("/ ${data.tasbih.target}", color = Color.White, fontSize = scale.s(13f), maxLines = 1)
+            }
+        }
+        SlotChip("bottom", config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale, actions, Green) {
+            Text(
+                "📖 ${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}",
+                color = Color.White, fontSize = scale.s(15f), fontWeight = FontWeight.Bold, maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
 fun QiblaSerenityFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
     val (heading, hasSensor) = rememberCompassHeading()
     val bearing = remember(data.latitude, data.longitude) { qiblaBearing(data.latitude, data.longitude) }
     val rotation = normalizedRotation(bearing - heading)
-    val time = remember(data.nowMillis) { SimpleDateFormat("HH:mm", Locale.US).format(Date(data.nowMillis)) }
-    GlassCard(Modifier.align(Alignment.TopCenter).offset(y = scale.d(53f)).width(scale.d(128f)).height(scale.d(44f))
-        .faceAction("top", config.topSlot, actions), RoundedCornerShape(scale.d(16f)), Color(0xFF344554)) {
-        FaceSlotValue(config.topSlot, ComplicationType.GREGORIAN_DATE, data, scale) {
-            Text(time, color = Color.White, fontSize = scale.s(28f), fontWeight = FontWeight.Light)
+    val time = clockOf(data.nowMillis)
+    FaceStack(scale, topPad = 32f) {
+        SlotChip("top", config.topSlot, ComplicationType.GREGORIAN_DATE, data, scale, actions, Color(0xFF6FA8C4)) {
+            Text(time, color = Color.White, fontSize = scale.s(24f), fontWeight = FontWeight.Light, maxLines = 1)
         }
-    }
-    MiniStat(Modifier.align(Alignment.TopStart).offset(x = scale.d(63f), y = scale.d(104f)).size(scale.d(64f))
-        .faceAction("left", config.leftSlot, actions), if (config.leftSlot == ComplicationType.WEATHER) data.weather.icon else config.leftSlot.icon,
-        if (config.leftSlot == ComplicationType.WEATHER) data.weather.temperatureLabel else complicationCompactValue(config.leftSlot, data), scale, Cyan)
-    MiniStat(Modifier.align(Alignment.TopEnd).offset(x = -scale.d(63f), y = scale.d(104f)).size(scale.d(64f))
-        .faceAction("right", config.rightSlot, actions), config.rightSlot.icon,
-        if (config.rightSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.rightSlot, data), scale, Cyan)
-    Box(Modifier.align(Alignment.Center).offset(y = -scale.d(7f)).size(scale.d(205f)).clip(CircleShape)
-        .background(Color(0xFF020608)).border(1.dp, Cyan.copy(alpha = .9f), CircleShape)
-        .fixedAction(ComplicationType.QIBLA, actions), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(scale.d(148f))) {
-            val center = Offset(size.width / 2, size.height / 2)
-            val arrow = Path().apply {
-                moveTo(center.x, size.height * .06f); lineTo(size.width * .65f, size.height * .58f)
-                lineTo(center.x, size.height * .49f); lineTo(size.width * .35f, size.height * .58f); close()
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            MiniStat(
+                Modifier.size(scale.d(56f)).faceAction("left", config.leftSlot, actions),
+                if (config.leftSlot == ComplicationType.WEATHER) data.weather.icon else config.leftSlot.icon,
+                if (config.leftSlot == ComplicationType.WEATHER) data.weather.temperatureLabel else complicationCompactValue(config.leftSlot, data),
+                scale, Cyan
+            )
+            Box(
+                Modifier.size(scale.d(132f)).clip(CircleShape).background(Color(0xFF020608)).border(1.dp, Cyan.copy(alpha = 0.9f), CircleShape)
+                    .fixedAction(ComplicationType.QIBLA, actions),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(Modifier.size(scale.d(96f))) {
+                    val c = Offset(size.width / 2, size.height / 2)
+                    val arrow = Path().apply {
+                        moveTo(c.x, size.height * 0.08f); lineTo(size.width * 0.66f, size.height * 0.60f)
+                        lineTo(c.x, size.height * 0.50f); lineTo(size.width * 0.34f, size.height * 0.60f); close()
+                    }
+                    rotate(rotation, c) { drawPath(arrow, Brush.verticalGradient(listOf(Gold, Color(0xFF9D6500)))) }
+                }
             }
-            rotate(rotation, center) { drawPath(arrow, Brush.verticalGradient(listOf(Gold, Color(0xFF9D6500)))) }
+            MiniStat(
+                Modifier.size(scale.d(56f)).faceAction("right", config.rightSlot, actions),
+                config.rightSlot.icon,
+                if (config.rightSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.rightSlot, data),
+                scale, Cyan
+            )
         }
-        Column(Modifier.align(Alignment.BottomCenter).padding(bottom = scale.d(18f)), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("القبلة", color = Gold, fontSize = scale.s(17f), fontWeight = FontWeight.Bold)
-            if (!hasSensor) Text("افتح للمعايرة", color = Muted, fontSize = scale.s(10f))
+        Text(
+            if (hasSensor) "القبلة" else "القبلة · افتح للمعايرة",
+            color = Gold, fontSize = scale.s(15f), fontWeight = FontWeight.Bold, maxLines = 1,
+            modifier = Modifier.fixedAction(ComplicationType.QIBLA, actions)
+        )
+        SlotChip("bottom", config.bottomSlot, ComplicationType.NEXT_PRAYER, data, scale, actions, Gold) {
+            Text(
+                "${data.nextPrayerName} · ${PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer)}",
+                color = Color.White, fontSize = scale.s(16f), fontWeight = FontWeight.Bold, maxLines = 1
+            )
         }
+        Text(
+            "☀ ${data.prayers?.sunrise?.formatted ?: "—:—"}  ·  ${data.prayers?.maghrib?.formatted ?: "—:—"} ☾",
+            color = Muted, fontSize = scale.s(13f), maxLines = 1,
+            modifier = Modifier.fixedAction(ComplicationType.SUNRISE_SUNSET, actions)
+        )
     }
-    GlassCard(Modifier.align(Alignment.BottomCenter).offset(y = -scale.d(72f)).width(scale.d(210f)).height(scale.d(50f))
-        .faceAction("bottom", config.bottomSlot, actions), RoundedCornerShape(scale.d(25f)), Gold.copy(alpha = .7f)) {
-        FaceSlotValue(config.bottomSlot, ComplicationType.NEXT_PRAYER, data, scale) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(data.nextPrayerName, color = Gold, fontSize = scale.s(15f), fontWeight = FontWeight.Bold)
-                Text(PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer), color = Color.White, fontSize = scale.s(17f))
-            }
-        }
-    }
-    Text("☀ ${data.prayers?.sunrise?.formatted ?: "—:—"}  ·  ${data.prayers?.maghrib?.formatted ?: "—:—"} ☾",
-        color = Color.White, fontSize = scale.s(14f), modifier = Modifier.align(Alignment.BottomCenter).offset(y = -scale.d(50f))
-            .fixedAction(ComplicationType.SUNRISE_SUNSET, actions))
 }
 
 @Composable
 fun QuranGalleryFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
-    val time = remember(data.nowMillis) { SimpleDateFormat("HH:mm", Locale.US).format(Date(data.nowMillis)) }
-    Column(Modifier.fillMaxSize().padding(horizontal = scale.d(SAFE_INSET), vertical = scale.d(50f)), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(time, color = Color.White, fontSize = scale.s(43f), fontWeight = FontWeight.Light,
-            modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions))
-        Box(Modifier.faceAction("top", config.topSlot, actions)) {
-            FaceSlotValue(config.topSlot, ComplicationType.HIJRI_DATE, data, scale) { Text(HijriDate.arabic(), color = Gold, fontSize = scale.s(17f)) }
+    val time = clockOf(data.nowMillis)
+    FaceStack(scale, topPad = 34f) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(scale.d(8f))) {
+            Text(
+                time, color = Color.White, fontSize = scale.s(40f), fontWeight = FontWeight.Light, maxLines = 1,
+                modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions)
+            )
         }
-        Spacer(Modifier.height(scale.d(26f)))
+        SlotChip("top", config.topSlot, ComplicationType.HIJRI_DATE, data, scale, actions, Gold) {
+            Text(HijriDate.arabic(), color = Gold, fontSize = scale.s(15f), maxLines = 1)
+        }
         GlassCard(
-            Modifier.fillMaxWidth().height(scale.d(185f)).fixedAction(ComplicationType.QURAN_RESUME, actions),
-            RoundedCornerShape(scale.d(27f)), Aqua.copy(alpha = .5f)
+            Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = scale.d(120f), max = scale.d(190f))
+                .fixedAction(ComplicationType.QURAN_RESUME, actions),
+            RoundedCornerShape(scale.d(24f)), Aqua.copy(alpha = 0.5f)
         ) {
             val label = "سورة ${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah} "
             Text(
@@ -394,40 +460,37 @@ fun QuranGalleryFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: 
                     pushStyle(SpanStyle(color = Gold, fontWeight = FontWeight.Bold)); append(label); pop()
                     append(data.reading.text)
                 },
-                color = Color(0xFFFFF5DC), fontSize = scale.s(24f), lineHeight = scale.s(38f),
+                color = Color(0xFFFFF5DC), fontSize = scale.s(21f), lineHeight = scale.s(33f),
                 textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = scale.d(18f))
+                modifier = Modifier.fillMaxWidth().padding(scale.d(14f))
             )
         }
-        Spacer(Modifier.height(scale.d(18f)))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.faceAction("bottom", config.bottomSlot, actions)) {
-                FaceSlotValue(config.bottomSlot, ComplicationType.NEXT_PRAYER, data, scale) {
-                    Text("${data.nextPrayerName} بعد ${PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer)}", color = Color.White, fontSize = scale.s(18f))
-                }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            if (config.leftSlot != ComplicationType.HIDDEN) {
+                MiniStat(
+                    Modifier.size(scale.d(48f)).faceAction("left", config.leftSlot, actions),
+                    config.leftSlot.icon, complicationCompactValue(config.leftSlot, data), scale, Aqua
+                )
+            } else Spacer(Modifier.width(scale.d(4f)))
+            SlotChip("bottom", config.bottomSlot, ComplicationType.NEXT_PRAYER, data, scale, actions, Aqua) {
+                Text(
+                    "${data.nextPrayerName} ${PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer)}",
+                    color = Color.White, fontSize = scale.s(15f), maxLines = 1
+                )
             }
-            Text("♧", color = Gold, fontSize = scale.s(29f), modifier = Modifier.fixedAction(ComplicationType.QURAN_RESUME, actions))
+            if (config.rightSlot != ComplicationType.HIDDEN) {
+                MiniStat(
+                    Modifier.size(scale.d(48f)).faceAction("right", config.rightSlot, actions),
+                    config.rightSlot.icon, complicationCompactValue(config.rightSlot, data), scale, Gold
+                )
+            } else Spacer(Modifier.width(scale.d(4f)))
         }
-    }
-    if (config.leftSlot != ComplicationType.HIDDEN) {
-        MiniStat(
-            Modifier.align(Alignment.TopStart).offset(x = scale.d(58f), y = scale.d(70f)).size(scale.d(52f))
-                .faceAction("left", config.leftSlot, actions),
-            config.leftSlot.icon, complicationCompactValue(config.leftSlot, data), scale, Aqua
-        )
-    }
-    if (config.rightSlot != ComplicationType.HIDDEN) {
-        MiniStat(
-            Modifier.align(Alignment.TopEnd).offset(x = -scale.d(58f), y = scale.d(70f)).size(scale.d(52f))
-                .faceAction("right", config.rightSlot, actions),
-            config.rightSlot.icon, complicationCompactValue(config.rightSlot, data), scale, Gold
-        )
     }
 }
 
 @Composable
 fun DailyOrbitsFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
-    val time = remember(data.nowMillis) { SimpleDateFormat("HH:mm", Locale.US).format(Date(data.nowMillis)) }
+    val time = clockOf(data.nowMillis)
     val date = remember(data.nowMillis) { SimpleDateFormat("EEEE d", Locale("ar")).format(Date(data.nowMillis)) }
     val now = data.nowMillis / 1000
     val daylight = data.prayers?.let { progressBetween(now, it.sunrise.time.epochSecond, it.maghrib.time.epochSecond) } ?: 0f
@@ -437,43 +500,56 @@ fun DailyOrbitsFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: W
         val next = list.firstOrNull { it.time.epochSecond > now } ?: list.last()
         progressBetween(now, previous.time.epochSecond, next.time.epochSecond)
     } ?: 0f
-    Canvas(Modifier.fillMaxSize()) {
-        fun arc(start: Float, progress: Float, color: Color, radius: Float) {
-            val tl = Offset(size.width / 2 - radius, size.height / 2 - radius)
-            val sz = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
-            drawArc(color.copy(alpha = .18f), start, 62f, false, tl, sz, style = Stroke(size.width * .015f, cap = StrokeCap.Round))
-            drawArc(color, start, 62f * progress.coerceIn(0f, 1f), false, tl, sz, style = Stroke(size.width * .015f, cap = StrokeCap.Round))
-        }
-        val r = size.width * .34f
-        arc(204f, data.batteryPercent / 100f, Cyan, r)
-        arc(274f, prayerWindow, Green, r)
-        arc(24f, daylight, Gold, r)
-        arc(94f, data.tasbih.progress, Color(0xFFFF5D64), r)
-    }
-    OrbitLabel(Modifier.align(Alignment.TopStart).offset(x = scale.d(92f), y = scale.d(80f)).faceAction("top", config.topSlot, actions),
-        if (config.topSlot == ComplicationType.BATTERY) "بطارية" else config.topSlot.title,
-        if (config.topSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.topSlot, data), scale)
-    OrbitLabel(Modifier.align(Alignment.TopEnd).offset(x = -scale.d(92f), y = scale.d(80f)).faceAction("left", config.leftSlot, actions),
-        if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "ضوء النهار" else config.leftSlot.title,
-        if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "${(daylight * 100).toInt()}%" else complicationCompactValue(config.leftSlot, data), scale)
-    GlassCard(Modifier.align(Alignment.Center).width(scale.d(248f)).height(scale.d(112f))
-        .fixedAction(ComplicationType.GREGORIAN_DATE, actions), RoundedCornerShape(scale.d(45f)), Color.White.copy(alpha = .32f)) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(time, color = Color.White, fontSize = scale.s(62f), fontWeight = FontWeight.Light)
-            Text(date, color = Color.White, fontSize = scale.s(18f))
-        }
-    }
-    OrbitLabel(Modifier.align(Alignment.BottomStart).offset(x = scale.d(96f), y = -scale.d(90f)).fixedAction(ComplicationType.NEXT_PRAYER, actions),
-        "بين الصلاتين", "${(prayerWindow * 100).toInt()}%", scale)
-    OrbitLabel(Modifier.align(Alignment.BottomEnd).offset(x = -scale.d(96f), y = -scale.d(90f))
-        .faceAction("right", config.rightSlot, actions, tapOverride = if (config.rightSlot == ComplicationType.TASBIH) actions.onIncrementTasbih else null),
-        if (config.rightSlot == ComplicationType.TASBIH) "تسبيح" else config.rightSlot.title,
-        if (config.rightSlot == ComplicationType.TASBIH) "${data.tasbih.count}/${data.tasbih.target}" else complicationCompactValue(config.rightSlot, data), scale)
-    Column(Modifier.align(Alignment.BottomCenter).offset(y = -scale.d(46f)).faceAction("bottom", config.bottomSlot, actions), horizontalAlignment = Alignment.CenterHorizontally) {
-        FaceSlotValue(config.bottomSlot, ComplicationType.NEXT_PRAYER, data, scale) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(data.nextPrayerName, color = Gold, fontSize = scale.s(14f)); Text(PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer), color = Color.White, fontSize = scale.s(17f))
+    FaceStack(scale, topPad = 30f, behind = {
+        Canvas(Modifier.fillMaxSize()) {
+            fun arc(start: Float, progress: Float, color: Color) {
+                val radius = size.width * 0.40f
+                val tl = Offset(size.width / 2 - radius, size.height / 2 - radius)
+                val sz = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+                drawArc(color.copy(alpha = 0.18f), start, 66f, false, tl, sz, style = Stroke(size.width * 0.016f, cap = StrokeCap.Round))
+                drawArc(color, start, 66f * progress.coerceIn(0f, 1f), false, tl, sz, style = Stroke(size.width * 0.016f, cap = StrokeCap.Round))
             }
+            arc(202f, data.batteryPercent / 100f, Cyan)
+            arc(272f, prayerWindow, Green)
+            arc(22f, daylight, Gold)
+            arc(92f, data.tasbih.progress, Color(0xFFFF5D64))
+        }
+    }) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            OrbitLabel(
+                Modifier.faceAction("top", config.topSlot, actions),
+                if (config.topSlot == ComplicationType.BATTERY) "بطارية" else config.topSlot.title,
+                if (config.topSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.topSlot, data),
+                scale
+            )
+            OrbitLabel(
+                Modifier.faceAction("left", config.leftSlot, actions),
+                if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "ضوء النهار" else config.leftSlot.title,
+                if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "${(daylight * 100).toInt()}%" else complicationCompactValue(config.leftSlot, data),
+                scale
+            )
+        }
+        Column(
+            Modifier.clip(RoundedCornerShape(scale.d(40f))).background(Color.White.copy(alpha = 0.10f))
+                .padding(horizontal = scale.d(22f), vertical = scale.d(8f)).fixedAction(ComplicationType.GREGORIAN_DATE, actions),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(time, color = Color.White, fontSize = scale.s(54f), fontWeight = FontWeight.Light, maxLines = 1)
+            Text(date, color = Color.White, fontSize = scale.s(16f), maxLines = 1, modifier = Modifier.fixedAction(ComplicationType.GREGORIAN_DATE, actions))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+            OrbitLabel(
+                Modifier.faceAction("bottom", config.bottomSlot, actions),
+                if (config.bottomSlot == ComplicationType.NEXT_PRAYER) data.nextPrayerName else config.bottomSlot.title,
+                if (config.bottomSlot == ComplicationType.NEXT_PRAYER) PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer) else complicationCompactValue(config.bottomSlot, data),
+                scale
+            )
+            OrbitLabel(
+                Modifier.faceAction("right", config.rightSlot, actions, tapOverride = if (config.rightSlot == ComplicationType.TASBIH) actions.onIncrementTasbih else null),
+                if (config.rightSlot == ComplicationType.TASBIH) "تسبيح" else config.rightSlot.title,
+                if (config.rightSlot == ComplicationType.TASBIH) "${data.tasbih.count}/${data.tasbih.target}" else complicationCompactValue(config.rightSlot, data),
+                scale
+            )
         }
     }
 }
@@ -481,45 +557,58 @@ fun DailyOrbitsFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: W
 @Composable
 private fun OrbitLabel(modifier: Modifier, title: String, value: String, scale: FaceScale) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, color = Muted, fontSize = scale.s(14f), maxLines = 1)
-        Text(value, color = Color.White, fontSize = scale.s(22f), fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = Muted, fontSize = scale.s(12f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = Color.White, fontSize = scale.s(19f), fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
 @Composable
 fun BelieverMosaicFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: WatchFaceActions) = FaceFrame { scale ->
-    val time = remember(data.nowMillis) { SimpleDateFormat("HH:mm", Locale.US).format(Date(data.nowMillis)) }
-    Column(Modifier.fillMaxSize().padding(horizontal = scale.d(SAFE_INSET), vertical = scale.d(47f)), horizontalAlignment = Alignment.CenterHorizontally) {
-        GlassCard(Modifier.width(scale.d(210f)).height(scale.d(58f)).faceAction("top", config.topSlot, actions), RoundedCornerShape(scale.d(29f)), Color(0xFF6B8DA4)) {
-            FaceSlotValue(config.topSlot, ComplicationType.WEATHER, data, scale) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(scale.d(10f))) {
-                    Text(data.weather.icon, fontSize = scale.s(25f)); Column { Text(data.weather.temperatureLabel, color = Color.White, fontSize = scale.s(24f)); Text(if (data.weather.isAvailable) "الطقس" else "غير متوفر", color = Muted, fontSize = scale.s(12f)) }
+    val time = clockOf(data.nowMillis)
+    FaceStack(scale, topPad = 30f) {
+        SlotChip("top", config.topSlot, ComplicationType.WEATHER, data, scale, actions, Color(0xFF6B8DA4)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(scale.d(8f))) {
+                Text(data.weather.icon, fontSize = scale.s(20f), modifier = Modifier.fixedAction(ComplicationType.WEATHER, actions))
+                Text(data.weather.temperatureLabel, color = Color.White, fontSize = scale.s(18f), fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(if (data.weather.isAvailable) "الطقس" else "غير متوفر", color = Muted, fontSize = scale.s(11f), maxLines = 1)
+            }
+        }
+        Row(Modifier.fillMaxWidth().height(scale.d(96f)), horizontalArrangement = Arrangement.spacedBy(scale.d(7f))) {
+            GlassCard(Modifier.weight(0.85f).fillMaxHeight().faceAction("left", config.leftSlot, actions), RoundedCornerShape(scale.d(20f)), Aqua.copy(alpha = 0.6f)) {
+                FaceSlotValue(config.leftSlot, ComplicationType.QIBLA, data, scale) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("➤", color = Aqua, fontSize = scale.s(24f)); Text("القبلة", color = Aqua, fontSize = scale.s(13f), fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+                }
+            }
+            GlassCard(Modifier.weight(1.5f).fillMaxHeight().fixedAction(ComplicationType.GREGORIAN_DATE, actions), RoundedCornerShape(scale.d(32f)), Gold.copy(alpha = 0.7f)) {
+                Text(time, color = Color.White, fontSize = scale.s(42f), fontWeight = FontWeight.Light, maxLines = 1)
+            }
+            GlassCard(Modifier.weight(0.85f).fillMaxHeight().faceAction("right", config.rightSlot, actions), RoundedCornerShape(scale.d(20f)), Violet.copy(alpha = 0.7f)) {
+                FaceSlotValue(config.rightSlot, ComplicationType.BATTERY, data, scale) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🔋", fontSize = scale.s(18f)); Text("${data.batteryPercent}%", color = Violet, fontSize = scale.s(17f), fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(scale.d(12f)))
-        Row(Modifier.fillMaxWidth().height(scale.d(125f)), horizontalArrangement = Arrangement.spacedBy(scale.d(8f))) {
-            GlassCard(Modifier.weight(.8f).fillMaxHeight().faceAction("left", config.leftSlot, actions), RoundedCornerShape(scale.d(23f)), Aqua.copy(alpha = .65f)) {
-                FaceSlotValue(config.leftSlot, ComplicationType.QIBLA, data, scale) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("➤", color = Aqua, fontSize = scale.s(31f)); Text("القبلة", color = Aqua, fontSize = scale.s(16f), fontWeight = FontWeight.Bold) } }
-            }
-            GlassCard(Modifier.weight(1.55f).fillMaxHeight().fixedAction(ComplicationType.GREGORIAN_DATE, actions), RoundedCornerShape(scale.d(42f)), Gold.copy(alpha = .7f)) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("☾", color = Gold, fontSize = scale.s(16f)); Text(time, color = Color.White, fontSize = scale.s(48f), fontWeight = FontWeight.Light) }
-            }
-            GlassCard(Modifier.weight(.8f).fillMaxHeight().faceAction("right", config.rightSlot, actions), RoundedCornerShape(scale.d(23f)), Violet.copy(alpha = .7f)) {
-                FaceSlotValue(config.rightSlot, ComplicationType.BATTERY, data, scale) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("🔋", fontSize = scale.s(25f)); Text("${data.batteryPercent}%", color = Violet, fontSize = scale.s(22f), fontWeight = FontWeight.Bold); Text("البطارية", color = Muted, fontSize = scale.s(11f)) } }
-            }
+        SlotChip("bottom", config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale, actions, Aqua) {
+            Text(
+                "📖 ${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}",
+                color = Color.White, fontSize = scale.s(15f), fontWeight = FontWeight.Bold, maxLines = 1
+            )
         }
-        Spacer(Modifier.height(scale.d(8f)))
-        GlassCard(Modifier.fillMaxWidth().height(scale.d(61f)).faceAction("bottom", config.bottomSlot, actions), RoundedCornerShape(scale.d(30f)), Aqua.copy(alpha = .7f)) {
-            FaceSlotValue(config.bottomSlot, ComplicationType.QURAN_RESUME, data, scale) { Text("📖  ${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}", color = Color.White, fontSize = scale.s(21f), fontWeight = FontWeight.Bold, maxLines = 1) }
-        }
-        Spacer(Modifier.height(scale.d(7f)))
-        Row(Modifier.fillMaxWidth().height(scale.d(75f)), horizontalArrangement = Arrangement.spacedBy(scale.d(8f))) {
-            Box(Modifier.size(scale.d(67f)).clip(CircleShape).background(Color(0xFF18170E)).border(1.dp, Gold.copy(alpha = .7f), CircleShape)
-                .faceAction("tasbih", ComplicationType.TASBIH, actions, tapOverride = actions.onIncrementTasbih, longOverride = actions.onOpenTasbih), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("📿", fontSize = scale.s(18f)); Text("${data.tasbih.count}", color = Gold, fontSize = scale.s(19f), fontWeight = FontWeight.Bold) }
+        Row(Modifier.fillMaxWidth().height(scale.d(60f)), horizontalArrangement = Arrangement.spacedBy(scale.d(7f)), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(scale.d(56f)).clip(CircleShape).background(Color(0xFF18170E)).border(1.dp, Gold.copy(alpha = 0.7f), CircleShape)
+                    .faceAction("tasbih", ComplicationType.TASBIH, actions, tapOverride = actions.onIncrementTasbih, longOverride = actions.onOpenTasbih),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("📿", fontSize = scale.s(15f)); Text("${data.tasbih.count}", color = Gold, fontSize = scale.s(16f), fontWeight = FontWeight.Bold, maxLines = 1)
+                }
             }
-            GlassCard(Modifier.weight(1f).fillMaxHeight().fixedAction(ComplicationType.NEXT_PRAYER, actions), RoundedCornerShape(scale.d(22f)), Color(0xFF43515C)) {
+            GlassCard(Modifier.weight(1f).fillMaxHeight().fixedAction(ComplicationType.NEXT_PRAYER, actions), RoundedCornerShape(scale.d(18f)), Color(0xFF43515C)) {
                 PrayerTable(data, scale, Modifier.fillMaxWidth().padding(horizontal = scale.d(4f)))
             }
         }
