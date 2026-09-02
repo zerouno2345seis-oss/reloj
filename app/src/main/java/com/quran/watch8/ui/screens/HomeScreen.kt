@@ -902,6 +902,11 @@ private fun SmartWatchFaceTile(
         val ix = if (slot.iconX != 0f) slot.iconX else 50f
         val iy = if (slot.iconY != 0f) slot.iconY else 30f
 
+        // One scale shared with the web studio: fontSize / iconSize are authored
+        // as pixels on a 438px watch, so the preview and the device agree. 438 is
+        // the real screen width; the clamp only guards odd emulator sizes.
+        val renderScale = (screenWidth / 438f).coerceIn(0.7f, 1.25f)
+
         val isPrayerStrip = slot.displayStyle == "prayer_strip_5" || activeActionId == "prayer_strip_5"
 
         if (isPrayerStrip) {
@@ -939,28 +944,28 @@ private fun SmartWatchFaceTile(
                         if (activeActionId == "clock_big") {
                             Text(
                                 text = currentTime,
-                                fontSize = (slot.fontSize * 1.5).sp,
+                                fontSize = (slot.fontSize * 1.5f * renderScale).sp,
                                 color = iconColor,
                                 fontWeight = FontWeight.Bold
                             )
                         } else if (activeActionId == "date_big") {
                             Text(
                                 text = "30 Aug",
-                                fontSize = (slot.fontSize * 1.2).sp,
+                                fontSize = (slot.fontSize * 1.2f * renderScale).sp,
                                 color = iconColor,
                                 fontWeight = FontWeight.Bold
                             )
                         } else {
                             Text(
                                 text = iconText,
-                                fontSize = (slot.iconSize ?: 24).sp,
+                                fontSize = ((slot.iconSize ?: 24) * renderScale).sp,
                                 color = iconColor
                             )
                         }
                     }
                 }
 
-                val fontScale = (screenWidth / 380f).coerceIn(0.45f, 1.2f)
+                val fontScale = renderScale
                 val calibFontSize = (slot.fontSize * fontScale).coerceAtLeast(7f).sp
 
                 // ── Text Render ──

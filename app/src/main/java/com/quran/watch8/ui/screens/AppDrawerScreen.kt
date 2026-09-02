@@ -41,9 +41,21 @@ import kotlinx.coroutines.withContext
 data class InstalledAppItem(
     val packageName: String,
     val appName: String,
-    val icon: Drawable,
+    val icon: Drawable?,
     val launchIntent: Intent?
 )
+
+/**
+ * Process-wide cache of the launcher list. Loading it is dominated by
+ * ResolveInfo.loadIcon() per app, which took 1-3s on the watch and re-ran every
+ * time the drawer was navigated to (the composable's remember{} is dropped when
+ * the NavHost leaves the screen). Now the drawer paints instantly from here and
+ * only the very first open pays the cost.
+ */
+object InstalledAppsCache {
+    @Volatile var apps: List<InstalledAppItem>? = null
+    @Volatile var iconsLoaded: Boolean = false
+}
 
 @Composable
 fun AppDrawerScreen(
@@ -58,31 +70,51 @@ fun AppDrawerScreen(
     val pinnedPackages by viewModel.pinnedApps.collectAsState()
     val viewMode by viewModel.drawerViewMode.collectAsState()
 
-    var allApps by remember { mutableStateOf<List<InstalledAppItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var allApps by remember { mutableStateOf(InstalledAppsCache.apps ?: emptyList()) }
+    var isLoading by remember { mutableStateOf(InstalledAppsCache.apps == null) }
 
     fun vibrate() {
         view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
     }
 
     LaunchedEffect(Unit) {
+        // Already cached with icons: nothing to do, the list is on screen.
+        if (InstalledAppsCache.apps != null && InstalledAppsCache.iconsLoaded) return@LaunchedEffect
+
         withContext(Dispatchers.IO) {
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
             val resolved = pm.queryIntentActivities(mainIntent, 0)
-            val appList = resolved
-                .mapNotNull { resolveInfo ->
-                    val pkg = resolveInfo.activityInfo.packageName
-                    if (pkg == context.packageName) return@mapNotNull null
-                    val name = resolveInfo.loadLabel(pm).toString()
-                    val icon = resolveInfo.loadIcon(pm)
-                    val intent = pm.getLaunchIntentForPackage(pkg)
-                    InstalledAppItem(pkg, name, icon, intent)
+                .filter { it.activityInfo.packageName != context.packageName }
+                .distinctBy { it.activityInfo.packageName }
+
+            // Phase 1 — labels + launch intents only (fast). The list can render.
+            if (InstalledAppsCache.apps == null) {
+                val fast = resolved
+                    .map { ri ->
+                        val pkg = ri.activityInfo.packageName
+                        InstalledAppItem(pkg, ri.loadLabel(pm).toString(), null, pm.getLaunchIntentForPackage(pkg))
+                    }
+                    .sortedBy { it.appName }
+                InstalledAppsCache.apps = fast
+                withContext(Dispatchers.Main) {
+                    allApps = fast
+                    isLoading = false
+                }
+            }
+
+            // Phase 2 — decode each launcher icon, then swap in the full list once.
+            val withIcons = resolved
+                .map { ri ->
+                    val pkg = ri.activityInfo.packageName
+                    InstalledAppItem(pkg, ri.loadLabel(pm).toString(), ri.loadIcon(pm), pm.getLaunchIntentForPackage(pkg))
                 }
                 .sortedBy { it.appName }
+            InstalledAppsCache.apps = withIcons
+            InstalledAppsCache.iconsLoaded = true
             withContext(Dispatchers.Main) {
-                allApps = appList
+                allApps = withIcons
                 isLoading = false
             }
         }
@@ -270,7 +302,7 @@ private fun AppListRowItem(
         icon = {
             val bmp = remember(app.icon) {
                 try {
-                    app.icon.toBitmap(width = 44, height = 44).asImageBitmap()
+                    app.icon?.toBitmap(width = 44, height = 44)?.asImageBitmap()
                 } catch (_: Exception) { null }
             }
             if (bmp != null) {
@@ -343,7 +375,7 @@ private fun AppGridIconItem(
         ) {
             val bmp = remember(app.icon) {
                 try {
-                    app.icon.toBitmap(width = 44, height = 44).asImageBitmap()
+                    app.icon?.toBitmap(width = 44, height = 44)?.asImageBitmap()
                 } catch (_: Exception) { null }
             }
             if (bmp != null) {
