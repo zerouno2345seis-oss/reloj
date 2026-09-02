@@ -425,12 +425,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 }
 
 /* Dial Elements in Simulator */
+/* Same calm system as the tiles and the six new faces: a dark TilePanel
+   (#0C1319) with a neutral hairline (rgba(255,255,255,.12) == ComplicationHairline
+   0x1FFFFFFF), so a complication on the nine original faces reads like the rest
+   of the app instead of a saturated slate block (#111827/#1f2937). */
 .wf-comp-badge {
   position: absolute;
   padding: 3px 8px;
   border-radius: 14px;
-  background: #111827;
-  border: 1px solid #1f2937;
+  background: #0C1319;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 11px;
   font-weight: 600;
   display: flex;
@@ -458,7 +462,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #1e293b;
+  background: #0C1319;
   border: 1px solid rgba(251, 191, 36, 0.4);
   display: grid;
   place-items: center;
@@ -516,7 +520,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 .wf-v2-pill,.wf-v2-top-pill,.wf-v2-prayer-pill { position:absolute; background:#0C1319; border:1px solid rgba(255,255,255,.12); border-radius:999px; display:grid; place-items:center; }
 .wf-v2-pill { left:18%; right:18%; bottom:10%; height:10%; font-size:3.2cqw; font-weight:700; }
 .wf-v2-hijri { position:absolute; top:14%; left:20%; right:20%; text-align:center; color:#f3c969; font-size:3.1cqw; }
-.wf-v2-mihrab { position:absolute; top:20%; left:8%; right:8%; height:40%; border:1.5px solid rgba(53,230,208,.45); border-bottom:0; border-radius:50% 50% 10% 10%/42% 42% 10% 10%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.wf-v2-mihrab { position:absolute; top:20%; left:8%; right:8%; height:40%; border:1.5px solid rgba(53,230,208,.55); border-bottom:0; border-radius:50% 50% 10% 10%/42% 42% 10% 10%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .wf-v2-mihrab strong { font-size:13cqw; font-weight:300; line-height:1; }.wf-v2-mihrab span { font-size:3.2cqw; font-weight:700; }.wf-v2-mihrab-slot { margin-top:4%; display:flex; align-items:center; gap:4px; }
 .wf-v2-prayers { position:absolute; left:13%; right:13%; bottom:25%; display:flex; justify-content:space-around; font-size:2.6cqw; color:#f3c969; }
 .wf-v2-prayers span { display:flex; flex-direction:column; align-items:center; }.wf-v2-prayers small { color:#fff; font-size:85%; margin-top:12%; }
@@ -524,8 +528,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 .wf-v2-ring { position:absolute; width:58%; aspect-ratio:1; left:21%; top:23%; border:6px solid rgba(255,255,255,.08); border-right-color:#52e59a; border-bottom-color:#52e59a; border-radius:50%; }
 .wf-v2-side { position:absolute; top:45%; width:15%; aspect-ratio:1; border:1px solid rgba(255,255,255,.12); border-radius:50%; background:#0C1319; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:2.7cqw; }
 .wf-v2-side b { font-size:2.7cqw; }.wf-v2-side.wf-v2-left { left:13%; }.wf-v2-side.wf-v2-right { right:13%; }
-.wf-v2-center { position:absolute; inset:31% 29% 25%; display:flex; flex-direction:column; align-items:center; justify-content:center; }.wf-v2-center span { font-size:2.8cqw; }.wf-v2-center strong { font-size:9.5cqw; font-weight:300; white-space:nowrap; }.wf-v2-center em { margin-top:5%; width:42%; aspect-ratio:1; border:1px solid #f3c969; border-radius:50%; display:grid; place-items:center; color:#52e59a; font-size:2.7cqw; font-style:normal; }
-.wf-v2-qibla-arrow { position:absolute; left:25%; right:25%; top:27%; bottom:35%; border:1px solid rgba(53,217,255,.5); border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#f3c969; font-size:14cqw; transform:rotate(-45deg); }
+.wf-v2-center { position:absolute; inset:31% 29% 25%; display:flex; flex-direction:column; align-items:center; justify-content:center; }.wf-v2-center span { font-size:2.8cqw; }.wf-v2-center strong { font-size:9.5cqw; font-weight:300; white-space:nowrap; }.wf-v2-center em { margin-top:5%; width:42%; aspect-ratio:1; border:1px solid rgba(243,201,105,.7); border-radius:50%; display:grid; place-items:center; color:#52e59a; font-size:2.7cqw; font-style:normal; }
+.wf-v2-qibla-arrow { position:absolute; left:25%; right:25%; top:27%; bottom:35%; border:1px solid rgba(52,217,255,.7); border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#f3c969; font-size:14cqw; transform:rotate(-45deg); }
 .wf-v2-qibla-arrow span { font-size:3cqw; transform:rotate(45deg); }.wf-v2-prayer-pill { left:25%; right:25%; bottom:18%; height:13%; color:#f3c969; font-size:2.8cqw; line-height:1.1; }.wf-v2-prayer-pill b { color:#fff; font-size:3.2cqw; }.wf-v2-sun { position:absolute; bottom:13%; left:25%; right:25%; text-align:center; color:#fff; font-size:2.5cqw; }
 .wf-v2-quran-time { position:absolute; top:12%; left:25%; right:25%; text-align:center; font-size:8cqw; font-weight:300; }.wf-v2-quran-time strong { font:inherit; font-weight:300; }.wf-v2-quran-sub { display:flex; justify-content:center; gap:4px; color:#f3c969; font-size:3cqw; }.wf-v2-quran-sub b { font-weight:500; }
 .wf-v2-quran-gallery .wf-v2-side { top:22%; width:12%; font-size:2.2cqw; }.wf-v2-quran-gallery .wf-v2-side b { font-size:2.2cqw; max-width:90%; overflow:hidden; text-overflow:ellipsis; }

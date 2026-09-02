@@ -48,6 +48,18 @@ test('every new model has a dedicated web renderer and model-specific slot profi
   }
 });
 
+test('nine original faces render complication chrome in the shared TilePanel + hairline language', () => {
+  // The web preview badge for the nine analog/digital faces has to mirror
+  // RenderComplicationContent on the watch: a #0C1319 panel and a neutral
+  // hairline, not the old saturated slate (#111827 / #1f2937 / #0F172A).
+  assert.match(home, /private val ComplicationHairline = Color\(0x1FFFFFFF\)/);
+  assert.match(home, /\.background\(TilePanel\)\s*\n\s*\.border\(1\.dp, ComplicationHairline/);
+  assert.match(css, /\.wf-comp-badge \{[^}]*background:\s*#0C1319/);
+  assert.match(css, /\.wf-comp-badge \{[^}]*border:\s*1px solid rgba\(255,\s*255,\s*255,\s*0\.12\)/);
+  assert.doesNotMatch(css, /\.wf-comp-badge \{[^}]*background:\s*#111827/);
+  // 0x1FFFFFFF is 31/255 ≈ 0.122, so the web hairline uses the same weight.
+});
+
 test('Quran gallery keeps metadata and verse in one wrapping block', () => {
   assert.match(newFaces, /buildAnnotatedString/);
   assert.match(newFaces, /maxLines\s*=\s*3/);
