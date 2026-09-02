@@ -2745,16 +2745,11 @@ private fun calculateNextPrayer(
     nowCal: Calendar
 ): Pair<String, Int> {
     if (prayerTimes == null) return "الفجر" to 21
-    val list = listOf(
-        prayerTimes.fajr,
-        prayerTimes.sunrise,
-        prayerTimes.dhuhr,
-        prayerTimes.asr,
-        prayerTimes.maghrib,
-        prayerTimes.isha
-    )
+    // PrayerTimesHelper already rolls "next" over to tomorrow's Fajr after
+    // Isha, so trust it instead of re-scanning today's list (which clamped
+    // the countdown to 0 late at night).
+    val next = prayerTimes.nextPrayer ?: prayerTimes.fajr
     val nowInstant = java.time.Instant.now()
-    val next = list.firstOrNull { it.time.isAfter(nowInstant) } ?: prayerTimes.fajr
     val diffSec = (next.time.epochSecond - nowInstant.epochSecond).coerceAtLeast(0)
     val diffMin = (diffSec / 60).toInt()
     return next.nameAr to diffMin

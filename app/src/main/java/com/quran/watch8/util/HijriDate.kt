@@ -32,12 +32,12 @@ object HijriDate {
         return "${toArabicDigits(day)} $month ${toArabicDigits(year)} هـ"
     }
 
-    /** e.g. "19 Safar 1447" */
+    /** e.g. "19 Safar 1447". The LRM keeps it one left-to-right run inside an RTL layout. */
     fun latin(date: HijrahDate = today()): String {
         val day = date.get(ChronoField.DAY_OF_MONTH)
         val month = MONTHS_EN[date.get(ChronoField.MONTH_OF_YEAR) - 1]
         val year = date.get(ChronoField.YEAR_OF_ERA)
-        return "$day $month $year"
+        return "‎$day $month $year"
     }
 
     /** Short form for a tight complication slot, e.g. "١٩ صفر". */

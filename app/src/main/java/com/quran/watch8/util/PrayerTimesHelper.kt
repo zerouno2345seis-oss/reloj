@@ -89,15 +89,24 @@ object PrayerTimesHelper {
 
         val nowJava = Instant.now()
         val all = listOf(fajr, sunrise, dhuhr, asr, maghrib, isha)
-        val next = all.firstOrNull { it.time.isAfter(nowJava) }
+        // After Isha every prayer today is in the past, so the next one is
+        // tomorrow's Fajr. Without this the countdown clamped to "0m to Fajr"
+        // all night.
+        val next = all.firstOrNull { it.time.isAfter(nowJava) } ?: run {
+            val tomorrow = nowZoned.plusDays(1)
+            val tomorrowFajr = PrayerTimes(
+                coords,
+                DateComponents(tomorrow.year, tomorrow.monthValue, tomorrow.dayOfMonth),
+                params,
+            ).fajr
+            toInfo("الفجر", "Fajr", "Fajr", tomorrowFajr)
+        }
 
-        val timeUntil = if (next != null) {
-            val diff = next.time.epochSecond - nowJava.epochSecond
+        val timeUntil = run {
+            val diff = (next.time.epochSecond - nowJava.epochSecond).coerceAtLeast(0)
             val h = diff / 3600
             val m = (diff % 3600) / 60
             if (h > 0) "$h س $m د" else "$m دقيقة"
-        } else {
-            "غداً / mañana"
         }
 
         return DayPrayers(
