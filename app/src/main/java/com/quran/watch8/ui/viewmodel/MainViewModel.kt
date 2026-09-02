@@ -69,6 +69,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, TasbihState())
     val pinnedApps      = prefs.pinnedApps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
     val drawerViewMode  = prefs.drawerViewMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "list")
+    val recentApps      = prefs.recentApps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val notificationsEnabled = prefs.notificationsEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     // Prayer / location
@@ -257,6 +258,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun togglePinnedApp(pkg: String) {
         viewModelScope.launch { prefs.togglePinnedApp(pkg) }
+    }
+    fun recordAppLaunch(pkg: String) {
+        viewModelScope.launch { prefs.pushRecentApp(pkg) }
     }
     fun setDrawerViewMode(mode: String) {
         viewModelScope.launch { prefs.setDrawerViewMode(mode) }

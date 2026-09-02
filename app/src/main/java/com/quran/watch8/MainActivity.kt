@@ -175,7 +175,11 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("app_drawer") {
-                            AppDrawerScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                            AppDrawerScreen(
+                                onBack = { navController.popBackStack() },
+                                onExitToWatchFace = { navController.popBackStack("watchface", false) },
+                                viewModel = viewModel
+                            )
                         }
 
                         composable("quran") {

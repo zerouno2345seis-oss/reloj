@@ -60,7 +60,8 @@ object InstalledAppsCache {
 @Composable
 fun AppDrawerScreen(
     onBack: () -> Unit,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onExitToWatchFace: () -> Unit = onBack
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -69,12 +70,21 @@ fun AppDrawerScreen(
     val rotaryMod = rememberRotaryScrollModifier(listState)
     val pinnedPackages by viewModel.pinnedApps.collectAsState()
     val viewMode by viewModel.drawerViewMode.collectAsState()
+    val recentPackages by viewModel.recentApps.collectAsState()
 
     var allApps by remember { mutableStateOf(InstalledAppsCache.apps ?: emptyList()) }
     var isLoading by remember { mutableStateOf(InstalledAppsCache.apps == null) }
 
     fun vibrate() {
         view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+    }
+
+    fun launch(app: InstalledAppItem) {
+        app.launchIntent?.let {
+            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(it)
+        }
+        viewModel.recordAppLaunch(app.packageName)
     }
 
     LaunchedEffect(Unit) {
@@ -128,6 +138,10 @@ fun AppDrawerScreen(
         allApps.filter { !pinnedPackages.contains(it.packageName) }
     }
 
+    val recentAppsList = remember(allApps, recentPackages) {
+        recentPackages.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
+    }
+
     Scaffold(
         timeText = { TimeText() },
         vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
@@ -146,28 +160,74 @@ fun AppDrawerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(top = 26.dp, bottom = 36.dp, start = 8.dp, end = 8.dp)
             ) {
-                // ── Top: Single Icon Button for Mode Switch (List vs Grid) ──
+                // ── Top toolbar: exit to the watch face · list/grid toggle ──
                 item {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 2.dp, bottom = 6.dp)
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1E293B))
-                            .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.7f), CircleShape)
-                            .clickable {
-                                vibrate()
-                                viewModel.setDrawerViewMode(if (viewMode == "list") "grid" else "list")
-                            },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (viewMode == "list") "▦" else "☰",
-                            color = Color(0xFF38BDF8),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1E293B))
+                                .border(1.dp, AccentGold.copy(alpha = 0.7f), CircleShape)
+                                .clickable {
+                                    vibrate()
+                                    onExitToWatchFace()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("⌂", color = AccentGold, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1E293B))
+                                .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.7f), CircleShape)
+                                .clickable {
+                                    vibrate()
+                                    viewModel.setDrawerViewMode(if (viewMode == "list") "grid" else "list")
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (viewMode == "list") "▦" else "☰",
+                                color = Color(0xFF38BDF8),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                // ── RECENT APPS (opened from this drawer) ──
+                if (recentAppsList.isNotEmpty()) {
+                    item {
+                        Text("🕘 الأخيرة", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 2.dp))
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            recentAppsList.take(5).forEach { app ->
+                                AppGridIconItem(
+                                    app = app,
+                                    isPinned = pinnedPackages.contains(app.packageName),
+                                    onLaunch = { launch(app) },
+                                    onTogglePin = { vibrate(); viewModel.togglePinnedApp(app.packageName) }
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(modifier = Modifier.fillMaxWidth(0.8f).height(0.5.dp).background(Color.DarkGray))
                     }
                 }
 
@@ -199,12 +259,7 @@ fun AppDrawerScreen(
                                     AppGridIconItem(
                                         app = app,
                                         isPinned = true,
-                                        onLaunch = {
-                                            app.launchIntent?.let {
-                                                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                context.startActivity(it)
-                                            }
-                                        },
+                                        onLaunch = { launch(app) },
                                         onTogglePin = {
                                             vibrate()
                                             viewModel.togglePinnedApp(app.packageName)
@@ -219,12 +274,7 @@ fun AppDrawerScreen(
                             AppListRowItem(
                                 app = app,
                                 isPinned = true,
-                                onLaunch = {
-                                    app.launchIntent?.let {
-                                        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        context.startActivity(it)
-                                    }
-                                },
+                                onLaunch = { launch(app) },
                                 onTogglePin = {
                                     vibrate()
                                     viewModel.togglePinnedApp(app.packageName)
@@ -253,12 +303,7 @@ fun AppDrawerScreen(
                                 AppGridIconItem(
                                     app = app,
                                     isPinned = false,
-                                    onLaunch = {
-                                        app.launchIntent?.let {
-                                            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            context.startActivity(it)
-                                        }
-                                    },
+                                    onLaunch = { launch(app) },
                                     onTogglePin = {
                                         vibrate()
                                         viewModel.togglePinnedApp(app.packageName)
@@ -272,12 +317,7 @@ fun AppDrawerScreen(
                         AppListRowItem(
                             app = app,
                             isPinned = false,
-                            onLaunch = {
-                                app.launchIntent?.let {
-                                    it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(it)
-                                }
-                            },
+                            onLaunch = { launch(app) },
                             onTogglePin = {
                                 vibrate()
                                 viewModel.togglePinnedApp(app.packageName)

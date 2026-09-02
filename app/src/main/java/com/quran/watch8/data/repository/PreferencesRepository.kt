@@ -50,6 +50,8 @@ class PreferencesRepository(private val context: Context) {
         private val TASBIH_DHIKR_INDEX = intPreferencesKey("tasbih_dhikr_index")
         private val PINNED_APPS = stringSetPreferencesKey("pinned_apps")
         private val DRAWER_VIEW_MODE = stringPreferencesKey("drawer_view_mode") // "list", "grid"
+        private val RECENT_APPS = stringPreferencesKey("recent_apps") // "|"-separated packages, most recent first
+        private const val RECENT_APPS_MAX = 5
     }
 
     val fontSize: Flow<Float> = context.dataStore.data.map { it[FONT_SIZE] ?: 18f }
@@ -70,6 +72,9 @@ class PreferencesRepository(private val context: Context) {
     val tasbihDhikrIndex: Flow<Int> = context.dataStore.data.map { it[TASBIH_DHIKR_INDEX] ?: 0 }
     val pinnedApps: Flow<Set<String>> = context.dataStore.data.map { it[PINNED_APPS] ?: emptySet() }
     val drawerViewMode: Flow<String> = context.dataStore.data.map { it[DRAWER_VIEW_MODE] ?: "list" }
+    val recentApps: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        (prefs[RECENT_APPS] ?: "").split('|').filter { it.isNotBlank() }
+    }
 
     val lastPosition: Flow<Pair<Int, Int>> = context.dataStore.data.map {
         (it[LAST_SURAH] ?: 1) to (it[LAST_AYAH] ?: 1)
@@ -186,6 +191,15 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setDrawerViewMode(mode: String) {
         context.dataStore.edit { it[DRAWER_VIEW_MODE] = mode }
+    }
+
+    /** Remembers the last apps opened *from رِواق's drawer* (newest first, capped). */
+    suspend fun pushRecentApp(pkg: String) {
+        if (pkg.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val current = (prefs[RECENT_APPS] ?: "").split('|').filter { it.isNotBlank() && it != pkg }
+            prefs[RECENT_APPS] = (listOf(pkg) + current).take(RECENT_APPS_MAX).joinToString("|")
+        }
     }
 
     suspend fun togglePinnedApp(packageName: String) {
