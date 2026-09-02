@@ -202,8 +202,9 @@ private fun RingBadge(modifier: Modifier, icon: String, value: String, scale: Fa
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(icon, fontSize = scale.s(13f), maxLines = 1)
-        Text(value, color = Color.White, fontSize = scale.s(12f), fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(icon, fontSize = scale.s(14f), maxLines = 1)
+        Text(value, color = Color.White, fontSize = scale.s(11f), fontWeight = FontWeight.Bold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = scale.d(46f)))
     }
 }
 
@@ -504,15 +505,15 @@ fun DailyOrbitsFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: W
                 Text(date, color = TextDim, fontSize = scale.s(13f), maxLines = 1)
             }
         }
-        OrbitLabel(Modifier.align(Alignment.TopStart).offset(x = scale.d(80f), y = scale.d(78f)).widthIn(max = scale.d(78f)).faceAction("top", config.topSlot, actions),
+        OrbitLabel(Modifier.align(Alignment.TopStart).offset(x = scale.d(70f), y = scale.d(92f)).widthIn(max = scale.d(80f)).faceAction("top", config.topSlot, actions),
             if (config.topSlot == ComplicationType.BATTERY) "شحن" else config.topSlot.title,
             if (config.topSlot == ComplicationType.BATTERY) "${data.batteryPercent}%" else complicationCompactValue(config.topSlot, data), scale)
-        OrbitLabel(Modifier.align(Alignment.TopEnd).offset(x = -scale.d(80f), y = scale.d(78f)).widthIn(max = scale.d(78f)).faceAction("left", config.leftSlot, actions),
+        OrbitLabel(Modifier.align(Alignment.TopEnd).offset(x = -scale.d(70f), y = scale.d(92f)).widthIn(max = scale.d(80f)).faceAction("left", config.leftSlot, actions),
             if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "النهار" else config.leftSlot.title,
             if (config.leftSlot == ComplicationType.SUNRISE_SUNSET) "${(daylight * 100).toInt()}%" else complicationCompactValue(config.leftSlot, data), scale)
-        OrbitLabel(Modifier.align(Alignment.BottomStart).offset(x = scale.d(80f), y = -scale.d(88f)).widthIn(max = scale.d(78f)).fixedAction(ComplicationType.NEXT_PRAYER, actions),
+        OrbitLabel(Modifier.align(Alignment.BottomStart).offset(x = scale.d(70f), y = -scale.d(100f)).widthIn(max = scale.d(80f)).fixedAction(ComplicationType.NEXT_PRAYER, actions),
             data.nextPrayerName, PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer), scale)
-        OrbitLabel(Modifier.align(Alignment.BottomEnd).offset(x = -scale.d(80f), y = -scale.d(88f)).widthIn(max = scale.d(78f))
+        OrbitLabel(Modifier.align(Alignment.BottomEnd).offset(x = -scale.d(70f), y = -scale.d(100f)).widthIn(max = scale.d(80f))
             .faceAction("right", config.rightSlot, actions, tapOverride = if (config.rightSlot == ComplicationType.TASBIH) actions.onIncrementTasbih else null),
             if (config.rightSlot == ComplicationType.TASBIH) "ذكر" else config.rightSlot.title,
             if (config.rightSlot == ComplicationType.TASBIH) "${data.tasbih.count}/${data.tasbih.target}" else complicationCompactValue(config.rightSlot, data), scale)
@@ -559,7 +560,7 @@ fun BelieverMosaicFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions
             Text("📖", fontSize = scale.s(12f))
             Text("${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}", color = Color.White, fontSize = scale.s(13f), fontWeight = FontWeight.Bold, maxLines = 1)
         }
-        Row(Modifier.fillMaxWidth().height(scale.d(64f)), horizontalArrangement = Arrangement.spacedBy(scale.d(9f)), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(scale.d(64f)), horizontalArrangement = Arrangement.spacedBy(scale.d(11f)), verticalAlignment = Alignment.CenterVertically) {
             GlassCard(Modifier.weight(1f).fillMaxHeight().fixedAction(ComplicationType.NEXT_PRAYER, actions), RoundedCornerShape(scale.d(16f))) {
                 PrayerRow(data, scale, Modifier.fillMaxWidth().padding(horizontal = scale.d(6f)))
             }
