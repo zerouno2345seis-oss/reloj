@@ -3305,6 +3305,7 @@ function renderLiveWatchFacePreview() {
     if (!container) return;
 
     const model = watchFaceConfig.selectedModel;
+    const d = webFaceData();
     let dialHtml = '';
 
     // Badges
@@ -3352,22 +3353,27 @@ function renderLiveWatchFacePreview() {
                 ${rightBadge}
                 ${bottomBadge}
                 <div class="wf-center-clock" style="color: #38bdf8; font-size: ${isCleanMinimal ? '54px' : '42px'};">
-                    12<span style="opacity:0.6; font-size: 28px;">:45</span>
+                    ${d.time.split(':')[0]}<span style="opacity:0.6; font-size: 28px;">:${d.time.split(':')[1]}</span>
                 </div>
-                <div style="font-size:11px; color:#94a3b8; margin-top:2px;">${weekdayToday()} · ${hijriToday()}</div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:2px;">${d.weekdayDay} · ${d.hijri}</div>
                 ${centerEmblem}
             </div>
         `;
     } else {
-        // Digital Models
+        // Digital Models — QURANIC_AMBIENT_ORBIT keeps the verse line; the rest
+        // show the next prayer under the clock. All values come from webFaceData.
+        const isOrbit = model.includes('QURANIC') || model.includes('ORBIT');
+        const subline = isOrbit
+            ? `<div style="font-size:10px; color:#F3ECDA; font-family:'Amiri',serif; margin-top:4px; max-width:82%; line-height:1.5;">سورة ${d.readingSurah} · ${d.readingAyah} — ${d.ayahText}</div>`
+            : `<div style="font-size:11px; color:#fbbf24; font-weight:600; margin-top:3px;">${d.nextPrayerName} بعد ${d.countdown}</div>`;
         dialHtml = `
             <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative;">
                 ${topBadge}
                 ${leftBadge}
                 ${rightBadge}
                 ${bottomBadge}
-                <div class="wf-center-clock">12:45</div>
-                <div style="font-size:11px; color:#fbbf24; font-weight:600; margin-top:3px;">المغرب بعد 01:24</div>
+                <div class="wf-center-clock">${d.time}</div>
+                ${subline}
                 ${centerEmblem}
             </div>
         `;
