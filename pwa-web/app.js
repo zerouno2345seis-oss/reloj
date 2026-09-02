@@ -954,6 +954,25 @@ function activateTab(tabName) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Today's Hijri date and weekday, so the Layer 1 preview stops showing a
+// frozen "الجمعة · 18 ربيع الأول". Latin digits to match the watch.
+function hijriToday(withYear = false) {
+    try {
+        return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', {
+            day: 'numeric', month: 'long', ...(withYear ? { year: 'numeric' } : {})
+        }).format(new Date());
+    } catch (_) {
+        return withYear ? '19 ربيع الأول 1448 هـ' : '19 ربيع الأول';
+    }
+}
+function weekdayToday() {
+    try {
+        return new Intl.DateTimeFormat('ar', { weekday: 'long' }).format(new Date());
+    } catch (_) {
+        return 'اليوم';
+    }
+}
+
 function getPreviewLabel(slot) {
     const now = new Date();
     // The watch shows Latin digits everywhere; the "-u-nu-latn" locale keeps the
@@ -1068,7 +1087,13 @@ function renderCanvas() {
         const isDragging = (dragType === 'grid-tile' && primarySelectedIdx === idx);
 
         const t = document.createElement('div');
-        t.className = 'canvas-tile tile-shape-square-connected' + (isSelected ? ' selected' : '') + (isDragging ? ' is-dragging' : '');
+        // Mirror the watch: the studio can pick oval / mixed / circle, so the
+        // preview has to show it, not always draw a flat connected square.
+        const shape = (tileConfig.appearance?.tileShape) || 'square-connected';
+        const shapeClass = shape === 'mixed'
+            ? (idx % 3 === 1 ? 'tile-shape-oval' : 'tile-shape-square-connected')
+            : `tile-shape-${shape}`;
+        t.className = `canvas-tile ${shapeClass}` + (isSelected ? ' selected' : '') + (isDragging ? ' is-dragging' : '');
         t.style.left = slot.x + '%';
         t.style.top = slot.y + '%';
         t.style.width = slot.width + '%';
@@ -2586,7 +2611,7 @@ const WATCH_FACE_MODELS = [
 const COMPLICATION_TYPES = [
     { id: 'NEXT_PRAYER', name: 'مواقيت الصلاة (المغرب 18:34)', icon: '🕌' },
     { id: 'BATTERY', name: 'مستوى البطارية (78%)', icon: '🔋' },
-    { id: 'HIJRI_DATE', name: 'التقويم الهجري (18 ربيع الأول)', icon: '🌙' },
+    { id: 'HIJRI_DATE', name: 'التقويم الهجري', icon: '🌙' },
     { id: 'GREGORIAN_DATE', name: 'التاريخ الميلادي (17 Sep)', icon: '📅' },
     { id: 'QURAN_RESUME', name: 'موضع المصحف (الكهف: 18)', icon: '📖' },
     { id: 'QIBLA', name: 'اتجاه القبلة (242°)', icon: '🕋' },
@@ -2732,7 +2757,7 @@ function getComplicationBadgeHtml(slotKey, className) {
     switch (compId) {
         case 'NEXT_PRAYER': sampleText = 'المغرب 18:34'; break;
         case 'BATTERY': sampleText = '78%'; break;
-        case 'HIJRI_DATE': sampleText = '18 ربيع'; break;
+        case 'HIJRI_DATE': sampleText = hijriToday(); break;
         case 'GREGORIAN_DATE': sampleText = '17 Sep'; break;
         case 'QURAN_RESUME': sampleText = 'الكهف: 18'; break;
         case 'QIBLA': sampleText = '242°'; break;
@@ -2807,7 +2832,7 @@ function renderLiveWatchFacePreview() {
                 <div class="wf-center-clock" style="color: #38bdf8; font-size: ${isCleanMinimal ? '54px' : '42px'};">
                     12<span style="opacity:0.6; font-size: 28px;">:45</span>
                 </div>
-                <div style="font-size:11px; color:#94a3b8; margin-top:2px;">الجمعة · 18 ربيع الأول</div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:2px;">${weekdayToday()} · ${hijriToday()}</div>
                 ${centerEmblem}
             </div>
         `;

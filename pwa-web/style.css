@@ -151,8 +151,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 
 .canvas-column { position: relative; min-height: max(100%, calc(100vh + 650px)); align-self: stretch; }
 .canvas-sticky { position: sticky; top: 88px; z-index: 8; }
-.canvas-tile { display: block; min-width: 0; min-height: 0; padding: 0; border-radius: 0 !important; overflow: hidden; cursor: grab; }
-.tile-shape-square-connected, .tile-shape-square-gapped, .tile-shape-circle, .tile-shape-oval, .tile-shape-mixed { border-radius: 0 !important; }
+.canvas-tile { display: block; min-width: 0; min-height: 0; padding: 0; overflow: hidden; cursor: grab; }
+/* Shape mirrors the watch renderer: connected squares by default, pill for
+   oval, circle for circle. "mixed" is resolved per-tile in renderCanvas. */
+.tile-shape-square-connected { border-radius: 0; }
+.tile-shape-square-gapped { border-radius: 10px; }
+.tile-shape-oval { border-radius: 999px; }
+.tile-shape-circle { border-radius: 50%; }
 .icon-palette-monochrome .canvas-tile { background-color:#344253 !important; }.icon-palette-night .canvas-tile { background-color:#17263a !important; }.icon-palette-warm .canvas-tile { background-color:#8c591d !important; }
 .canvas-tile.selected { border: 1.5px solid #5ac8fa; box-shadow: 0 0 0 2px rgba(0,122,255,.55); overflow: visible !important; }
 .canvas-tile.is-dragging { cursor: grabbing; opacity: .82; }

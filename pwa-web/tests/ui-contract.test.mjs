@@ -79,7 +79,8 @@ test('watch preview is fluid instead of forcing a 480px mobile overflow', () => 
 
 test('designer supports sticky preview, square tiles, edge margins, and proportional resize', () => {
   assert.match(css, /\.canvas-sticky\s*\{[^}]*position:\s*sticky/);
-  assert.match(css, /\.canvas-tile\s*\{[^}]*border-radius:\s*0/);
+  // Default (connected) tiles are square; oval/circle get their own radius.
+  assert.match(css, /\.tile-shape-square-connected\s*\{[^}]*border-radius:\s*0/);
   assert.match(css, /\.tile-resize-handle\s*\{/);
   assert.match(html, /data-edge-inset="top"/);
   assert.match(app, /const MAX_EDITOR_ROWS = 5/);
