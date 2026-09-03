@@ -105,6 +105,12 @@ fun generateAutomaticLayout(config: TileConfig, variant: Int): TileConfig {
 // The same three numbers drive renderCanvas() in the web studio, so a tile looks
 // identical in the designer and on the watch: a dark panel, the user's colour
 // kept as a tint and a hairline, and text that reads on both.
+// The app drawer opens on a deliberate pull from the bottom edge — starting in
+// the lowest fifth of the screen and travelling far enough that a list flick or
+// a stray upward swipe mid-screen can never trigger it.
+const val DRAWER_EDGE_FRACTION = 0.80f
+const val DRAWER_PULL_PX = 90f
+
 val TilePanel = Color(0xFF0C1319)
 const val TILE_TINT_ALPHA = 0.14f
 const val TILE_BORDER_ALPHA = 0.38f
@@ -176,7 +182,6 @@ fun getActionIcon(actionId: String, iconType: String?): String {
         "qibla"            -> "🕋"
         "quran", "quran_resume" -> "📖"
         "bookmarks"        -> "🔖"
-        "voice_notes"      -> "🎤"
         "locations"        -> "📍"
         "settings"         -> "⚙️"
         "battery"          -> "🔋"
@@ -266,7 +271,6 @@ fun HomeScreen(
                 "bookmarks" -> onNavigate("bookmarks")
                 "locations", "locations_recent", "locations_active", "locations_navigate", "locations_add_current" -> onNavigate("locations")
                 "qibla", "qibla_compass", "qibla_calibrate" -> onNavigate("qibla")
-                "voice_notes" -> onNavigate("voice_notes")
                 "presets" -> onNavigate("presets")
                 "settings", "battery", "settings_open", "settings_notifications", "battery_status", "battery_saver" -> onNavigate("settings")
                 "tasbih", "tasbih_increment", "quick_tasbih_increment" -> {
@@ -313,6 +317,8 @@ fun HomeScreen(
 
     var totalDragY by remember { mutableFloatStateOf(0f) }
     var totalDragX by remember { mutableFloatStateOf(0f) }
+    // Same rule as Layer 1: the drawer answers a pull from the bottom edge only.
+    var dragStartedAtBottom by remember { mutableStateOf(false) }
 
     Scaffold(
         timeText = {},
@@ -327,9 +333,10 @@ fun HomeScreen(
                     .clip(CircleShape)
                     .pointerInput(Unit) {
                         detectDragGestures(
-                            onDragStart = {
+                            onDragStart = { offset ->
                                 totalDragY = 0f
                                 totalDragX = 0f
+                                dragStartedAtBottom = offset.y > size.height * DRAWER_EDGE_FRACTION
                             },
                             onDragEnd = {
                                 val absY = kotlin.math.abs(totalDragY)
@@ -337,7 +344,7 @@ fun HomeScreen(
                                 // Mirror of Layer 1: swipe up for the drawer,
                                 // swipe right to go back to the watch face (the
                                 // same direction Wear OS uses for dismiss).
-                                if (absY > absX && totalDragY < -25f) {
+                                if (absY > absX && totalDragY < -DRAWER_PULL_PX && dragStartedAtBottom) {
                                     onNavigate("app_drawer")
                                 } else if (absX > absY && totalDragX > 30f) {
                                     onNavigate("watchface")
@@ -417,7 +424,7 @@ fun HomeScreen(
                     val folder = activeFolderSlot!!
                     val items = if (folder.folderItems.isNotEmpty()) folder.folderItems else when (folder.id) {
                         "folder_islamic" -> listOf("quran", "tasbih", "qibla", "prayer")
-                        "folder_tools"   -> listOf("voice_notes", "bookmarks", "locations", "settings")
+                        "folder_tools"   -> listOf("bookmarks", "locations", "settings")
                         else             -> listOf("quran", "prayer", "tasbih", "settings")
                     }
                     FolderLauncherOverlay(
@@ -514,7 +521,7 @@ private fun QuickEditTileModal(
     var selectedFolderItems by remember {
         mutableStateOf(
             slot.folderItems.ifEmpty {
-                if (slot.id == "folder_tools") listOf("voice_notes", "bookmarks", "locations", "settings")
+                if (slot.id == "folder_tools") listOf("bookmarks", "locations", "settings")
                 else listOf("quran", "tasbih", "qibla", "prayer")
             }
         )
@@ -603,7 +610,7 @@ private fun QuickEditTileModal(
                 item {
                     Text("عناصر المجلد (حتى 6):", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
                 }
-                items(listOf("quran", "quran_resume", "tasbih", "qibla", "prayer", "prayer_strip_5", "bookmarks", "voice_notes", "locations", "settings")) { actionId ->
+                items(listOf("quran", "quran_resume", "tasbih", "qibla", "prayer", "prayer_strip_5", "bookmarks", "locations", "settings")) { actionId ->
                     val selected = actionId in selectedFolderItems
                     CompactChip(
                         onClick = {
@@ -866,7 +873,6 @@ private fun SmartWatchFaceTile(
         "qibla"            -> "$qiblaDeg°"
         "quran"            -> "المصحف"
         "quran_resume"     -> lastPos?.surahNameAr ?: "سورة الكهف"
-        "voice_notes"      -> "التسجيلات"
         "bookmarks"        -> if (bookmarkCount > 0) "العلامات · $bookmarkCount" else "العلامات"
         "locations"        -> locationName.substringBefore(" (").trim().ifBlank { "المواقع" }
         "settings"         -> "الإعدادات"

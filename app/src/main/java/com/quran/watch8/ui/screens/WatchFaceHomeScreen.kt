@@ -233,6 +233,9 @@ fun WatchFaceHomeScreen(
 
     var totalDragY by remember { mutableFloatStateOf(0f) }
     var totalDragX by remember { mutableFloatStateOf(0f) }
+    // Where the drag began, so the drawer only answers a pull from the very
+    // bottom edge instead of every upward flick anywhere on the face.
+    var dragStartedAtBottom by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -240,9 +243,10 @@ fun WatchFaceHomeScreen(
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = {
+                    onDragStart = { offset ->
                         totalDragY = 0f
                         totalDragX = 0f
+                        dragStartedAtBottom = offset.y > size.height * DRAWER_EDGE_FRACTION
                     },
                     onDragEnd = {
                         val absY = kotlin.math.abs(totalDragY)
@@ -251,7 +255,7 @@ fun WatchFaceHomeScreen(
                         // dismiss) and swipe down (system quick settings) are
                         // left to Wear OS, and the prayer schedule moved to a
                         // long press on the emblem or the prayer complication.
-                        if (absY > absX && totalDragY < -25f) {
+                        if (absY > absX && totalDragY < -DRAWER_PULL_PX && dragStartedAtBottom) {
                             // Swipe up -> App Drawer
                             vibrate(40)
                             onOpenAppDrawer()

@@ -32,7 +32,6 @@ object TileActionCatalog {
         TileActionItem("folder_custom", "📁 مجلد مخصص", "📁", ""),
         TileActionItem("date_big", "📅 التاريخ الهجري والميلادي", "📅", ""),
         TileActionItem("bookmarks", "🔖 العلامات المرجعية", "🔖", "bookmarks"),
-        TileActionItem("voice_notes", "🎤 استوديو التسجيل الصوتي", "🎤", "voice_notes"),
         TileActionItem("locations", "📍 المواقع المحفوظة", "📍", "locations"),
         TileActionItem("settings", "⚙️ الإعدادات والمزامنة", "⚙️", "settings"),
         TileActionItem("battery", "🔋 نسبة شحن البطارية", "🔋", ""),
@@ -78,7 +77,7 @@ object TileActionCatalog {
         "color_only", "clock_big", "prayer_countdown", "prayer_elapsed", "prayer",
         "prayer_strip_5", "quran_resume", "quran", "tasbih", "qibla",
         "folder_islamic", "folder_tools", "folder_custom", "date_big", "bookmarks",
-        "voice_notes", "locations", "settings", "battery", "weather",
+        "locations", "settings", "battery", "weather",
         "auto_layout", "palette_shuffle", "presets"
     )
 
@@ -224,7 +223,7 @@ data class TileConfig(
         SlotItem(id = "prayer_countdown", colorHex = "#10B981", isLive = true, subActions = listOf("prayer_countdown", "prayer", "prayer_elapsed"), x = 0f, y = 0f, width = 100f, height = 33.33f, colSpan = 12, rowIndex = 0, fontSize = 20, displayStyle = "text"),
         SlotItem(id = "folder_islamic", colorHex = "#0284C7", folderItems = listOf("quran", "tasbih", "qibla", "prayer"), x = 0f, y = 33.33f, width = 33.33f, height = 33.33f, colSpan = 4, rowIndex = 1, fontSize = 14, displayStyle = "text"),
         SlotItem(id = "quran_resume", colorHex = "#0E7490", isLive = true, subActions = listOf("quran_resume", "tasbih"), x = 33.33f, y = 33.33f, width = 66.67f, height = 33.33f, colSpan = 8, rowIndex = 1, fontSize = 14, displayStyle = "text"),
-        SlotItem(id = "folder_tools", colorHex = "#EA580C", folderItems = listOf("voice_notes", "bookmarks", "locations", "settings"), x = 0f, y = 66.67f, width = 33.33f, height = 33.33f, colSpan = 4, rowIndex = 2, fontSize = 14, displayStyle = "text"),
+        SlotItem(id = "folder_tools", colorHex = "#EA580C", folderItems = listOf("bookmarks", "locations", "settings"), x = 0f, y = 66.67f, width = 33.33f, height = 33.33f, colSpan = 4, rowIndex = 2, fontSize = 14, displayStyle = "text"),
         SlotItem(id = "locations", colorHex = "#F59E0B", x = 33.33f, y = 66.67f, width = 33.33f, height = 33.33f, colSpan = 4, rowIndex = 2, fontSize = 14, displayStyle = "text"),
         SlotItem(id = "settings", colorHex = "#334155", x = 66.67f, y = 66.67f, width = 33.33f, height = 33.33f, colSpan = 4, rowIndex = 2, fontSize = 14, displayStyle = "text")
     ),

@@ -76,8 +76,7 @@ object PresetManager {
                     SlotItem(id = "clock_big", colorHex = "#6366F1", x = 0f, y = 0f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 0, fontSize = 18, displayStyle = "text"),
                     SlotItem(id = "prayer_countdown", colorHex = "#10B981", x = 50f, y = 0f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 0, fontSize = 14, displayStyle = "text"),
                     SlotItem(id = "folder_islamic", colorHex = "#0284C7", folderItems = listOf("quran", "tasbih", "qibla", "prayer"), x = 0f, y = 33.33f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 1, fontSize = 14, displayStyle = "text"),
-                    SlotItem(id = "folder_tools", colorHex = "#EA580C", folderItems = listOf("voice_notes", "bookmarks", "locations", "settings"), x = 50f, y = 33.33f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 1, fontSize = 14, displayStyle = "text"),
-                    SlotItem(id = "voice_notes", colorHex = "#E11D48", x = 0f, y = 66.67f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 2, fontSize = 14, displayStyle = "text"),
+                    SlotItem(id = "folder_tools", colorHex = "#EA580C", folderItems = listOf("bookmarks", "locations", "settings"), x = 50f, y = 33.33f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 1, fontSize = 14, displayStyle = "text"),
                     SlotItem(id = "settings", colorHex = "#334155", x = 50f, y = 66.67f, width = 50f, height = 33.33f, colSpan = 6, rowIndex = 2, fontSize = 14, displayStyle = "text")
                 )
             )

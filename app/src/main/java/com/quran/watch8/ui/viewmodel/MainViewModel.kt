@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
-import android.media.MediaRecorder
 import android.speech.RecognizerIntent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,7 +81,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ─────────────────────────────── Room flows ────────────────────────────────
     val bookmarks   = db.bookmarks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val locations   = db.locations.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val voiceNotes  = db.voiceNotes.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** Last saved reading position — null until user has read something. */
     val lastReadingPosition: StateFlow<ReadingPositionEntity?> =
@@ -109,12 +107,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var hasNotificationPermission by mutableStateOf(false)
         private set
-
-    // ─────────────────────────────── Recording ─────────────────────────────────
-    private var mediaRecorder: MediaRecorder? = null
-    var isRecording by mutableStateOf(false)
-        private set
-    private var currentRecordingPath: String? = null
 
     // ─────────────────────────────── Live Watch Info ──────────────────────────
     var batteryPercentage by mutableStateOf(85)
@@ -423,73 +415,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeLocation(id: String) { viewModelScope.launch { db.removeLocation(id) } }
-
-    // ═══════════════════════════ Voice Notes (Room) ═══════════════
-
-    fun startRecording(context: Context) {
-        if (!hasAudioPermission || isRecording) return
-        try {
-            val dir  = File(context.filesDir, "voice_notes").also { if (!it.exists()) it.mkdirs() }
-            val file = File(dir, "note_${System.currentTimeMillis()}.m4a")
-            currentRecordingPath = file.absolutePath
-            mediaRecorder = MediaRecorder().apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setOutputFile(file.absolutePath)
-                prepare(); start()
-            }
-            isRecording = true
-        } catch (e: Exception) { e.printStackTrace(); isRecording = false }
-    }
-
-    fun stopRecording(title: String = "ملاحظة صوتية", transcription: String? = null): String? {
-        if (!isRecording) return null
-        return try {
-            mediaRecorder?.apply { stop(); release() }
-            mediaRecorder = null; isRecording = false
-            val path = currentRecordingPath
-            if (path != null) {
-                val noteId = UUID.randomUUID().toString()
-                viewModelScope.launch {
-                    db.addVoiceNote(
-                        VoiceNote(
-                            id = noteId,
-                            title = title,
-                            filePath = path,
-                            transcription = transcription ?: ""
-                        )
-                    )
-                }
-                noteId
-            } else null
-        } catch (e: Exception) {
-            e.printStackTrace()
-            mediaRecorder = null
-            isRecording = false
-            null
-        }
-    }
-
-    fun updateVoiceNoteTranscription(id: String, transcription: String) {
-        viewModelScope.launch {
-            db.updateVoiceNoteTranscription(id, transcription)
-        }
-    }
-
-    fun addVoiceNote(title: String, transcription: String) {
-        viewModelScope.launch {
-            db.addVoiceNote(
-                VoiceNote(
-                    title = title,
-                    filePath = "",
-                    transcription = transcription
-                )
-            )
-        }
-    }
-
-    fun removeVoiceNote(id: String) { viewModelScope.launch { db.removeVoiceNote(id) } }
 
     // ═══════════════════════════ Speech ══════════════════════════
 

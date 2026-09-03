@@ -8,7 +8,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.quran.watch8.data.model.Bookmark
 import com.quran.watch8.data.model.SavedLocation
-import com.quran.watch8.data.model.VoiceNote
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -30,7 +29,6 @@ class PreferencesRepository(private val context: Context) {
         private val LAST_AYAH = intPreferencesKey("last_ayah")
         private val BOOKMARKS_JSON = stringPreferencesKey("bookmarks_json")
         private val LOCATIONS_JSON = stringPreferencesKey("locations_json")
-        private val VOICE_NOTES_JSON = stringPreferencesKey("voice_notes_json")
         private val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         private val CALCULATION_METHOD = stringPreferencesKey("calculation_method")
         private val SELECTED_LOCATION_ID = stringPreferencesKey("selected_location_id")

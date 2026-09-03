@@ -210,7 +210,6 @@ const tileActionsList = [
     { id: 'folder_custom', title: '📁 مجلد مخصص' },
     { id: 'date_big', title: '📅 التاريخ الهجري والميلادي' },
     { id: 'bookmarks', title: '🔖 العلامات المرجعية' },
-    { id: 'voice_notes', title: '🎤 استوديو التسجيل الصوتي' },
     { id: 'locations', title: '📍 الموا مواقع المحفوظة' },
     { id: 'settings', title: '⚙️ الإعدادات والمزامنة' },
     { id: 'battery', title: '🔋 نسبة شحن البطارية' },
@@ -920,7 +919,7 @@ function onEditorChange(id) {
             if (defaults[slot.id]) [slot.tapAction, slot.longPressAction] = defaults[slot.id];
             if (slot.id.startsWith('folder') && !slot.folderItems?.length) {
                 slot.folderItems = slot.id === 'folder_tools'
-                    ? ['voice_notes', 'bookmarks', 'locations', 'settings']
+                    ? ['bookmarks', 'locations', 'settings']
                     : ['quran', 'tasbih', 'qibla', 'prayer'];
             }
         }
@@ -1260,7 +1259,6 @@ function getPreviewLabel(slot) {
         weather: '24°C',
         qibla: '72°',
         bookmarks: 'العلامات · 12',
-        voice_notes: 'التسجيلات',
         locations: 'بوينس آيرس',
         settings: 'الإعدادات',
         folder_islamic: 'إسلاميات',
@@ -1569,7 +1567,6 @@ function getIcon(id, iconType) {
     if(id === 'qibla') return '🕋';
     if(id === 'quran' || id === 'quran_resume') return '📖';
     if(id === 'bookmarks') return '🔖';
-    if(id === 'voice_notes') return '🎤';
     if(id === 'locations') return '📍';
     if(id === 'settings') return '⚙️';
     if(id === 'battery') return '🔋';
@@ -1642,10 +1639,10 @@ function renderFolderItemsEditor(slot) {
     if (!isFolder) return;
 
     const defaults = slot.id === 'folder_tools'
-        ? ['voice_notes', 'bookmarks', 'locations', 'settings']
+        ? ['bookmarks', 'locations', 'settings']
         : ['quran', 'tasbih', 'qibla', 'prayer'];
     if (!Array.isArray(slot.folderItems) || !slot.folderItems.length) slot.folderItems = [...defaults];
-    const available = ['quran', 'quran_resume', 'tasbih', 'qibla', 'prayer', 'prayer_strip_5', 'bookmarks', 'voice_notes', 'locations', 'settings'];
+    const available = ['quran', 'quran_resume', 'tasbih', 'qibla', 'prayer', 'prayer_strip_5', 'bookmarks', 'locations', 'settings'];
     choices.replaceChildren();
     available.forEach(actionId => {
         const label = document.createElement('label');
@@ -2957,8 +2954,7 @@ const WEB_PRESETS = {
             { id: 'clock_big', colorHex: '#6366F1', colSpan: 6, rowIndex: 0, fontSize: 18, displayStyle: 'text', fontColorHex: '#ffffff' },
             { id: 'prayer_countdown', colorHex: '#10B981', colSpan: 6, rowIndex: 0, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
             { id: 'folder_islamic', colorHex: '#0284C7', folderItems: ['quran', 'tasbih', 'qibla', 'prayer'], colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
-            { id: 'folder_tools', colorHex: '#EA580C', folderItems: ['voice_notes', 'bookmarks', 'locations', 'settings'], colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
-            { id: 'voice_notes', colorHex: '#E11D48', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
+            { id: 'folder_tools', colorHex: '#EA580C', folderItems: ['bookmarks', 'locations', 'settings'], colSpan: 6, rowIndex: 1, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' },
             { id: 'settings', colorHex: '#334155', colSpan: 6, rowIndex: 2, fontSize: 14, displayStyle: 'text', fontColorHex: '#ffffff' }
         ]
     },

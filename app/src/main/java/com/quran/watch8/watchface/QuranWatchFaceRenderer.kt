@@ -318,7 +318,6 @@ class QuranWatchFaceRenderer(
                     "prayer" -> "🕌"
                     "tasbih" -> "📿"
                     "qibla" -> "🕋"
-                    "voice_notes" -> "🎤"
                     "bookmarks" -> "🔖"
                     "locations" -> "📍"
                     "settings" -> "⚙️"

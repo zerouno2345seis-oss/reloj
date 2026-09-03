@@ -233,12 +233,6 @@ class MainActivity : ComponentActivity() {
                         composable("locations") {
                             LocationsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
-                        composable("notes") {
-                            VoiceNotesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
-                        }
-                        composable("voice_notes") {
-                            VoiceNotesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
-                        }
                         composable("presets") {
                             PresetsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }

@@ -121,10 +121,13 @@ test('studio and watch renderers agree on scale, labels and anchor model', () =>
   assert.match(app, /translate\(\$\{-tx\}%, \$\{-ty\}%\)/);
   assert.match(app, /translate\(\$\{-ix\}%, \$\{-iy\}%\)/);
   // Same tile labels on both sides.
-  for (const label of ['التسجيلات', 'المصحف', 'الإعدادات', 'إسلاميات']) {
+  for (const label of ['المصحف', 'الإعدادات', 'إسلاميات', 'الأدوات']) {
     assert.match(app, new RegExp(label));
     assert.match(home, new RegExp(label));
   }
+  // Voice notes were removed from the product; neither side may reintroduce them.
+  assert.doesNotMatch(app, /voice_notes/);
+  assert.doesNotMatch(home, /voice_notes/);
   // A tile shows its information, not its name, wherever live data exists.
   assert.match(home, /"prayer"\s*->\s*"\$\{nextPrayer\?\.nameAr/);
   assert.match(home, /"battery"\s*->\s*"\$batteryPercent%"/);
