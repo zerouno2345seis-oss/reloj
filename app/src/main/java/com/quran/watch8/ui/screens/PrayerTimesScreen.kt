@@ -21,6 +21,8 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.ArgentinaLocations
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
+import com.quran.watch8.ui.components.WatchSafeInsets
+import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
@@ -60,12 +62,12 @@ fun PrayerTimesScreen(
                 .background(Color.Black)
                 .then(rotaryMod),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(top = 28.dp, bottom = 36.dp, start = 8.dp, end = 8.dp)
+            contentPadding = WatchSafeInsets.listContentPadding
         ) {
             // Header
             item {
                 Text(
-                    text = "🕌 مواقيت الصلاة",
+                    text = "مواقيت الصلاة",
                     style = MaterialTheme.typography.title3,
                     color = AccentGold,
                     fontWeight = FontWeight.Bold,
@@ -75,21 +77,25 @@ fun PrayerTimesScreen(
 
             // Location Chip
             item {
-                Box(
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth(0.92f)
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF1E293B))
                         .clickable { showLocationPicker = !showLocationPicker }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
-                    contentAlignment = Alignment.Center
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    WatchIcons.LocationPin(modifier = Modifier.size(15.dp), color = Color(0xFFCBD5E1))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "📍 $locationName",
+                        text = locationName,
                         color = Color(0xFFCBD5E1),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                 }
             }
@@ -136,7 +142,7 @@ fun PrayerTimesScreen(
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(0.96f),
+                        modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         // Previous Prayer Tile (Red/Brown)
@@ -219,7 +225,7 @@ fun PrayerTimesScreen(
                     item {
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.96f)
+                                .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                                 .padding(vertical = 2.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(color)
@@ -269,7 +275,7 @@ fun PrayerTimesScreen(
                         onCheckedChange = { viewModel.setNotifications(it) },
                         label = { Text("تنبيهات الصلاة") },
                         toggleControl = { Switch(checked = notifications, onCheckedChange = null) },
-                        modifier = Modifier.fillMaxWidth(0.96f)
+                        modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                     )
                 }
             }

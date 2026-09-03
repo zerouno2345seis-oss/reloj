@@ -142,15 +142,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             com.quran.watch8.util.WeatherSnapshot.fromJson(prefs.weatherCacheJson.first())?.let {
                 if (it.isAvailable) { weatherSnapshot = it; weatherSummary = it.summary }
             }
-            refreshWeather()
+            refreshWeatherIfStale()
         }
-        // Refetch on a slow cadence, and whenever the active coordinates change.
-        viewModelScope.launch {
-            while (true) { delay(30 * 60_000L); refreshWeather() }
-        }
+        // Refetch whenever the active coordinates change. There is deliberately
+        // no periodic timer: a `while (true) { delay(30min) }` here kept the
+        // process resident and fetched weather nobody was looking at. The app
+        // asks for a fresh reading when it comes to the foreground instead.
         viewModelScope.launch {
             combine(selectedLat, selectedLng) { a, b -> a to b }.drop(1).collectLatest { refreshWeather() }
         }
+    }
+
+    /** Fetches only if the cached reading has aged past [WEATHER_MAX_AGE_MS]. */
+    fun refreshWeatherIfStale() {
+        val snapshot = weatherSnapshot
+        val age = System.currentTimeMillis() - snapshot.fetchedAt
+        if (!snapshot.isAvailable || age >= WEATHER_MAX_AGE_MS) refreshWeather()
     }
 
     fun refreshWeather() {
@@ -470,5 +477,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (hasLocationPermission) fetchCurrentLocation()
             else selectPreset(ArgentinaLocations.BUENOS_AIRES_CABA)
         }
+    }
+
+    private companion object {
+        /** Weather older than this is refetched the next time the app is opened. */
+        const val WEATHER_MAX_AGE_MS = 30 * 60_000L
     }
 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
@@ -32,6 +33,7 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
+import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
@@ -55,6 +57,11 @@ data class InstalledAppItem(
 object InstalledAppsCache {
     @Volatile var apps: List<InstalledAppItem>? = null
     @Volatile var iconsLoaded: Boolean = false
+}
+
+private fun compactAppName(raw: String): String = when (raw.trim()) {
+    "التطبيقات الأخيرة" -> "التطبيقات"
+    else -> raw.trim()
 }
 
 @Composable
@@ -104,7 +111,7 @@ fun AppDrawerScreen(
                 val fast = resolved
                     .map { ri ->
                         val pkg = ri.activityInfo.packageName
-                        InstalledAppItem(pkg, ri.loadLabel(pm).toString(), null, pm.getLaunchIntentForPackage(pkg))
+                        InstalledAppItem(pkg, compactAppName(ri.loadLabel(pm).toString()), null, pm.getLaunchIntentForPackage(pkg))
                     }
                     .sortedBy { it.appName }
                 InstalledAppsCache.apps = fast
@@ -118,7 +125,7 @@ fun AppDrawerScreen(
             val withIcons = resolved
                 .map { ri ->
                     val pkg = ri.activityInfo.packageName
-                    InstalledAppItem(pkg, ri.loadLabel(pm).toString(), ri.loadIcon(pm), pm.getLaunchIntentForPackage(pkg))
+                    InstalledAppItem(pkg, compactAppName(ri.loadLabel(pm).toString()), ri.loadIcon(pm), pm.getLaunchIntentForPackage(pkg))
                 }
                 .sortedBy { it.appName }
             InstalledAppsCache.apps = withIcons
@@ -158,12 +165,12 @@ fun AppDrawerScreen(
                     .fillMaxSize()
                     .then(rotaryMod),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(top = 26.dp, bottom = 36.dp, start = 8.dp, end = 8.dp)
+                contentPadding = WatchSafeInsets.listContentPadding
             ) {
                 // ── Top toolbar: exit to the watch face · list/grid toggle ──
                 item {
                     Row(
-                        modifier = Modifier.padding(top = 2.dp, bottom = 6.dp),
+                        modifier = Modifier.padding(top = 2.dp, bottom = 2.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -207,15 +214,13 @@ fun AppDrawerScreen(
                 // ── RECENT APPS (opened from this drawer) ──
                 if (recentAppsList.isNotEmpty()) {
                     item {
-                        Text("🕘 الأخيرة", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 2.dp))
-                    }
-                    item {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            modifier = Modifier
+                                .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
+                                .padding(vertical = 1.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            recentAppsList.take(5).forEach { app ->
+                            recentAppsList.take(3).forEach { app ->
                                 AppGridIconItem(
                                     app = app,
                                     isPinned = pinnedPackages.contains(app.packageName),
@@ -226,7 +231,7 @@ fun AppDrawerScreen(
                         }
                     }
                     item {
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Box(modifier = Modifier.fillMaxWidth(0.8f).height(0.5.dp).background(Color.DarkGray))
                     }
                 }
@@ -241,7 +246,7 @@ fun AppDrawerScreen(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("⭐ المثبتة", color = AyahYellow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("المثبتة", color = AyahYellow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -251,7 +256,7 @@ fun AppDrawerScreen(
                         items(rows) { rowApps ->
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth()
+                                    .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                                     .padding(vertical = 3.dp),
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
@@ -295,7 +300,7 @@ fun AppDrawerScreen(
                     items(rows) { rowApps ->
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                                 .padding(vertical = 3.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
@@ -393,7 +398,7 @@ private fun AppGridIconItem(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .padding(4.dp)
+            .padding(horizontal = 3.dp, vertical = 1.dp)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onLaunch() },
@@ -440,11 +445,13 @@ private fun AppGridIconItem(
 
         Text(
             text = app.appName,
-            fontSize = 9.sp,
+            fontSize = 8.sp,
             color = Color.White,
-            maxLines = 1,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(48.dp)
+            lineHeight = 9.sp,
+            modifier = Modifier.width(72.dp).heightIn(min = 18.dp)
         )
     }
 }

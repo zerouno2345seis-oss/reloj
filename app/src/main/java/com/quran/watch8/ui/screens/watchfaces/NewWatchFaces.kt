@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalContext
+import com.quran.watch8.ui.components.RepeatOnResumed
+import kotlinx.coroutines.awaitCancellation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -218,8 +220,8 @@ private fun PrayerRow(data: WatchFaceLiveData, scale: FaceScale, modifier: Modif
     Row(modifier, horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
         values.forEachIndexed { index, (name, time) ->
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(name, color = if (index == 0) Aqua else TextDim, fontSize = scale.s(if (big) 12f else 10.5f), fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(time ?: "—:—", color = Color.White, fontSize = scale.s(if (big) 12f else 11f), maxLines = 1)
+                Text(name, color = if (index == 0) Aqua else TextDim, fontSize = scale.s(if (big) 13f else 11.5f), fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(time ?: "—:—", color = Color.White, fontSize = scale.s(if (big) 13f else 12f), fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }
@@ -237,7 +239,14 @@ private fun rememberCompassHeading(): Pair<Float, Boolean> {
     val manager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
     val sensor = remember(manager) { manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) }
     var heading by remember { mutableFloatStateOf(0f) }
-    DisposableEffect(manager, sensor) {
+    // TYPE_ROTATION_VECTOR fuses gyroscope, accelerometer and magnetometer, which
+    // makes it one of the most expensive sensors on the watch. A DisposableEffect
+    // only unregisters when the face leaves the composition — with this activity
+    // registered as HOME that never happened, so the fused sensor stayed live
+    // behind a dark screen. RESUMED-scoping unregisters it at onPause, and
+    // SENSOR_DELAY_NORMAL (~5 Hz) is ample for a qibla arrow that a wrist can
+    // only turn so fast.
+    RepeatOnResumed(manager, sensor) {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 val matrix = FloatArray(9); val orientation = FloatArray(3)
@@ -247,8 +256,12 @@ private fun rememberCompassHeading(): Pair<Float, Boolean> {
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
-        sensor?.let { manager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI) }
-        onDispose { manager.unregisterListener(listener) }
+        try {
+            sensor?.let { manager.registerListener(listener, it, SensorManager.SENSOR_DELAY_NORMAL) }
+            awaitCancellation()
+        } finally {
+            manager.unregisterListener(listener)
+        }
     }
     return heading to (sensor != null)
 }
@@ -275,7 +288,7 @@ fun FajrMihrabFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: Wa
             Text(
                 if (config.topSlot == ComplicationType.HIJRI_DATE || config.topSlot == ComplicationType.HIDDEN) HijriDate.arabic()
                 else complicationLine(config.topSlot, data),
-                color = Gold, fontSize = scale.s(13f), fontWeight = FontWeight.Bold, maxLines = 1
+                color = Gold, fontSize = scale.s(14f), fontWeight = FontWeight.Bold, maxLines = 1
             )
         }
         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -298,8 +311,8 @@ fun FajrMihrabFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: Wa
                 Box(Modifier.faceAction("right", config.rightSlot, actions)) {
                     if (config.rightSlot == ComplicationType.NEXT_PRAYER || config.rightSlot == ComplicationType.HIDDEN)
                         Text("${data.nextPrayerName} بعد ${PrayerTimesHelper.formatCountdown(data.minutesToNextPrayer)}",
-                            color = TextDim, fontSize = scale.s(13f), fontWeight = FontWeight.Bold, maxLines = 1)
-                    else Text(complicationLine(config.rightSlot, data), color = TextDim, fontSize = scale.s(13f), maxLines = 1)
+                            color = TextDim, fontSize = scale.s(18f), fontWeight = FontWeight.Bold, maxLines = 1)
+                    else Text(complicationLine(config.rightSlot, data), color = TextDim, fontSize = scale.s(17f), fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
             }
         }
@@ -313,7 +326,7 @@ fun FajrMihrabFace(config: WatchFaceConfig, data: WatchFaceLiveData, actions: Wa
             ComplicationType.QURAN_RESUME, data, scale, actions) {
             Text("📖", fontSize = scale.s(12f))
             Text("${data.reading.surahName.removePrefix("سورة ")} · ${data.reading.ayah}",
-                color = Color.White, fontSize = scale.s(13f), fontWeight = FontWeight.Bold, maxLines = 1)
+                color = Color.White, fontSize = scale.s(14f), fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }

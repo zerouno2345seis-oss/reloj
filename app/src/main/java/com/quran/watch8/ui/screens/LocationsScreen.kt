@@ -38,6 +38,7 @@ import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.LocationType
 import com.quran.watch8.data.model.SavedLocation
 import com.quran.watch8.ui.components.WatchIcons
+import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
@@ -93,7 +94,7 @@ fun LocationsScreen(
                     .fillMaxSize()
                     .then(if (selectedLocForAction == null) rotaryMod else Modifier),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(top = 28.dp, bottom = 48.dp, start = 8.dp, end = 8.dp)
+                contentPadding = WatchSafeInsets.listContentPadding
             ) {
                 item {
                     Text(
@@ -107,30 +108,50 @@ fun LocationsScreen(
 
                 // Quick Save Buttons
                 item {
-                    Text(
-                        text = if (currentLoc != null) "📍 جاهز للحفظ (GPS)" else if (isLoading) "جاري تحديد الموقع..." else "اضغط للحفظ فوراً",
-                        style = MaterialTheme.typography.caption2,
-                        color = if (currentLoc != null) AyahYellow else Color.Gray,
-                        modifier = Modifier.padding(vertical = 2.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        WatchIcons.LocationPin(
+                            modifier = Modifier.size(15.dp),
+                            color = if (currentLoc != null) AyahYellow else Color.Gray
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (currentLoc != null) "جاهز للحفظ (GPS)" else if (isLoading) "جاري تحديد الموقع..." else "اضغط للحفظ فوراً",
+                            style = MaterialTheme.typography.caption2,
+                            color = if (currentLoc != null) AyahYellow else Color.Gray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth(0.96f),
+                        modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        LumiaSaveButton("🚗 سيارتي", Color(0xFF14532D), Modifier.weight(1f)) {
+                        LocationQuickAction(
+                            label = "موقف سريع",
+                            bgColor = Color(0xFF14532D),
+                            icon = { WatchIcons.Car(modifier = Modifier.size(20.dp)) },
+                            modifier = Modifier.weight(1f),
+                        ) {
                             viewModel.fetchCurrentLocation()
-                            viewModel.saveLocation("موقع السيارة", LocationType.CAR)
+                            viewModel.saveLocation("موقف سريع", LocationType.CAR)
                         }
-                        LumiaSaveButton("⭐ مهم", Color(0xFF581C87), Modifier.weight(1f)) {
+                        LocationQuickAction(
+                            label = "مهم",
+                            bgColor = Color(0xFF581C87),
+                            icon = { WatchIcons.Star(modifier = Modifier.size(20.dp)) },
+                            modifier = Modifier.weight(1f),
+                        ) {
                             viewModel.fetchCurrentLocation()
                             viewModel.saveLocation("موقع مهم", LocationType.IMPORTANT)
-                        }
-                        LumiaSaveButton("🕌 مسجد", Color(0xFF0F766E), Modifier.weight(1f)) {
-                            viewModel.fetchCurrentLocation()
-                            viewModel.saveLocation("مسجد", LocationType.MOSQUE)
                         }
                     }
                 }
@@ -163,7 +184,7 @@ fun LocationsScreen(
                         }
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.96f)
+                                .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                                 .padding(vertical = 3.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(0xFF1E293B))
@@ -353,7 +374,7 @@ fun LocationsScreen(
                                     modifier = Modifier.fillMaxWidth(0.9f),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    listOf("المنزل", "العمل", "موقفي").forEach { preset ->
+                                    listOf("العمل", "موقفي").forEach { preset ->
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
@@ -381,16 +402,35 @@ fun LocationsScreen(
 }
 
 @Composable
-private fun LumiaSaveButton(label: String, bgColor: Color, modifier: Modifier, onClick: () -> Unit) {
+private fun LocationQuickAction(
+    label: String,
+    bgColor: Color,
+    icon: @Composable () -> Unit,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = modifier
+            .height(58.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
             .clickable(onClick = onClick)
-            .padding(vertical = 7.dp),
+            .padding(horizontal = 2.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = label, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            icon()
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = label,
+                fontSize = 9.5.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+            )
+        }
     }
 }
 

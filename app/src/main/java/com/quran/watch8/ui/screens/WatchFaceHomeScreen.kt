@@ -1,8 +1,6 @@
 package com.quran.watch8.ui.screens
 
 import android.content.Context
-import android.graphics.Paint
-import android.graphics.Typeface
 import android.os.BatteryManager
 import android.os.Build
 import android.os.VibrationEffect
@@ -20,12 +18,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Button
@@ -37,6 +34,7 @@ import androidx.wear.compose.material.rememberScalingLazyListState
 import com.quran.watch8.data.model.ComplicationType
 import com.quran.watch8.data.model.WatchFaceConfig
 import com.quran.watch8.data.model.WatchFaceModelId
+import com.quran.watch8.ui.components.RepeatOnResumed
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
 import com.quran.watch8.ui.screens.watchfaces.*
@@ -105,7 +103,9 @@ fun WatchFaceHomeScreen(
         config.modelId == WatchFaceModelId.CLASSIC_CHRONO_LATIN_ALERT
 
     var currentTime by remember { mutableStateOf(Calendar.getInstance()) }
-    LaunchedEffect(needsSecondTick) {
+    // Scoped to RESUMED: nobody can read the clock behind a dark screen, and the
+    // composition outlives onStop, so a bare LaunchedEffect would tick forever.
+    RepeatOnResumed(needsSecondTick) {
         val periodMs = if (needsSecondTick) 1_000L else 60_000L
         while (true) {
             val now = Calendar.getInstance()
@@ -805,22 +805,7 @@ private fun ClassicChronoFaceView(
                 )
             }
 
-            drawIntoCanvas { canvas ->
-                val paint = Paint().apply {
-                    color = android.graphics.Color.parseColor("#FDE68A")
-                    textSize = 13.5.sp.toPx()
-                    typeface = Typeface.DEFAULT_BOLD
-                    textAlign = Paint.Align.CENTER
-                    isAntiAlias = true
-                }
-                for (num in 1..12) {
-                    val angleRad = Math.toRadians((num * 30.0 - 90.0))
-                    val numRadius = radius - 10.dp.toPx()
-                    val x = center.x + cos(angleRad).toFloat() * numRadius
-                    val y = center.y + sin(angleRad).toFloat() * numRadius + (paint.textSize / 3f)
-                    canvas.nativeCanvas.drawText(num.toString(), x, y, paint)
-                }
-            }
+            // The physical rotating bezel already carries hour markings.
         }
 
         // Top Subdial (12 o clock)
@@ -949,38 +934,7 @@ private fun CelestialPerimeterFaceView(
             val center = Offset(size.width / 2f, size.height / 2f)
             val radius = size.minDimension / 2f
 
-            drawIntoCanvas { canvas ->
-                val paint = Paint().apply {
-                    color = android.graphics.Color.parseColor("#93C5FD")
-                    textSize = 13.sp.toPx()
-                    typeface = Typeface.DEFAULT_BOLD
-                    textAlign = Paint.Align.CENTER
-                    isAntiAlias = true
-                }
-                for (num in 1..12) {
-                    val angleRad = Math.toRadians((num * 30.0 - 90.0))
-                    val numRadius = radius - 10.dp.toPx()
-                    val x = center.x + cos(angleRad).toFloat() * numRadius
-                    val y = center.y + sin(angleRad).toFloat() * numRadius + (paint.textSize / 3f)
-                    canvas.nativeCanvas.drawText(num.toString(), x, y, paint)
-                }
-            }
-
-            for (i in 0 until 60) {
-                if (i % 5 != 0) {
-                    val angleRad = Math.toRadians((i * 6.0 - 90.0))
-                    val dotRadius = radius - 5.dp.toPx()
-                    val dotCenter = Offset(
-                        center.x + cos(angleRad).toFloat() * dotRadius,
-                        center.y + sin(angleRad).toFloat() * dotRadius
-                    )
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.25f),
-                        radius = 1.2.dp.toPx(),
-                        center = dotCenter
-                    )
-                }
-            }
+            // The real bezel provides the complete perimeter scale.
 
             if (isAlertActive) {
                 drawArc(
@@ -1363,22 +1317,7 @@ private fun QuranicAmbientOrbitFaceView(
             val center = Offset(size.width / 2f, size.height / 2f)
             val radius = size.minDimension / 2f
 
-            drawIntoCanvas { canvas ->
-                val paint = Paint().apply {
-                    color = android.graphics.Color.parseColor("#FDE68A")
-                    textSize = 12.sp.toPx()
-                    typeface = Typeface.DEFAULT_BOLD
-                    textAlign = Paint.Align.CENTER
-                    isAntiAlias = true
-                }
-                for (num in 1..12) {
-                    val angleRad = Math.toRadians((num * 30.0 - 90.0))
-                    val numRadius = radius - 10.dp.toPx()
-                    val x = center.x + cos(angleRad).toFloat() * numRadius
-                    val y = center.y + sin(angleRad).toFloat() * numRadius + (paint.textSize / 3f)
-                    canvas.nativeCanvas.drawText(num.toString(), x, y, paint)
-                }
-            }
+            // Keep the app perimeter unlabelled for the numbered hardware bezel.
 
             if (isAlertActive) {
                 drawArc(
@@ -1744,12 +1683,20 @@ private fun RenderComplicationContent(
                 ComplicationType.QURAN_RESUME -> {
                     Text("📖", fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(3.dp))
+                    val reading = liveData?.reading
                     Text(
-                        text = "${lastPosition.first}:${lastPosition.second}",
+                        text = formatQuranReadingLine(
+                            reading?.surahName ?: "الفاتحة",
+                            reading?.ayah ?: lastPosition.second,
+                            reading?.text.orEmpty(),
+                        ),
                         color = Color(0xFFFDE68A),
-                        fontSize = 11.sp,
+                        fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Right,
+                        modifier = Modifier.widthIn(max = 230.dp),
                     )
                 }
                 ComplicationType.QIBLA -> {
@@ -2637,7 +2584,7 @@ fun VisualWatchFaceCarousel(
                 val shortTitle = when (model) {
                     WatchFaceModelId.ULTRA_DIGITAL_CLASSIC -> "الرقمي الكلاسيكي"
                     WatchFaceModelId.CLASSIC_CHRONO_HERITAGE -> "الكرونوغراف التراثي"
-                    WatchFaceModelId.CELESTIAL_SOLAR_ARC -> "فلكي محيطي (أرقام)"
+                    WatchFaceModelId.CELESTIAL_SOLAR_ARC -> "فلكي هادئ"
                     WatchFaceModelId.ULTRA_DIGITAL_LATIN_ALERT -> "الرقمي (تنبيه)"
                     WatchFaceModelId.CLASSIC_CHRONO_LATIN_ALERT -> "الكرونوغراف (تنبيه)"
                     WatchFaceModelId.CELESTIAL_MINIMAL_LATIN_ALERT -> "فلكي نقي (ساعة فقط)"
@@ -2688,23 +2635,6 @@ fun VisualWatchFaceCarousel(
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Canvas(modifier = Modifier.fillMaxSize()) {
                                         val center = Offset(size.width / 2f, size.height / 2f)
-                                        val radius = size.minDimension / 2f
-                                        drawIntoCanvas { canvas ->
-                                            val paint = Paint().apply {
-                                                this.color = android.graphics.Color.parseColor("#FDE68A")
-                                                textSize = 9.5.sp.toPx()
-                                                typeface = Typeface.DEFAULT_BOLD
-                                                textAlign = Paint.Align.CENTER
-                                                isAntiAlias = true
-                                            }
-                                            for (num in 1..12) {
-                                                val angleRad = Math.toRadians((num * 30.0 - 90.0))
-                                                val numRadius = radius - 8.dp.toPx()
-                                                val x = center.x + cos(angleRad).toFloat() * numRadius
-                                                val y = center.y + sin(angleRad).toFloat() * numRadius + (paint.textSize / 3f)
-                                                canvas.nativeCanvas.drawText(num.toString(), x, y, paint)
-                                            }
-                                        }
                                         // Hands
                                         drawLine(Color(0xFFFDE68A), center, Offset(center.x, center.y - 38.dp.toPx()), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
                                         drawLine(Color(0xFFFDE68A), center, Offset(center.x + 44.dp.toPx(), center.y + 6.dp.toPx()), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
@@ -2716,24 +2646,6 @@ fun VisualWatchFaceCarousel(
                             WatchFaceModelId.CELESTIAL_SOLAR_ARC -> {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Canvas(modifier = Modifier.fillMaxSize()) {
-                                        val center = Offset(size.width / 2f, size.height / 2f)
-                                        val radius = size.minDimension / 2f
-                                        drawIntoCanvas { canvas ->
-                                            val paint = Paint().apply {
-                                                this.color = android.graphics.Color.parseColor("#93C5FD")
-                                                textSize = 9.sp.toPx()
-                                                typeface = Typeface.DEFAULT_BOLD
-                                                textAlign = Paint.Align.CENTER
-                                                isAntiAlias = true
-                                            }
-                                            for (num in 1..12) {
-                                                val angleRad = Math.toRadians((num * 30.0 - 90.0))
-                                                val numRadius = radius - 8.dp.toPx()
-                                                val x = center.x + cos(angleRad).toFloat() * numRadius
-                                                val y = center.y + sin(angleRad).toFloat() * numRadius + (paint.textSize / 3f)
-                                                canvas.nativeCanvas.drawText(num.toString(), x, y, paint)
-                                            }
-                                        }
                                         drawArc(
                                             Brush.horizontalGradient(listOf(Color(0xFF0284C7), Color(0xFFF59E0B))),
                                             startAngle = 200f,

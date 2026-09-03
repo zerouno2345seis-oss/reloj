@@ -51,7 +51,7 @@ object PrayerTimesHelper {
     fun formatCountdown(totalMinutes: Int): String {
         val minutes = totalMinutes.coerceAtLeast(0)
         val hours = minutes / 60
-        return if (hours > 0) "${hours}h ${minutes % 60}m" else "${minutes}m"
+        return if (hours > 0) "$hours س ${minutes % 60} د" else "$minutes د"
     }
 
     fun calculate(

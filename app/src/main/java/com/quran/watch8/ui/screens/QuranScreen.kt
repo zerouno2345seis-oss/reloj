@@ -18,6 +18,8 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
+import com.quran.watch8.ui.components.WatchSafeInsets
+import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
@@ -55,7 +57,7 @@ fun QuranScreen(
             state = listState,
             modifier = Modifier.fillMaxSize().then(rotaryMod),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(top = 26.dp, bottom = 40.dp, start = 6.dp, end = 6.dp)
+            contentPadding = WatchSafeInsets.listContentPadding
         ) {
             item {
                 Text(
@@ -73,13 +75,14 @@ fun QuranScreen(
                     onClick = {
                         speechLauncher.launch(viewModel.createSpeechIntent())
                     },
-                    label = { Text("🎤 بحث صوتي", style = MaterialTheme.typography.button) },
+                    icon = { WatchIcons.MicRecording(modifier = Modifier.size(20.dp), color = AyahYellow) },
+                    label = { Text("بحث صوتي", style = MaterialTheme.typography.button) },
                     colors = ChipDefaults.primaryChipColors(
                         backgroundColor = Color(0xFF2A1A00),
                         contentColor = AyahYellow
                     ),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                         .padding(vertical = 6.dp)
                 )
             }
@@ -87,10 +90,11 @@ fun QuranScreen(
             item {
                 Chip(
                     onClick = onNavigateToBookmarks,
-                    label = { Text("🔖 الإشارات", style = MaterialTheme.typography.button) },
+                    icon = { WatchIcons.Bookmark(modifier = Modifier.size(20.dp)) },
+                    label = { Text("الإشارات", style = MaterialTheme.typography.button) },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                         .padding(bottom = 8.dp)
                 )
             }

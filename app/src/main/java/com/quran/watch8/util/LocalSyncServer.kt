@@ -13,140 +13,27 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.PrintWriter
 import java.net.*
 import java.util.*
 
 /**
- * Ultra-Low Power & High Performance Dual-Sync Engine for Galaxy Watch 8
+ * Cloud sync relay for the web studio.
  *
- * Battery Optimized:
- *  - ZERO permanent WakeLocks or WifiLocks (allows CPU and Wi-Fi to enter deep sleep/Doze mode).
- *  - ZERO aggressive infinite background polling loops.
- *  - Passive lightweight ServerSocket on port 41331 for instant local push from Web.
- *  - On-demand Cloud Relay sync (HTTPS).
+ * There used to be a second, local channel here: a ServerSocket on port 41331
+ * that the studio would POST to directly over the LAN. It could never work —
+ * the studio is served over HTTPS, so the browser blocks a plain-http request
+ * to the watch as mixed content — and its `accept()` loop held a thread and a
+ * listening socket open for the entire life of the process. Since this app
+ * declares `category.HOME`, that life is "until the watch reboots". Removed;
+ * the HTTPS relay below is the only channel.
  */
 object LocalSyncServer {
     private const val TAG = "LocalSyncServer"
     /** Marks a pull result that actually changed local state. */
     const val APPLIED_PREFIX = "APPLIED:"
-    const val FIXED_PORT = 41331
     const val CLOUD_RELAY_URL = "https://quran-watch8-hub.vercel.app/api/sync?code=41331"
 
-    private var serverSocket: ServerSocket? = null
-    private var isRunning = false
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var lastSyncedVersion: Long = 0L
-
-    fun start(context: Context) {
-        if (isRunning) return
-        isRunning = true
-
-        scope.launch {
-            try {
-                serverSocket = ServerSocket().apply {
-                    reuseAddress = true
-                    bind(InetSocketAddress(FIXED_PORT))
-                }
-
-                val db = QuranDatabase.getInstance(context)
-                val dbRepo = DatabaseRepository(
-                    bookmarkDao = db.bookmarkDao(),
-                    locationDao = db.savedLocationDao(),
-                    voiceNoteDao = db.voiceNoteDao(),
-                    readingPositionDao = db.readingPositionDao()
-                )
-                val prefs = PreferencesRepository(context)
-
-                // Gentle one-time check on startup
-                launch {
-                    try {
-                        syncWithCloud(context, "pull")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "startup cloud pull failed", e)
-                    }
-                }
-
-                while (isRunning && serverSocket?.isClosed == false) {
-                    try {
-                        val client = serverSocket?.accept() ?: break
-                        handleClient(client, dbRepo, prefs)
-                    } catch (e: Exception) {
-                        // A closed socket during shutdown is expected; anything
-                        // else is worth a line.
-                        if (isRunning) Log.w(TAG, "accept loop error", e)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "sync server crashed on startup", e)
-            }
-        }
-    }
-
-    fun stop() {
-        isRunning = false
-        runCatching { serverSocket?.close() }
-        serverSocket = null
-    }
-
-    private fun handleClient(socket: Socket, dbRepo: DatabaseRepository, prefs: PreferencesRepository) {
-        scope.launch {
-            try {
-                socket.soTimeout = 5000
-                val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-                val writer = PrintWriter(socket.getOutputStream(), true)
-
-                val requestLine = reader.readLine() ?: return@launch
-                val parts = requestLine.split(" ")
-                val method = parts.getOrNull(0) ?: "GET"
-                val path = parts.getOrNull(1) ?: "/"
-
-                var contentLength = 0
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    if (line.isNullOrBlank()) break
-                    if (line!!.lowercase().startsWith("content-length:")) {
-                        contentLength = line!!.substringAfter(":").trim().toIntOrNull() ?: 0
-                    }
-                }
-
-                if (method.equals("OPTIONS", ignoreCase = true)) {
-                    sendResponse(writer, 200, "OK", "application/json", "{}")
-                    socket.close()
-                    return@launch
-                }
-
-                if (path.startsWith("/api/sync") || path == "/") {
-                    if (method.equals("GET", ignoreCase = true)) {
-                        val json = exportDataJson(dbRepo, prefs)
-                        sendResponse(writer, 200, "OK", "application/json; charset=utf-8", json)
-                    } else if (method.equals("POST", ignoreCase = true)) {
-                        val bodyChars = CharArray(contentLength)
-                        var read = 0
-                        while (read < contentLength) {
-                            val r = reader.read(bodyChars, read, contentLength - read)
-                            if (r <= 0) break
-                            read += r
-                        }
-                        val body = String(bodyChars)
-                        importDataJson(body, dbRepo, prefs)
-                        sendResponse(writer, 200, "OK", "application/json; charset=utf-8", """{"status":"synced","time":${System.currentTimeMillis()}}""")
-                    }
-                } else if (path.startsWith("/api/ping")) {
-                    sendResponse(writer, 200, "OK", "application/json; charset=utf-8", """{"status":"online","device":"Galaxy Watch 8"}""")
-                } else {
-                    sendResponse(writer, 404, "Not Found", "text/plain", "Not Found")
-                }
-
-                socket.close()
-            } catch (e: Exception) {
-                Log.w(TAG, "client request failed", e)
-                runCatching { socket.close() }
-            }
-        }
-    }
 
     suspend fun syncWithCloud(context: Context, mode: String = "pull"): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
@@ -411,18 +298,4 @@ object LocalSyncServer {
         }
     }
 
-    private fun sendResponse(writer: PrintWriter, code: Int, status: String, contentType: String, body: String) {
-        val bytes = body.toByteArray(Charsets.UTF_8)
-        writer.print("HTTP/1.1 $code $status\r\n")
-        writer.print("Content-Type: $contentType\r\n")
-        writer.print("Access-Control-Allow-Origin: *\r\n")
-        writer.print("Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n")
-        writer.print("Access-Control-Allow-Headers: *\r\n")
-        writer.print("Access-Control-Allow-Private-Network: true\r\n")
-        writer.print("Content-Length: ${bytes.size}\r\n")
-        writer.print("Connection: close\r\n")
-        writer.print("\r\n")
-        writer.print(body)
-        writer.flush()
-    }
 }

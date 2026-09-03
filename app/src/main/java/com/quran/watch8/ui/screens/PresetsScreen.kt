@@ -19,6 +19,7 @@ import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.PresetItem
 import com.quran.watch8.data.model.PresetManager
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
+import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
@@ -44,7 +45,7 @@ fun PresetsScreen(
                 .fillMaxSize()
                 .then(rotaryMod),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(top = 26.dp, bottom = 36.dp, start = 8.dp, end = 8.dp)
+            contentPadding = WatchSafeInsets.listContentPadding
         ) {
             item {
                 Text(
@@ -94,7 +95,7 @@ fun PresetsScreen(
                     },
                     colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF161E2E)),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                         .padding(vertical = 3.dp)
                 )
             }

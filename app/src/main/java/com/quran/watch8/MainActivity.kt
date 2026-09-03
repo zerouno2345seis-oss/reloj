@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
      */
     override fun onResume() {
         super.onResume()
+        // Weather has no background timer any more; it is topped up here, and
+        // only when the cached reading has actually aged out.
+        if (::viewModelRef.isInitialized) viewModelRef.refreshWeatherIfStale()
         lifecycleScope.launch {
             val (ok, message) = com.quran.watch8.util.LocalSyncServer.syncWithCloud(applicationContext, "pull")
             if (ok && message.startsWith(com.quran.watch8.util.LocalSyncServer.APPLIED_PREFIX)) {
@@ -85,7 +88,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        com.quran.watch8.util.LocalSyncServer.start(applicationContext)
+        // No sync server to start: the LAN socket is gone and onResume below
+        // does the cloud pull that its startup path used to duplicate.
 
         setContent {
             QuranWatchTheme {

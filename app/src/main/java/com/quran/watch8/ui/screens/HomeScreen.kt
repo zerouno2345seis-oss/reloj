@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -42,6 +43,7 @@ import com.quran.watch8.data.model.SlotItem
 import com.quran.watch8.data.model.TileActionCatalog
 import com.quran.watch8.data.model.TileConfig
 import com.quran.watch8.data.model.WatchAppearance
+import com.quran.watch8.ui.components.RepeatOnResumed
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
@@ -258,8 +260,13 @@ fun HomeScreen(
 
     // The tiles only ever render HH:mm, so tick once a minute on the boundary
     // instead of waking the whole grid every second.
-    LaunchedEffect(Unit) {
-        viewModel.refreshPrayerTimes()
+    LaunchedEffect(Unit) { viewModel.refreshPrayerTimes() }
+
+    // Both tickers are RESUMED-scoped. They used to run for the life of the
+    // composition, which — with this activity registered as HOME — meant they
+    // never stopped: the grid was re-rendering every four seconds behind a dark
+    // screen for as long as the watch stayed powered on.
+    RepeatOnResumed {
         while (true) {
             val now = LocalTime.now()
             currentTimeStr = now.format(hhmmFormatter)
@@ -272,7 +279,7 @@ fun HomeScreen(
     // Rotates a live tile through its sub-actions. This used to hang off a 60fps
     // infinite animation whose LaunchedEffect key changed hundreds of times a
     // second, tearing down and relaunching a coroutine on every change.
-    LaunchedEffect(Unit) {
+    RepeatOnResumed {
         while (true) {
             delay(4000L)
             liveStep++
@@ -1172,7 +1179,7 @@ private fun PrayerStripTable(pList: List<Pair<String, String>>) {
         // times, which stay readable and hold the same information.
         val showNames = columnWidth >= 30.dp
         val nameSize = (columnWidth.value * 0.26f).coerceIn(7f, 11f).sp
-        val timeSize = (columnWidth.value * 0.30f).coerceIn(7f, 12f).sp
+        val timeSize = (columnWidth.value * 0.24f).coerceIn(6.5f, 9f).sp
 
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -1202,6 +1209,8 @@ private fun PrayerStripTable(pList: List<Pair<String, String>>) {
                         color = Color.White,
                         fontSize = timeSize,
                         fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = (-0.35).sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Clip,

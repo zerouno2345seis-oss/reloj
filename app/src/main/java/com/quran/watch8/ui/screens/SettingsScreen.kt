@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -22,6 +23,7 @@ import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.PresetItem
 import com.quran.watch8.data.model.PresetManager
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
+import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahGreen
 import com.quran.watch8.ui.theme.AyahYellow
@@ -71,22 +73,19 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .then(rotaryMod),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(top = 20.dp, bottom = 40.dp, start = 8.dp, end = 8.dp)
+            contentPadding = WatchSafeInsets.listContentPadding
         ) {
             item {
                 Text(
-                    text = "🎨 القوالب والأوضاع الجاهزة",
-                    style = MaterialTheme.typography.caption1,
+                    text = "القوالب الجاهزة",
+                    fontSize = 15.sp,
+                    lineHeight = 18.sp,
                     color = AccentGold,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "انقر للتبديل الفوري لواجهة الساعة",
-                    fontSize = 10.sp,
-                    color = Color.LightGray,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -115,7 +114,9 @@ fun SettingsScreen(
                         )
                     },
                     colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF0D9488)),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp)
+                    modifier = Modifier
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
+                        .padding(bottom = 5.dp)
                 )
             }
 
@@ -154,7 +155,7 @@ fun SettingsScreen(
                         backgroundColor = Color(0xFF1E293B)
                     ),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                         .padding(vertical = 3.dp)
                 )
             }

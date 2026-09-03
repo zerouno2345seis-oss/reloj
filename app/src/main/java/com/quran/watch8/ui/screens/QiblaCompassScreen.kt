@@ -36,8 +36,10 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Text
+import com.quran.watch8.ui.components.RepeatOnResumed
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.awaitCancellation
 import com.quran.watch8.ui.screens.watchfaces.normalizedRotation
 import com.quran.watch8.ui.screens.watchfaces.qiblaBearing
 
@@ -56,7 +58,10 @@ fun QiblaCompassScreen(onBack: () -> Unit, viewModel: MainViewModel) {
         sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
     }
 
-    DisposableEffect(sensorManager, rotationSensor) {
+    // Same reasoning as the qibla watch face: the fused rotation vector is
+    // expensive, so it stays registered only while this screen is resumed, and
+    // ~5 Hz is plenty for an arrow a wrist is turning.
+    RepeatOnResumed(sensorManager, rotationSensor) {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 val rotation = FloatArray(9)
@@ -68,10 +73,14 @@ fun QiblaCompassScreen(onBack: () -> Unit, viewModel: MainViewModel) {
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
-        rotationSensor?.let {
-            sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_UI)
+        try {
+            rotationSensor?.let {
+                sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            awaitCancellation()
+        } finally {
+            sensorManager.unregisterListener(listener)
         }
-        onDispose { sensorManager.unregisterListener(listener) }
     }
 
     Box(

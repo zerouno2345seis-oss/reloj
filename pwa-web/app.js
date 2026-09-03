@@ -1274,8 +1274,8 @@ function getPreviewLabel(slot) {
     const labels = {
         clock_big: now.toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
         date_big: now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-        prayer_countdown: 'المغرب 1h 24m',
-        prayer_elapsed: 'المغرب 18m',
+        prayer_countdown: 'المغرب 1 س 24 د',
+        prayer_elapsed: 'المغرب 18 د',
         prayer: 'المغرب 18:36',
         prayer_strip_5: 'مواقيت اليوم',
         quran_resume: 'سورة الكهف',
@@ -1299,8 +1299,8 @@ function getPreviewLabel(slot) {
         clock_big:        { time: labels.clock_big, value: labels.clock_big },
         date_big:         { name: labels.date_big, value: labels.date_big },
         prayer:           { name: 'المغرب', time: '18:36', value: '18:36' },
-        prayer_countdown: { name: 'المغرب', countdown: '1h 24m', value: '1h 24m' },
-        prayer_elapsed:   { name: 'المغرب', countdown: '18m', value: '18m' },
+        prayer_countdown: { name: 'المغرب', countdown: '1 س 24 د', value: '1 س 24 د' },
+        prayer_elapsed:   { name: 'المغرب', countdown: '18 د', value: '18 د' },
         tasbih:           { name: 'سبحان الله', value: '33' },
         qibla:            { value: '72°' },
         battery:          { value: '78%' },
@@ -3343,7 +3343,7 @@ function getComplicationPresentation(compId) {
     const comp = COMPLICATION_TYPES.find(c => c.id === compId) || COMPLICATION_TYPES[0];
     let sampleText = '';
     switch (compId) {
-        case 'NEXT_PRAYER': sampleText = 'المغرب 1h 24m'; break;
+        case 'NEXT_PRAYER': sampleText = 'المغرب 1 س 24 د'; break;
         case 'BATTERY': sampleText = '78%'; break;
         case 'HIJRI_DATE': sampleText = hijriToday(); break;
         case 'GREGORIAN_DATE': sampleText = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); break;
@@ -3398,7 +3398,9 @@ function webFaceData() {
         hijri: hijriToday(),
         weekdayDay: `${weekdayToday()} ${now.getDate()}`,
         nextPrayerName: 'المغرب',
-        countdown: '1h 24m',
+        // Mirrors PrayerTimesHelper.formatCountdown: Arabic units, never "h"/"m",
+        // which used to flip direction inside an otherwise Arabic line.
+        countdown: '1 س 24 د',
         prayers: [['فجر', '04:28'], ['ظهر', '12:34'], ['عصر', '15:47'], ['مغرب', '19:08'], ['عشاء', '20:38']],
         tasbihCount: 27, tasbihTarget: 33, dhikr: 'سبحان الله',
         readingSurah: 'الفاتحة', readingAyah: 1,
