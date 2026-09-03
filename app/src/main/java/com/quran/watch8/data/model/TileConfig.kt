@@ -114,7 +114,9 @@ data class SlotItem(
     val rowIndex: Int = 0,
     val weight: Float = 0.5f,
     val fontSizeOffset: Int = 0,
-    val textAlign: String = "center"
+    val textAlign: String = "center",
+    /** Alias shown instead of the built-in label. Supports {default} {name} {time} {value} {countdown}. */
+    val customLabel: String = ""
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -145,6 +147,7 @@ data class SlotItem(
         put("weight", weight.toDouble())
         put("fontSizeOffset", fontSizeOffset)
         put("textAlign", textAlign)
+        put("customLabel", customLabel)
     }
 
     companion object {
@@ -189,7 +192,8 @@ data class SlotItem(
                 rowIndex = json.optInt("rowIndex", 0),
                 weight = json.optDouble("weight", 0.5).toFloat(),
                 fontSizeOffset = json.optInt("fontSizeOffset", 0),
-                textAlign = json.optString("textAlign", "center")
+                textAlign = json.optString("textAlign", "center"),
+                customLabel = json.optString("customLabel", "")
             )
         }
     }

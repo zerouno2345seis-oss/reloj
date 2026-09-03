@@ -115,6 +115,30 @@ val TilePanel = Color(0xFF0C1319)
 const val TILE_TINT_ALPHA = 0.14f
 const val TILE_BORDER_ALPHA = 0.38f
 
+/**
+ * Resolves a tile's custom label. Blank template keeps the built-in text.
+ * Mirrored by applyLabelTemplate() in the web studio.
+ */
+fun applyLabelTemplate(
+    template: String,
+    default: String,
+    name: String = "",
+    time: String = "",
+    value: String = "",
+    countdown: String = ""
+): String {
+    if (template.isBlank()) return default
+    val out = template
+        .replace("{default}", default)
+        .replace("{name}", name)
+        .replace("{countdown}", countdown)
+        .replace("{time}", time)
+        .replace("{value}", value)
+        .replace(Regex("\\s{2,}"), " ")
+        .trim()
+    return out.ifBlank { default }
+}
+
 fun parseHexColor(hexString: String?, fallback: Color): Color {
     if (hexString.isNullOrBlank() || !hexString.startsWith("#")) return fallback
     return try {
@@ -168,7 +192,9 @@ fun getActionIcon(actionId: String, iconType: String?): String {
             "rain"           -> "🌧️"
             "cloud"          -> "☁️"
             "auto_layout"    -> "✦"
-            else             -> "⭐"
+            // Anything else is a literal the user typed — an emoji or a short
+            // glyph — so show it rather than falling back to a star.
+            else             -> iconType
         }
     }
     return when (actionId) {
@@ -882,6 +908,49 @@ private fun SmartWatchFaceTile(
         else               -> def.title.replace(Regex("^\\S+\\s+"), "")
     }
 
+    // The parts a custom label can reorder or wrap. A placeholder that has no
+    // meaning for this tile resolves to nothing rather than printing itself.
+    val prayerName = nextPrayer?.nameAr ?: "الصلاة"
+    val tokenName = when (activeActionId) {
+        "prayer", "prayer_countdown", "prayer_elapsed" -> prayerName
+        "tasbih"       -> currentDhikr
+        "quran_resume" -> lastPos?.surahNameAr ?: "سورة الكهف"
+        "locations"    -> locationName.substringBefore(" (").trim()
+        "date_big"     -> shortDate
+        else           -> displayTitle
+    }
+    val tokenTime = when (activeActionId) {
+        "clock_big" -> currentTime
+        "prayer"    -> nextPrayer?.formatted ?: "—:—"
+        else        -> ""
+    }
+    val tokenCountdown = when (activeActionId) {
+        "prayer_countdown" -> countdownStr
+        "prayer_elapsed"   -> elapsedStr
+        else               -> ""
+    }
+    val tokenValue = when (activeActionId) {
+        "battery"          -> "$batteryPercent%"
+        "weather"          -> weather.temperatureLabel
+        "qibla"            -> "$qiblaDeg°"
+        "tasbih"           -> "$tasbihCount"
+        "bookmarks"        -> "$bookmarkCount"
+        "clock_big"        -> currentTime
+        "prayer"           -> nextPrayer?.formatted ?: "—:—"
+        "prayer_countdown" -> countdownStr
+        "prayer_elapsed"   -> elapsedStr
+        "quran_resume"     -> "${lastPos?.ayahNumber ?: 1}"
+        else               -> displayTitle
+    }
+    val label = applyLabelTemplate(
+        template = slot.customLabel,
+        default = displayTitle,
+        name = tokenName,
+        time = tokenTime,
+        value = tokenValue,
+        countdown = tokenCountdown
+    )
+
     val iconText = getActionIcon(activeActionId, slot.iconType)
     val fontColor = parseHexColor(slot.fontColorHex, Color.White)
     val iconColor = parseHexColor(slot.iconColorHex, Color.White)
@@ -1076,7 +1145,7 @@ private fun SmartWatchFaceTile(
                             }
                         } else {
                             Text(
-                                text = displayTitle,
+                                text = label,
                                 fontSize = calibFontSize,
                                 color = fontColor,
                                 fontWeight = FontWeight.Bold,

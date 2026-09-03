@@ -571,7 +571,7 @@ function initApp() {
     document.getElementById('btnDeleteTile')?.addEventListener('click', deleteSelectedTiles);
 
     // Editor field listeners
-    ['tileAction', 'tileBgColor', 'tileFontColor', 'tileFontSize', 'tileFontFamily', 'tileDisplayStyle', 'tileIconStyle', 'tileIconColor', 'tileIconType', 'tileTapAction', 'tileLongPressAction'].forEach(id => {
+    ['tileAction', 'tileBgColor', 'tileFontColor', 'tileFontSize', 'tileFontFamily', 'tileDisplayStyle', 'tileIconStyle', 'tileIconColor', 'tileIconType', 'tileTapAction', 'tileLongPressAction', 'tileCustomLabel', 'tileIconCustom'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('input', () => onEditorChange(id));
@@ -930,7 +930,18 @@ function onEditorChange(id) {
         if(id === 'tileDisplayStyle') slot.displayStyle = document.getElementById('tileDisplayStyle').value;
         if(id === 'tileIconStyle') slot.iconStyle = document.getElementById('tileIconStyle').value;
         if(id === 'tileIconColor') slot.iconColorHex = normalizeHex(document.getElementById('tileIconColor').value);
-        if(id === 'tileIconType') slot.iconType = document.getElementById('tileIconType').value;
+        if(id === 'tileIconType') {
+            slot.iconType = document.getElementById('tileIconType').value;
+            const custom = document.getElementById('tileIconCustom');
+            if (custom) custom.value = '';
+        }
+        if(id === 'tileCustomLabel') slot.customLabel = document.getElementById('tileCustomLabel').value;
+        // A typed emoji wins over the picker: it is stored in the same iconType
+        // field, and getIcon() shows an unknown value verbatim.
+        if(id === 'tileIconCustom') {
+            const typed = document.getElementById('tileIconCustom').value.trim();
+            slot.iconType = typed || 'default';
+        }
         if(id === 'tileTapAction') slot.tapAction = document.getElementById('tileTapAction').value;
         if(id === 'tileLongPressAction') slot.longPressAction = document.getElementById('tileLongPressAction').value;
     });
@@ -1239,6 +1250,21 @@ function weekdayToday() {
     }
 }
 
+// Resolves a tile's custom label. Blank template keeps the built-in text.
+// Mirrored by applyLabelTemplate() in HomeScreen.kt.
+function applyLabelTemplate(template, def, tokens = {}) {
+    if (!template || !template.trim()) return def;
+    const out = template
+        .replaceAll('{default}', def)
+        .replaceAll('{name}', tokens.name ?? '')
+        .replaceAll('{countdown}', tokens.countdown ?? '')
+        .replaceAll('{time}', tokens.time ?? '')
+        .replaceAll('{value}', tokens.value ?? '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    return out || def;
+}
+
 function getPreviewLabel(slot) {
     const now = new Date();
     // The watch shows Latin digits everywhere; the "-u-nu-latn" locale keeps the
@@ -1266,9 +1292,24 @@ function getPreviewLabel(slot) {
         folder_custom: 'مجلد',
         auto_layout: 'ترتيب جديد'
     };
-    if (labels[slot.id]) return labels[slot.id];
     const definition = tileActionsList.find(action => action.id === slot.id);
-    return definition ? definition.title.replace(/^\S+\s+/, '') : slot.id;
+    const base = labels[slot.id] ?? (definition ? definition.title.replace(/^\S+\s+/, '') : slot.id);
+    // Same token set the watch offers, with representative values in the studio.
+    const tokens = {
+        clock_big:        { time: labels.clock_big, value: labels.clock_big },
+        date_big:         { name: labels.date_big, value: labels.date_big },
+        prayer:           { name: 'المغرب', time: '18:36', value: '18:36' },
+        prayer_countdown: { name: 'المغرب', countdown: '1h 24m', value: '1h 24m' },
+        prayer_elapsed:   { name: 'المغرب', countdown: '18m', value: '18m' },
+        tasbih:           { name: 'سبحان الله', value: '33' },
+        qibla:            { value: '72°' },
+        battery:          { value: '78%' },
+        weather:          { value: '24°C' },
+        bookmarks:        { value: '12' },
+        locations:        { name: 'بوينس آيرس' },
+        quran_resume:     { name: 'سورة الكهف', value: '18' }
+    }[slot.id] || { name: base, value: base };
+    return applyLabelTemplate(slot.customLabel, base, tokens);
 }
 
 function renderTileLayers() {
@@ -1554,6 +1595,8 @@ function getIcon(id, iconType) {
     if (iconType && iconType !== 'default') {
         const found = iconLibrary.find(ic => ic.id === iconType);
         if (found) return found.icon;
+        // Not a library id — the user typed their own emoji, so show it.
+        return iconType;
     }
     if(id.startsWith('folder')) return '📁';
     if(id === 'clock_big') return '⏰';
@@ -1599,7 +1642,14 @@ function updateEditor() {
         if(document.getElementById('tileFontFamily')) document.getElementById('tileFontFamily').value = slot.fontFamily || 'Uthmanic';
         document.getElementById('tileDisplayStyle').value = slot.displayStyle || 'text';
         document.getElementById('tileIconStyle').value = slot.iconStyle || 'static';
-        document.getElementById('tileIconType').value = slot.iconType || 'default';
+        const iconSelect = document.getElementById('tileIconType');
+        const iconCustom = document.getElementById('tileIconCustom');
+        const currentIcon = slot.iconType || 'default';
+        const isLibraryIcon = currentIcon === 'default' || iconLibrary.some(ic => ic.id === currentIcon);
+        iconSelect.value = isLibraryIcon ? currentIcon : 'default';
+        if (iconCustom) iconCustom.value = isLibraryIcon ? '' : currentIcon;
+        const labelField = document.getElementById('tileCustomLabel');
+        if (labelField) labelField.value = slot.customLabel || '';
         setColorSelect('tileIconColor', slot.iconColorHex, '#FFFFFF');
         if(document.getElementById('tileTapAction')) document.getElementById('tileTapAction').value = [...document.getElementById('tileTapAction').options].some(option => option.value === (slot.tapAction || '')) ? slot.tapAction || '' : '';
         if(document.getElementById('tileLongPressAction')) document.getElementById('tileLongPressAction').value = [...document.getElementById('tileLongPressAction').options].some(option => option.value === (slot.longPressAction || 'quick_edit')) ? slot.longPressAction || 'quick_edit' : 'quick_edit';

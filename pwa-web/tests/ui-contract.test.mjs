@@ -4,12 +4,13 @@ import test from 'node:test';
 
 const projectRoot = new URL('../', import.meta.url);
 const repoRoot = new URL('../../', import.meta.url);
-const [html, css, app, serviceWorker, home] = await Promise.all([
+const [html, css, app, serviceWorker, home, tileModel] = await Promise.all([
   readFile(new URL('index.html', projectRoot), 'utf8'),
   readFile(new URL('style.css', projectRoot), 'utf8'),
   readFile(new URL('app.js', projectRoot), 'utf8'),
   readFile(new URL('sw.js', projectRoot), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/HomeScreen.kt', repoRoot), 'utf8'),
+  readFile(new URL('app/src/main/java/com/quran/watch8/data/model/TileConfig.kt', repoRoot), 'utf8'),
 ]);
 
 const requiredControlIds = [
@@ -173,6 +174,26 @@ test('canvas-first designer keeps the watch clear with menus and fixed propertie
   assert.match(css, /DESIGNER: CANVAS FIRST \+ FIXED PROPERTIES/);
   assert.match(css, /\.designer-inspector-panel\s*\{[^}]*position:\s*sticky/);
   assert.match(css, /@media \(max-width: 940px\)/);
+});
+
+test('a tile can carry a custom label and a typed emoji, mirrored on both sides', () => {
+  // The alias travels in tilesConfig, so it syncs like every other tile field.
+  assert.match(tileModel, /val customLabel: String = ""/);
+  assert.match(tileModel, /put\("customLabel", customLabel\)/);
+  assert.match(tileModel, /customLabel = json\.optString\("customLabel", ""\)/);
+  // The same template resolver on both sides, with the same placeholders.
+  assert.match(home, /fun applyLabelTemplate\(/);
+  assert.match(app, /function applyLabelTemplate\(/);
+  for (const token of ['\\{default\\}', '\\{name\\}', '\\{time\\}', '\\{value\\}', '\\{countdown\\}']) {
+    assert.match(home, new RegExp(token));
+    assert.match(app, new RegExp(token));
+  }
+  // An icon the user typed is shown verbatim instead of falling back to a star.
+  assert.match(home, /else\s+-> iconType/);
+  assert.match(app, /return iconType;/);
+  // Both editor fields exist.
+  assert.match(html, /id="tileCustomLabel"/);
+  assert.match(html, /id="tileIconCustom"/);
 });
 
 test('the calm tile surface uses the same numbers in the studio and on the watch', () => {
