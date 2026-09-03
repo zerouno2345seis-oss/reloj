@@ -43,6 +43,7 @@ class PreferencesRepository(private val context: Context) {
         private val TILES_DISPLAY_MODE = stringPreferencesKey("tiles_display_mode") // "icons_only", "icons_and_text"
         private val PRAYER_REMINDERS_JSON = stringPreferencesKey("prayer_reminders_json")
         private val WATCH_FACE_CONFIG_JSON = stringPreferencesKey("watch_face_config_json")
+        private val WEATHER_CACHE_JSON = stringPreferencesKey("weather_cache_json")
         private val TASBIH_COUNT = intPreferencesKey("tasbih_count")
         private val TASBIH_TARGET = intPreferencesKey("tasbih_target")
         private val TASBIH_DHIKR_INDEX = intPreferencesKey("tasbih_dhikr_index")
@@ -65,6 +66,7 @@ class PreferencesRepository(private val context: Context) {
     val tilesDisplayMode: Flow<String> = context.dataStore.data.map { it[TILES_DISPLAY_MODE] ?: "icons_only" }
     val prayerRemindersJson: Flow<String> = context.dataStore.data.map { it[PRAYER_REMINDERS_JSON] ?: "" }
     val watchFaceConfigJson: Flow<String> = context.dataStore.data.map { it[WATCH_FACE_CONFIG_JSON] ?: "" }
+    val weatherCacheJson: Flow<String> = context.dataStore.data.map { it[WEATHER_CACHE_JSON] ?: "" }
     val tasbihCount: Flow<Int> = context.dataStore.data.map { it[TASBIH_COUNT] ?: 0 }
     val tasbihTarget: Flow<Int> = context.dataStore.data.map { it[TASBIH_TARGET] ?: 33 }
     val tasbihDhikrIndex: Flow<Int> = context.dataStore.data.map { it[TASBIH_DHIKR_INDEX] ?: 0 }
@@ -177,6 +179,10 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setWatchFaceConfigJson(json: String) {
         context.dataStore.edit { it[WATCH_FACE_CONFIG_JSON] = json }
+    }
+
+    suspend fun setWeatherCache(json: String) {
+        context.dataStore.edit { it[WEATHER_CACHE_JSON] = json }
     }
 
     suspend fun setTasbihState(count: Int, target: Int, dhikrIndex: Int) {

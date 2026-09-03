@@ -27,6 +27,7 @@ import com.quran.watch8.util.PrayerTimesHelper
 import com.quran.watch8.util.WeatherSnapshot
 import com.quran.watch8.ui.screens.watchfaces.TasbihState
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.io.File
@@ -134,15 +135,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         viewModelScope.launch { refreshPrayerTimes() }
-        refreshWeather()
+
+        // Show the last good reading immediately so the tile isn't "—°" while the
+        // network call is in flight, then keep it current.
+        viewModelScope.launch {
+            com.quran.watch8.util.WeatherSnapshot.fromJson(prefs.weatherCacheJson.first())?.let {
+                if (it.isAvailable) { weatherSnapshot = it; weatherSummary = it.summary }
+            }
+            refreshWeather()
+        }
+        // Refetch on a slow cadence, and whenever the active coordinates change.
+        viewModelScope.launch {
+            while (true) { delay(30 * 60_000L); refreshWeather() }
+        }
+        viewModelScope.launch {
+            combine(selectedLat, selectedLng) { a, b -> a to b }.drop(1).collectLatest { refreshWeather() }
+        }
     }
 
     fun refreshWeather() {
         viewModelScope.launch {
             val lat = currentLocation?.latitude ?: selectedLat.value
             val lng = currentLocation?.longitude ?: selectedLng.value
-            weatherSnapshot = com.quran.watch8.util.WeatherHelper.fetchWeatherSnapshot(lat, lng)
-            weatherSummary = weatherSnapshot.summary
+            val fresh = com.quran.watch8.util.WeatherHelper.fetchWeatherSnapshot(lat, lng)
+            if (fresh.isAvailable) {
+                weatherSnapshot = fresh
+                weatherSummary = fresh.summary
+                prefs.setWeatherCache(fresh.toJson())
+            }
+            // On failure keep whatever we last had (a cached value beats "—°").
         }
     }
 
