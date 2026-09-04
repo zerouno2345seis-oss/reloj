@@ -194,3 +194,66 @@ test('weather refreshes on demand rather than from an endless timer', () => {
   assert.match(viewModel, /fun refreshWeatherIfStale/);
   assert.match(codeOnly(mainActivity), /refreshWeatherIfStale/);
 });
+
+// Every screen used to re-derive "which prayer is next" on its own, and they
+// disagreed: some counted sunrise, some printed "دقيقة" where others printed
+// "د", and one fell back to a time already hours in the past.
+test('every prayer surface reads the one shared status helper', () => {
+  assert.match(prayerHelper, /fun status\(\s*prayers: DayPrayers\?/);
+  assert.match(prayerHelper, /fun cycle\(prayers: DayPrayers\)/);
+  assert.match(prayerHelper, /fun schedule\(prayers: DayPrayers\)/);
+  // timeUntilNext is formatCountdown's output, so the schedule screen and the
+  // tiles cannot print different units.
+  assert.match(prayerHelper, /val timeUntil = formatCountdown\(/);
+  assert.doesNotMatch(prayerHelper, /"\$m دقيقة"/);
+
+  for (const [name, source] of [['HomeScreen', home], ['WatchFaceHomeScreen', watchFaceHome]]) {
+    assert.match(source, /PrayerTimesHelper\.status\(/, `${name} reads the shared status`);
+    assert.doesNotMatch(
+      source,
+      /firstOrNull \{ it\.time\.isAfter\(now/,
+      `${name} no longer rescans its own prayer list`
+    );
+  }
+});
+
+// The watch only ever pulled, so a bookmark added or deleted on it was invisible
+// to the studio -- and the next pull deleted it again.
+test('the watch pushes its own bookmarks and locations back to the relay', () => {
+  assert.match(viewModel, /fun pushToCloud\(\)/);
+  assert.match(viewModel, /syncWithCloud\(appContext, "push"\)/);
+  const bookmarkEdits = viewModel.match(/fun (addBookmark|removeBookmark)[\s\S]*?\n    \}/g) || [];
+  assert.equal(bookmarkEdits.length, 2);
+  bookmarkEdits.forEach(block => assert.match(block, /pushToCloud\(\)/));
+  // An empty array is "the last one was deleted", not "no news".
+  assert.match(sync, /val bookmarksArr = root\.optJSONArray\("bookmarks"\)\n\s*if \(bookmarksArr != null\) \{/);
+  assert.match(sync, /put\("note", bm\.note/);
+});
+
+// A delete button that is only a caption inside another button does nothing.
+test('a bookmark on the watch can be opened or deleted, and shows no timestamp', async () => {
+  const bookmarks = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/BookmarksScreen.kt', root), 'utf8');
+  assert.match(bookmarks, /onClick = \{ viewModel\.removeBookmark\(bookmark\.id\) \}/);
+  assert.doesNotMatch(bookmarks, /SimpleDateFormat|dateFormat/);
+  // The timestamp still exists -- it is what "by time added" sorts on.
+  assert.match(bookmarks, /sortedByDescending \{ it\.timestamp \}/);
+});
+
+// The reader and the settings screen must agree about what a verse looks like.
+test('reader typography has one definition, previewed in settings', async () => {
+  const typography = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/ReaderTypography.kt', root), 'utf8');
+  assert.match(typography, /const val SAMPLE_AYAH/);
+  assert.match(typography, /fun coerceFontSize/);
+  for (const source of [reader, settings]) {
+    assert.match(source, /ReaderTypography\.fontFamily\(/);
+  }
+  assert.match(settings, /ReaderTypography\.SAMPLE_AYAH/);
+  assert.match(settings, /ReaderTypography\.coerceFontSize/);
+  // No screen keeps its own copy of the font table any more.
+  assert.doesNotMatch(reader, /"kufi"\s*->\s*FontFamily\.Cursive/);
+});
+
+// The first layer is the navigation start destination, so swipe-right was dead.
+test('swiping right on the watch face opens the Quran', () => {
+  assert.match(watchFaceHome, /totalDragX > 30f[\s\S]{0,400}onNavigate\("quran"\)/);
+});

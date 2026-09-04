@@ -76,7 +76,7 @@ private const val FLEX_SLOT = "bottom"
  * - Single Tap Quran Emblem 📖 or swipe left: Enters Tiles (Layer 2).
  * - Long Press Quran Emblem 📖: Opens Full Luxury Prayer Times Popup with Elapsed/Remaining.
  * - Long Press Background: Large Frameless Visual Dial Carousel (Tap any face to apply).
- * - Swipe up: App Drawer. Swipe right / swipe down: left to Wear OS (back, quick settings).
+ * - Swipe up: App Drawer. Swipe right: the Quran. Swipe down: left to Wear OS.
  */
 @Composable
 fun WatchFaceHomeScreen(
@@ -251,10 +251,9 @@ fun WatchFaceHomeScreen(
                     onDragEnd = {
                         val absY = kotlin.math.abs(totalDragY)
                         val absX = kotlin.math.abs(totalDragX)
-                        // Only two app gestures now. Swipe right (system back /
-                        // dismiss) and swipe down (system quick settings) are
-                        // left to Wear OS, and the prayer schedule moved to a
-                        // long press on the emblem or the prayer complication.
+                        // Swipe down is left to Wear OS (quick settings), and
+                        // the prayer schedule moved to a long press on the
+                        // emblem or the prayer complication.
                         if (absY > absX && totalDragY < -DRAWER_PULL_PX && dragStartedAtBottom) {
                             // Swipe up -> App Drawer
                             vibrate(40)
@@ -263,6 +262,12 @@ fun WatchFaceHomeScreen(
                             // Swipe left -> forward into the tiles (Layer 2)
                             vibrate(40)
                             onNavigate("tiles")
+                        } else if (absX > absY && totalDragX > 30f) {
+                            // Swipe right -> straight into the Quran. This face
+                            // is the start destination, so the system's own
+                            // swipe-to-dismiss had nothing to go back to here.
+                            vibrate(40)
+                            onNavigate("quran")
                         }
                     },
                     onDrag = { change, dragAmount ->
@@ -1777,27 +1782,15 @@ fun computePrayerScheduleDetails(prayers: PrayerTimesHelper.DayPrayers?): Prayer
         )
     }
 
-    val prayerList = listOf(
-        prayers.fajr,
-        prayers.sunrise,
-        prayers.dhuhr,
-        prayers.asr,
-        prayers.maghrib,
-        prayers.isha
-    )
-
-    val nowInstant = java.time.Instant.now()
-
-    val pastList = prayerList.filter { it.time.isBefore(nowInstant) }
-    val pastPrayer = pastList.lastOrNull() ?: prayerList.last()
-    val pastElapsedSec = (nowInstant.epochSecond - pastPrayer.time.epochSecond).coerceAtLeast(0)
-    val pastElapsedMin = (pastElapsedSec / 60).toInt()
-
-    val nextPrayer = prayerList.firstOrNull { it.time.isAfter(nowInstant) } ?: prayerList.first()
-    val nextRemainingSec = (nextPrayer.time.epochSecond - nowInstant.epochSecond).coerceAtLeast(0)
-    val nextRemainingMin = (nextRemainingSec / 60).toInt()
-
-    val nextIndex = prayerList.indexOf(nextPrayer).coerceAtLeast(0)
+    // The table shows sunrise; the "past / next" pair does not treat it as a
+    // prayer. Both come from the shared helper.
+    val prayerList = PrayerTimesHelper.schedule(prayers)
+    val status = PrayerTimesHelper.status(prayers)
+    val pastPrayer = status?.current ?: prayers.isha
+    val pastElapsedMin = status?.minutesElapsed ?: 0
+    val nextPrayer = status?.next ?: prayers.fajr
+    val nextRemainingMin = status?.minutesRemaining ?: 0
+    val nextIndex = prayerList.indexOfFirst { it.nameAr == nextPrayer.nameAr }.coerceAtLeast(0)
 
     val list = prayerList.map { it.nameAr to it.formatted }
 
@@ -2757,15 +2750,10 @@ private fun calculateNextPrayer(
     prayerTimes: PrayerTimesHelper.DayPrayers?,
     nowCal: Calendar
 ): Pair<String, Int> {
-    if (prayerTimes == null) return "الفجر" to 21
-    // PrayerTimesHelper already rolls "next" over to tomorrow's Fajr after
-    // Isha, so trust it instead of re-scanning today's list (which clamped
-    // the countdown to 0 late at night).
-    val next = prayerTimes.nextPrayer ?: prayerTimes.fajr
-    val nowInstant = java.time.Instant.now()
-    val diffSec = (next.time.epochSecond - nowInstant.epochSecond).coerceAtLeast(0)
-    val diffMin = (diffSec / 60).toInt()
-    return next.nameAr to diffMin
+    // PrayerTimesHelper.status() is the single source for "which prayer is
+    // next and how far away" -- every screen reads the same answer from it.
+    val status = PrayerTimesHelper.status(prayerTimes) ?: return "الفجر" to 21
+    return status.next.nameAr to status.minutesRemaining
 }
 
 @Composable

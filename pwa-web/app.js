@@ -522,6 +522,7 @@ function initApp() {
     setupFinderControls();
     initDesignerPanels();
     initInspectorToolbar();
+    initStickyCanvas();
 
     // Toolbar Buttons
     document.getElementById('btnUndo')?.addEventListener('click', undo);
@@ -578,6 +579,28 @@ function initApp() {
             el.addEventListener('change', () => onEditorChange(id));
         }
     });
+}
+
+
+/**
+ * Keeps the simulator on screen while the properties are being edited.
+ *
+ * On a narrow window the properties rail sits under the canvas, so scrolling
+ * down to a field used to push the watch off the top -- you were editing a
+ * design you could not see. The canvas is pinned there (CSS), and this marks
+ * the moment it leaves the top of the page so it can shrink out of the way
+ * instead of eating the viewport.
+ */
+function initStickyCanvas() {
+    const grid = document.querySelector('#tab-tiles .designer-grid');
+    if (!grid) return;
+    const update = () => {
+        if (!document.getElementById('tab-tiles')?.classList.contains('active')) return;
+        grid.classList.toggle('canvas-compact', grid.getBoundingClientRect().top < 56);
+    };
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    update();
 }
 
 function setupFinderControls() {
@@ -1387,16 +1410,45 @@ function renderOverviewMetrics() {
 }
 
 function renderOverviewPreview() {
-    const preview = document.getElementById('overviewWatchPreview');
-    if (!preview) return;
-    const clock = tileConfig.tiles.find(tile => tile.id === 'clock_big');
-    const secondary = tileConfig.tiles.find(tile => tile.id !== 'clock_big' && tile.id !== 'color_only');
-    preview.replaceChildren();
-    const time = document.createElement('span');
-    time.textContent = getPreviewLabel(clock || { id: 'clock_big' });
-    const detail = document.createElement('small');
-    detail.textContent = secondary ? getPreviewLabel(secondary) : 'تصميم هادئ ومركّز';
-    preview.append(time, detail);
+    // Both layers, drawn from the live config the moment the app opens: the
+    // face on the left, the tile grid on the right. Each card opens its own
+    // editor. The old card invented a "12:45" that belonged to no design.
+    const face = document.getElementById('overviewWatchPreview');
+    if (face) {
+        face.classList.add('overview-face-dial');
+        face.innerHTML = typeof buildWatchFaceDialHtml === 'function' ? buildWatchFaceDialHtml() : '';
+    }
+    const faceName = document.getElementById('overviewFaceName');
+    if (faceName) {
+        const model = (typeof WATCH_FACE_MODELS !== 'undefined' ? WATCH_FACE_MODELS : [])
+            .find(m => m.id === watchFaceConfig.selectedModel);
+        faceName.textContent = model?.name || '—';
+    }
+
+    const tilesBox = document.getElementById('overviewTilesPreview');
+    if (tilesBox) {
+        const tiles = tileConfig.tiles || [];
+        tilesBox.replaceChildren();
+        tiles.forEach(tile => {
+            const cell = document.createElement('div');
+            cell.className = 'preset-mini-tile';
+            cell.style.gridColumn = `span ${tile.colSpan || 12}`;
+            cell.style.background = tile.colorHex || '#1E293B';
+            cell.style.color = tile.fontColorHex || '#ffffff';
+            cell.textContent = getPreviewLabel(tile);
+            tilesBox.appendChild(cell);
+        });
+        if (!tiles.length) {
+            const empty = document.createElement('div');
+            empty.className = 'preset-mini-tile';
+            empty.style.gridColumn = 'span 12';
+            empty.textContent = 'لا يوجد تصميم بعد';
+            tilesBox.appendChild(empty);
+        }
+    }
+    const tilesCount = document.getElementById('overviewTilesCount');
+    if (tilesCount) tilesCount.textContent = `${tileConfig.tiles?.length || 0}`;
+
     renderOverviewMetrics();
 }
 
@@ -2860,8 +2912,14 @@ async function syncAll(isManual = false) {
         settings: syncedSettings,
         // The watch's importDataJson reconciles both of these against its tables.
         locations: savedLocations.map(l => ({ id: l.id, name: l.name, latitude: l.latitude, longitude: l.longitude })),
-        bookmarks: (typeof userBookmarks !== 'undefined' ? userBookmarks : []).map(b => ({
-            id: b.id, surah: b.surahNum, ayahNumber: b.ayahNum, ayahText: b.note || '', createdAt: b.createdAt || Date.now()
+        bookmarks: getBookmarks().map(b => ({
+            id: b.id,
+            surah: b.surah,
+            surahNameAr: b.surahName ? `سورة ${b.surahName}` : `سورة ${b.surah}`,
+            ayahNumber: b.ayah,
+            ayahText: b.textSnippet || '',
+            note: b.name || '',
+            createdAt: b.timestamp || Date.now()
         }))
     };
     
@@ -2936,16 +2994,20 @@ async function pullFromCloud() {
             persistSavedLocations();
             renderLocations();
         }
-        if (Array.isArray(data.bookmarks) && typeof userBookmarks !== 'undefined') {
-            userBookmarks = data.bookmarks.map(b => ({
-                id: b.id || `bm_${Date.now()}`,
-                surahName: b.surahNameAr || b.surahName || `سورة ${b.surah || b.surahNum || 1}`,
-                surahNum: b.surah || b.surahNum || 1,
-                ayahNum: b.ayahNumber || b.ayahNum || 1,
-                note: b.ayahText || b.note || '',
-                date: ''
+        if (Array.isArray(data.bookmarks)) {
+            // A bookmark added or deleted on the watch arrives here, in the one
+            // shape the manager and the payload both speak.
+            const merged = data.bookmarks.map(b => ({
+                id: b.id || `bm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                name: b.note || b.name || '',
+                surah: b.surah || b.surahNum || 1,
+                surahName: (b.surahNameAr || b.surahName || '').replace(/^سورة\s*/, ''),
+                ayah: b.ayahNumber || b.ayahNum || 1,
+                textSnippet: b.ayahText || b.textSnippet || '',
+                timestamp: b.createdAt || b.timestamp || Date.now()
             }));
-            saveUserBookmarks();
+            localStorage.setItem('quran_bookmarks', JSON.stringify(merged));
+            renderBookmarks();
         }
         selectedIndices.clear();
         primarySelectedIdx = tileConfig.tiles.length > 0 ? 0 : -1;
@@ -3450,13 +3512,16 @@ function renderNewWatchFacePreview(model) {
     }
 }
 
-function renderLiveWatchFacePreview() {
-    const container = document.getElementById('wfDialPreviewContainer');
-    if (!container) return;
-
+/**
+ * The dial as HTML, with no listeners attached.
+ *
+ * The overview shows the same face as the studio; building the markup once
+ * means the two can never drift into showing different watches.
+ */
+function buildWatchFaceDialHtml() {
     const model = watchFaceConfig.selectedModel;
-    const d = webFaceData();
     let dialHtml = '';
+    const d = webFaceData();
 
     // Badges
     const topBadge = getComplicationBadgeHtml('topSlot', 'wf-comp-top');
@@ -3529,6 +3594,13 @@ function renderLiveWatchFacePreview() {
         `;
     }
 
+    return dialHtml;
+}
+
+function renderLiveWatchFacePreview() {
+    const container = document.getElementById('wfDialPreviewContainer');
+    if (!container) return;
+    const dialHtml = buildWatchFaceDialHtml();
     container.innerHTML = dialHtml;
 
     // Every visible slot in both the original and new faces is directly interactive.
@@ -3850,70 +3922,15 @@ function initMobileQuickActions() {
     });
 }
 
-// ════════════════ BOOKMARKS CRUD MODULE ════════════════
-let userBookmarks = [
-    { id: 'bm_1', surahName: 'سورة الكهف', surahNum: 18, ayahNum: 18, note: 'ورد يوم الجمعة', date: 'اليوم' },
-    { id: 'bm_2', surahName: 'سورة البقرة', surahNum: 2, ayahNum: 255, note: 'آية الكرسي', date: 'أمس' },
-    { id: 'bm_3', surahName: 'سورة الملك', surahNum: 67, ayahNum: 1, note: 'أذكار النوم', date: 'منذ يومين' }
-];
-
-function loadUserBookmarks() {
-    try {
-        const saved = localStorage.getItem('quran_watch_bookmarks');
-        if (saved) userBookmarks = JSON.parse(saved);
-    } catch (_) {}
-}
-
-function saveUserBookmarks() {
-    try {
-        localStorage.setItem('quran_watch_bookmarks', JSON.stringify(userBookmarks));
-        renderBookmarksList();
-    } catch (_) {}
-}
-
-function renderBookmarksList() {
-    const list = document.getElementById('bookmarksList');
-    const badge = document.getElementById('bookmarksCountBadge');
-    if (badge) badge.textContent = userBookmarks.length;
-    if (!list) return;
-
-    if (userBookmarks.length === 0) {
-        list.innerHTML = `<div class="empty-state compact"><span>🔖</span><small>لا توجد إشارات محفوظة بعد.</small></div>`;
-        return;
-    }
-
-    list.innerHTML = userBookmarks.map((bm, index) => `
-        <div class="bookmark-card">
-            <div class="bookmark-info">
-                <h4>${bm.surahName} · الآية ${bm.ayahNum}</h4>
-                <p>${bm.note ? '🏷️ ' + bm.note + ' • ' : ''}${bm.date}</p>
-            </div>
-            <div class="bookmark-actions">
-                <button class="bm-action-btn" onclick="applyBookmarkToWatch(${index})" title="متابعة على الساعة">⌚ إرسال</button>
-                <button class="bm-action-btn delete" onclick="deleteBookmark(${index})" title="حذف">🗑</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function deleteBookmark(index) {
-    if (confirm('هل أنت متأكد من حذف هذه الإشارة المرجعية؟')) {
-        userBookmarks.splice(index, 1);
-        saveUserBookmarks();
-        showToast('تم حذف الإشارة المرجعية');
-    }
-}
-
-function applyBookmarkToWatch(index) {
-    const bm = userBookmarks[index];
-    if (!bm) return;
-    showToast(`تم إرسال موضع القراءة (${bm.surahName}: ${bm.ayahNum}) للساعة`);
-    syncAll();
-}
-
+// ════════════════ BOOKMARKS: ONE STORE ════════════════
+// There used to be a second bookmark module here with its own array, its own
+// localStorage key and its own deleteBookmark(). Both rendered into
+// #bookmarksList and both defined the same function names, so the list you saw
+// and the list that was synced to the watch were different lists -- adding,
+// renaming or deleting never reached the watch. The manager above
+// (quran_bookmarks) is the only store now.
 function initBookmarksUI() {
-    loadUserBookmarks();
-    renderBookmarksList();
+    renderBookmarks();
 
     // Bookmarks are made from a verse you found, not from a surah number and an
     // ayah number typed by hand. The button sends you to the search box; each
@@ -3946,7 +3963,7 @@ function exportBackupJson() {
             tileConfig: tileConfig,
             watchFaceConfig: watchFaceConfig,
             watchSettings: watchSettings,
-            userBookmarks: userBookmarks,
+            userBookmarks: getBookmarks(),
             customPresets: typeof customPresets !== 'undefined' ? customPresets : {}
         };
 
@@ -3999,9 +4016,9 @@ function handleBackupFileSelected(event) {
                 watchSettings = { ...watchSettings, ...data.watchSettings };
                 localStorage.setItem('quran_watch_settings', JSON.stringify(watchSettings));
             }
-            if (Array.isArray(data.userBookmarks)) {
-                userBookmarks = data.userBookmarks;
-                localStorage.setItem('quran_watch_bookmarks', JSON.stringify(userBookmarks));
+            const restoredBookmarks = data.userBookmarks || data.bookmarks;
+            if (Array.isArray(restoredBookmarks)) {
+                localStorage.setItem('quran_bookmarks', JSON.stringify(restoredBookmarks));
             }
 
             // Re-render everything
@@ -4014,7 +4031,7 @@ function handleBackupFileSelected(event) {
             renderWatchFaceModelCards();
             setupComplicationSelects();
             renderLiveWatchFacePreview();
-            renderBookmarksList();
+            renderBookmarks();
             renderPresetsGallery();
 
             showToast('✓ تم استيراد واستعادة النسخة الاحتياطية بنجاح!');

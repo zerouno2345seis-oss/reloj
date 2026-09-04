@@ -100,7 +100,10 @@ object LocalSyncServer {
 
     private suspend fun exportDataJson(dbRepo: DatabaseRepository, prefs: PreferencesRepository): String {
         val root = JSONObject()
-        root.put("version", System.currentTimeMillis())
+        val version = System.currentTimeMillis()
+        root.put("version", version)
+        // Our own upload must not come back as "news" on the next pull.
+        lastSyncedVersion = version
 
         val tilesJson = prefs.tilesConfigJson.first()
         if (tilesJson.isNotBlank()) {
@@ -135,8 +138,9 @@ object LocalSyncServer {
                 put("id", bm.id)
                 put("surah", bm.surah)
                 put("ayahNumber", bm.ayah)
-                put("surahNameAr", "سورة ${bm.surah}")
+                put("surahNameAr", com.quran.watch8.data.model.SurahMetadata.getSurah(bm.surah)?.nameAr ?: "سورة ${bm.surah}")
                 put("ayahText", bm.textSnippet)
+                put("note", bm.note ?: "")
                 put("createdAt", bm.timestamp)
             })
         }
@@ -250,8 +254,10 @@ object LocalSyncServer {
             }
         }
 
+        // An empty array is a real state -- "the last bookmark was deleted" --
+        // so only a missing key means "this payload says nothing about them".
         val bookmarksArr = root.optJSONArray("bookmarks")
-        if (bookmarksArr != null && bookmarksArr.length() > 0) {
+        if (bookmarksArr != null) {
             val incomingIds = HashSet<String>()
             for (i in 0 until bookmarksArr.length()) {
                 val b = bookmarksArr.getJSONObject(i)
@@ -260,7 +266,8 @@ object LocalSyncServer {
                     surah = b.optInt("surah", 1),
                     ayah = if (b.has("ayahNumber")) b.getInt("ayahNumber") else b.optInt("ayah", 1),
                     textSnippet = if (b.has("ayahText")) b.getString("ayahText") else b.optString("textSnippet", ""),
-                    timestamp = b.optLong("createdAt", System.currentTimeMillis())
+                    timestamp = b.optLong("createdAt", System.currentTimeMillis()),
+                    note = b.optString("note", "").ifBlank { null }
                 )
                 incomingIds.add(bm.id)
                 dbRepo.addBookmark(bm)
@@ -276,7 +283,7 @@ object LocalSyncServer {
         }
 
         val locationsArr = root.optJSONArray("locations")
-        if (locationsArr != null && locationsArr.length() > 0) {
+        if (locationsArr != null) {
             val incomingIds = HashSet<String>()
             for (i in 0 until locationsArr.length()) {
                 val l = locationsArr.getJSONObject(i)

@@ -31,6 +31,7 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.Ayah
 import com.quran.watch8.data.model.SurahMetadata
+import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.ui.components.rememberUltraRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
@@ -78,41 +79,11 @@ fun QuranReaderScreen(
     val ayahs = viewModel.currentSurahAyahs
 
     val surahInfo = SurahMetadata.getSurah(surahNumber)
-    val ayahNumberColor = when (ayahColorName) {
-        "green" -> AyahGreen
-        "cyan" -> Color(0xFF5AC8FA)
-        "rose" -> Color(0xFFFF6B9A)
-        "custom" -> parseHexColor(customAyahColorHex, AyahYellow)
-        else -> AyahYellow
-    }
-
-    val screenBgColor = when (readerBgColorName) {
-        "navy"   -> Color(0xFF070F1E)
-        "sepia"  -> Color(0xFF1B140B)
-        "forest" -> Color(0xFF05170F)
-        "slate"  -> Color(0xFF263341)
-        "custom" -> parseHexColor(customReaderBgColorHex, Color.Black)
-        else     -> Color(0xFF000000)
-    }
-
-    val quranTextColor = when (readerTextColorName) {
-        "ivory"  -> Color(0xFFF6EADB)
-        "mint"   -> Color(0xFFA7F3D0)
-        "golden" -> Color(0xFFFEF08A)
-        "cyan"   -> Color(0xFF9EE7FF)
-        "custom" -> parseHexColor(customReaderTextColorHex, Color.White)
-        else     -> Color(0xFFFFFFFF)
-    }
-
-    val selectedFont = when (fontFamilyName) {
-        "sansserif" -> FontFamily.SansSerif
-        "serif"     -> FontFamily.Serif
-        "kufi"      -> FontFamily.Cursive
-        "uthmani"   -> FontFamily.Serif
-        "amiri", "naskh" -> FontFamily.Serif
-        "tajawal", "cairo" -> FontFamily.SansSerif
-        else        -> FontFamily.Default
-    }
+    // Shared with the settings screen, so its sample verse is the page.
+    val ayahNumberColor = ReaderTypography.ayahNumberColor(ayahColorName, customAyahColorHex)
+    val screenBgColor = ReaderTypography.backgroundColor(readerBgColorName, customReaderBgColorHex)
+    val quranTextColor = ReaderTypography.textColor(readerTextColorName, customReaderTextColorHex)
+    val selectedFont = ReaderTypography.fontFamily(fontFamilyName)
 
     val headerCount = 2
     val bismillahOffset = if (surahNumber != 1 && surahNumber != 9) 1 else 0
@@ -389,7 +360,7 @@ fun QuranReaderScreen(
                                         .clip(CircleShape)
                                         .background(Color(0xFF334155))
                                         .clickable {
-                                            viewModel.setFontSize((fontSize - 2f).coerceAtLeast(8f))
+                                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f))
                                             actionToastText = "حجم الخط: ${(fontSize - 2f).toInt()} sp"
                                         },
                                     contentAlignment = Alignment.Center
@@ -423,7 +394,7 @@ fun QuranReaderScreen(
                                         .clip(CircleShape)
                                         .background(Color(0xFF334155))
                                         .clickable {
-                                            viewModel.setFontSize((fontSize + 2f).coerceAtMost(48f))
+                                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
                                             actionToastText = "حجم الخط: ${(fontSize + 2f).toInt()} sp"
                                         },
                                     contentAlignment = Alignment.Center

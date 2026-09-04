@@ -26,7 +26,7 @@ import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
-import java.time.Instant
+import com.quran.watch8.util.PrayerTimesHelper
 
 /**
  * Lumia Metro Style Prayer Times Screen for Galaxy Watch 8
@@ -126,17 +126,13 @@ fun PrayerTimesScreen(
                 }
             } else if (prayers != null) {
                 val p = prayers!!
-                val now = Instant.now()
-                val allPrayers = listOf(p.fajr, p.sunrise, p.dhuhr, p.asr, p.maghrib, p.isha)
-
-                val pastPrayers = allPrayers.filter { it.time.isBefore(now) }
-                val lastPrayer = pastPrayers.lastOrNull() ?: p.isha
-                val nextPrayer = allPrayers.firstOrNull { it.time.isAfter(now) } ?: p.fajr
-
-                val elapsedSec = (now.epochSecond - lastPrayer.time.epochSecond).coerceAtLeast(0)
-                val elapsedH = elapsedSec / 3600
-                val elapsedM = (elapsedSec % 3600) / 60
-                val elapsedText = if (elapsedH > 0) "$elapsedH س $elapsedM د" else "$elapsedM دقيقة"
+                // Shared with the tiles and the watch faces, so "باقٍ" here and
+                // "باقٍ" there are the same number in the same units.
+                val status = PrayerTimesHelper.status(p)
+                val lastPrayer = status?.current ?: p.isha
+                val nextPrayer = status?.next ?: p.fajr
+                val elapsedText = status?.elapsedText ?: "—"
+                val remainingText = status?.remainingText ?: "—"
 
                 // ── Top Hero Lumia Block (Previous & Next) ─────────────────────
                 item {
@@ -189,7 +185,7 @@ fun PrayerTimesScreen(
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = p.timeUntilNext,
+                                    text = remainingText,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = AyahYellow,

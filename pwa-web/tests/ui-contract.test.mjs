@@ -153,11 +153,14 @@ test('canvas-first designer keeps the watch clear with menus and fixed propertie
   assert.match(html, /id=["']designerMoreMenu["'][^>]*role=["']menu["']/);
   assert.match(html, /id=["']designerInspectorPanel["']/);
   assert.doesNotMatch(html, /designerInspectorDrawer|designerDrawerBackdrop/);
-  // The layers list is a fixed panel directly under the watch, not a popover menu.
+  // The layers list is a fixed panel, not a popover menu, and it now sits at
+  // the foot of the properties rail -- under every property group.
   assert.doesNotMatch(html, /id=["']designerLayersMenu["']/);
   assert.doesNotMatch(html, /id=["']btnOpenLayersPanel["']/);
-  const stageAt = html.indexOf('<div class="watch-stage">', html.indexOf('canvas-toolbar'));
-  assert.ok(html.indexOf('id="designerLayersPanel"') > stageAt, 'layers panel sits after the watch stage');
+  const colorsAt = html.indexOf('id="selectedTileEditorLeft"');
+  const layersAt = html.indexOf('id="designerLayersPanel"');
+  assert.ok(layersAt > colorsAt, 'layers panel sits after the properties, at the foot of the rail');
+  assert.ok(layersAt < html.indexOf('</aside>', colorsAt), 'layers panel lives inside the properties rail');
   assert.match(html, /id=["']designerLayersPanel["'][\s\S]{0,200}id=["']tileLayersList["']/);
   for (const section of ['المحتوى', 'التفاعل', 'التخطيط', 'الخط والأيقونة', 'الألوان']) {
     assert.match(html, new RegExp(`<summary>${section}</summary>`));
@@ -340,4 +343,36 @@ test('auto-layout is assignable to a tile, restores the first arrangement, and t
   assert.match(app, /tasbih_increment/);
   assert.match(app, /qibla_compass/);
   assert.match(app, /folder_islamic_customize/);
+});
+
+// The overview used to show one invented "12:45" circle and no tiles at all.
+test('the overview opens on both real layers and leads into their editors', () => {
+  assert.match(html, /id=["']overviewWatchPreview["']/);
+  assert.match(html, /id=["']overviewTilesPreview["']/);
+  assert.match(html, /id=["']overviewFaceCard["'][^>]*data-open-tab=["']tiles["']/);
+  assert.match(html, /id=["']overviewTilesCard["'][^>]*data-open-tab=["']tiles["']/);
+  // Both previews come from the live config, through the studio's own dial markup.
+  assert.match(app, /function buildWatchFaceDialHtml\s*\(/);
+  assert.match(app, /face\.innerHTML = typeof buildWatchFaceDialHtml/);
+  assert.match(app, /const tilesBox = document\.getElementById\('overviewTilesPreview'\)/);
+});
+
+// Reaching a property must not scroll the watch you are editing off the screen.
+test('the designer canvas stays pinned and shrinks while the properties are edited', () => {
+  assert.match(app, /function initStickyCanvas\s*\(/);
+  assert.match(app, /classList\.toggle\('canvas-compact'/);
+  assert.match(css, /#tab-tiles \.canvas-column \{\s*position: sticky/);
+  assert.match(css, /\.designer-grid\.canvas-compact \.watch-frame/);
+});
+
+// Two bookmark modules rendered into the same list and defined the same
+// function names, so what you saw was never what was synced.
+test('the studio keeps exactly one bookmark store', () => {
+  assert.doesNotMatch(app, /userBookmarks\s*=\s*\[/);
+  assert.doesNotMatch(app, /quran_watch_bookmarks/);
+  assert.doesNotMatch(app, /function renderBookmarksList/);
+  assert.equal((app.match(/function deleteBookmark\s*\(/g) || []).length, 1);
+  assert.match(app, /bookmarks: getBookmarks\(\)\.map/);
+  // A pull writes the watch's bookmarks back into that same store.
+  assert.match(app, /localStorage\.setItem\('quran_bookmarks', JSON\.stringify\(merged\)\)/);
 });

@@ -18,8 +18,6 @@ import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun BookmarksScreen(
@@ -30,7 +28,6 @@ fun BookmarksScreen(
     val listState = rememberScalingLazyListState()
     val rotaryMod = rememberRotaryScrollModifier(listState)
     val bookmarks by viewModel.bookmarks.collectAsState()
-    val dateFormat = SimpleDateFormat("dd/MM HH:mm", Locale("ar"))
 
     // Sort mode: false = by time added (newest first), true = by Quran order (Surah & Ayah number)
     var sortByQuranOrder by remember { mutableStateOf(false) }
@@ -95,95 +92,57 @@ fun BookmarksScreen(
             } else {
                 items(sortedBookmarks, key = { it.id }) { bookmark ->
                     val surahName = SurahMetadata.getSurah(bookmark.surah)?.nameAr ?: "سورة ${bookmark.surah}"
-                    var showOptions by remember { mutableStateOf(false) }
 
-                    if (showOptions) {
-                        Card(
-                            onClick = { showOptions = false },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                    // Reading and deleting are two separate targets. The delete
+                    // used to be a caption inside the chip's label -- it looked
+                    // like a button and did nothing, because the whole chip
+                    // opened the ayah. The date is kept in the record (it still
+                    // drives the "by time added" sort) but not printed: on a
+                    // watch it only crowds the verse.
+                    Card(
+                        onClick = { onOpenAyah(bookmark.surah, bookmark.ayah) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        backgroundPainter = CardDefaults.cardBackgroundPainter(
+                            startBackgroundColor = Color(0xFF151922),
+                            endBackgroundColor = Color(0xFF151922)
+                        )
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = if (!bookmark.note.isNullOrBlank()) bookmark.note!!
+                                       else "$surahName [${bookmark.surah}:${bookmark.ayah}]",
+                                style = MaterialTheme.typography.body2,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2
+                            )
+                            Text(
+                                text = "﴿ ${bookmark.textSnippet} ﴾",
+                                style = MaterialTheme.typography.caption3,
+                                color = AyahYellow,
+                                maxLines = 2
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                Text(
-                                    text = "$surahName · آية ${bookmark.ayah}",
-                                    style = MaterialTheme.typography.caption1,
-                                    color = AccentGold,
-                                    fontWeight = FontWeight.Bold
+                                CompactChip(
+                                    onClick = { onOpenAyah(bookmark.surah, bookmark.ayah) },
+                                    label = { Text("📖 قراءة", fontSize = 10.sp) },
+                                    colors = ChipDefaults.primaryChipColors(
+                                        backgroundColor = Color(0xFF1E3A5F)
+                                    )
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly
-                                ) {
-                                    CompactChip(
-                                        onClick = {
-                                            showOptions = false
-                                            onOpenAyah(bookmark.surah, bookmark.ayah)
-                                        },
-                                        label = { Text("📖 قراءة", fontSize = 10.sp) },
-                                        colors = ChipDefaults.primaryChipColors()
+                                CompactChip(
+                                    onClick = { viewModel.removeBookmark(bookmark.id) },
+                                    label = { Text("🗑️ حذف", fontSize = 10.sp, color = Color(0xFFFF6B6B)) },
+                                    colors = ChipDefaults.secondaryChipColors(
+                                        backgroundColor = Color(0xFF3B1E22)
                                     )
-                                    CompactChip(
-                                        onClick = {
-                                            showOptions = false
-                                            viewModel.removeBookmark(bookmark.id)
-                                        },
-                                        label = { Text("🗑️ حذف", fontSize = 10.sp, color = Color(0xFFFF6B6B)) },
-                                        colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF3B1E22))
-                                    )
-                                }
+                                )
                             }
                         }
-                    } else {
-                        Chip(
-                            onClick = { onOpenAyah(bookmark.surah, bookmark.ayah) },
-                            label = {
-                                Column {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = if (!bookmark.note.isNullOrBlank()) bookmark.note!! else "$surahName [${bookmark.surah}:${bookmark.ayah}]",
-                                            style = MaterialTheme.typography.body2,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = dateFormat.format(Date(bookmark.timestamp)),
-                                            style = MaterialTheme.typography.caption3,
-                                            color = Color.Gray
-                                        )
-                                    }
-                                    Text(
-                                        text = "﴿ ${bookmark.textSnippet} ﴾",
-                                        style = MaterialTheme.typography.caption3,
-                                        color = AyahYellow,
-                                        maxLines = 2
-                                    )
-                                }
-                            },
-                            secondaryLabel = {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    Text(
-                                        text = "🗑️ حذف",
-                                        fontSize = 9.sp,
-                                        color = Color(0xFFFF8080),
-                                        modifier = Modifier.padding(top = 2.dp)
-                                    )
-                                }
-                            },
-                            colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF151922)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                        )
                     }
                 }
             }

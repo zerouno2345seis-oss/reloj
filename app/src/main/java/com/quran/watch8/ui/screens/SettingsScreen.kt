@@ -23,6 +23,7 @@ import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.PresetItem
 import com.quran.watch8.data.model.PresetManager
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
+import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahGreen
@@ -170,6 +171,33 @@ fun SettingsScreen(
                 )
             }
 
+            // A size and a face are only judgeable against real text, so the
+            // page itself is shown here -- same font, same colours, same
+            // stored values the reader uses. Changing either here or in the
+            // reader moves this sample and the page together.
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(ReaderTypography.backgroundColor(readerBgColor, customReaderBgColor))
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = ReaderTypography.SAMPLE_AYAH,
+                        color = ReaderTypography.textColor(readerTextColor, customReaderTextColor),
+                        fontFamily = ReaderTypography.fontFamily(fontFamily),
+                        fontSize = fontSize.sp,
+                        lineHeight = (fontSize * 1.45f).sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("حجم خط القرآن", style = MaterialTheme.typography.caption2, color = Color.Gray)
@@ -179,9 +207,15 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    CompactChip(onClick = { viewModel.setFontSize(fontSize - 2f) }, label = { Text("−") })
+                    CompactChip(
+                        onClick = { viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f)) },
+                        label = { Text("−") }
+                    )
                     Text("${fontSize.toInt()} sp", color = AyahYellow, fontWeight = FontWeight.Bold)
-                    CompactChip(onClick = { viewModel.setFontSize(fontSize + 2f) }, label = { Text("+") })
+                    CompactChip(
+                        onClick = { viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f)) },
+                        label = { Text("+") }
+                    )
                 }
             }
 

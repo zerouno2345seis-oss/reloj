@@ -307,10 +307,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             db.addBookmark(
                 Bookmark(surah = surah, ayah = ayah, textSnippet = text.take(60))
             )
+            pushToCloud()
         }
     }
 
-    fun removeBookmark(id: String) { viewModelScope.launch { db.removeBookmark(id) } }
+    fun removeBookmark(id: String) {
+        viewModelScope.launch {
+            db.removeBookmark(id)
+            pushToCloud()
+        }
+    }
+
+    /**
+     * Sends the watch's own data up to the relay.
+     *
+     * The watch only ever pulled before, so a bookmark added or deleted here
+     * was invisible to the studio, and the next pull -- built from the studio's
+     * stale list -- deleted it again. Anything that edits synced data calls
+     * this; one push at a time, latest wins.
+     */
+    private var cloudPushJob: kotlinx.coroutines.Job? = null
+
+    fun pushToCloud() {
+        cloudPushJob?.cancel()
+        cloudPushJob = viewModelScope.launch {
+            delay(800L) // coalesce a burst of edits into one upload
+            com.quran.watch8.util.LocalSyncServer.syncWithCloud(appContext, "push")
+        }
+    }
 
     // ═══════════════════════════ Reading Position (Room) ══════════
 
@@ -435,14 +459,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     type      = type
                 )
             )
+            pushToCloud()
         }
     }
 
     fun updateLocationName(id: String, newName: String) {
-        viewModelScope.launch { db.updateLocationName(id, newName) }
+        viewModelScope.launch {
+            db.updateLocationName(id, newName)
+            pushToCloud()
+        }
     }
 
-    fun removeLocation(id: String) { viewModelScope.launch { db.removeLocation(id) } }
+    fun removeLocation(id: String) {
+        viewModelScope.launch {
+            db.removeLocation(id)
+            pushToCloud()
+        }
+    }
 
     // ═══════════════════════════ Speech ══════════════════════════
 

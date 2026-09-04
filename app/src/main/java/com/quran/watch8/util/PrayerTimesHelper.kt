@@ -99,7 +99,9 @@ object PrayerTimesHelper {
         val isha = toInfo("العشاء", "Isha", "Isha", prayerTimes.isha)
 
         val nowJava = Instant.now()
-        val all = listOf(fajr, sunrise, dhuhr, asr, maghrib, isha)
+        // Sunrise is shown in the schedule but it is not a prayer, so it never
+        // becomes "the next prayer" -- every screen agrees on this list.
+        val all = listOf(fajr, dhuhr, asr, maghrib, isha)
         // After Isha every prayer today is in the past, so the next one is
         // tomorrow's Fajr. Without this the countdown clamped to "0m to Fajr"
         // all night.
@@ -113,12 +115,11 @@ object PrayerTimesHelper {
             toInfo("الفجر", "Fajr", "Fajr", tomorrowFajr)
         }
 
-        val timeUntil = run {
-            val diff = (next.time.epochSecond - nowJava.epochSecond).coerceAtLeast(0)
-            val h = diff / 3600
-            val m = (diff % 3600) / 60
-            if (h > 0) "$h س $m د" else "$m دقيقة"
-        }
+        // One formatter for every surface: the tiles, the watch faces, the
+        // schedule screen and the system face all print the same string.
+        val timeUntil = formatCountdown(
+            ((next.time.epochSecond - nowJava.epochSecond).coerceAtLeast(0) / 60).toInt()
+        )
 
         return DayPrayers(
             fajr = fajr,
@@ -132,6 +133,46 @@ object PrayerTimesHelper {
             locationName = locationName,
             methodName = methodName
         )
+    }
+
+    /**
+     * Where the day stands right now: which prayer has just passed, which one
+     * is coming, and how far each is from this instant.
+     *
+     * Every screen used to re-derive this on its own, and they disagreed --
+     * some counted sunrise as a prayer, some fell back to a time already
+     * hours in the past, and one printed "دقيقة" where the rest printed "د".
+     * They all call this now.
+     */
+    data class PrayerStatus(
+        val current: PrayerInfo,
+        val next: PrayerInfo,
+        val minutesElapsed: Int,
+        val minutesRemaining: Int
+    ) {
+        val elapsedText: String get() = formatCountdown(minutesElapsed)
+        val remainingText: String get() = formatCountdown(minutesRemaining)
+    }
+
+    /** The five prayers, in order. Sunrise is deliberately absent. */
+    fun cycle(prayers: DayPrayers): List<PrayerInfo> =
+        listOf(prayers.fajr, prayers.dhuhr, prayers.asr, prayers.maghrib, prayers.isha)
+
+    /** The schedule as it is displayed -- the five prayers plus sunrise. */
+    fun schedule(prayers: DayPrayers): List<PrayerInfo> =
+        listOf(prayers.fajr, prayers.sunrise, prayers.dhuhr, prayers.asr, prayers.maghrib, prayers.isha)
+
+    fun status(prayers: DayPrayers?, now: Instant = Instant.now()): PrayerStatus? {
+        if (prayers == null) return null
+        val cycle = cycle(prayers)
+        // Before today's Fajr the prayer that just passed is last night's Isha,
+        // a day earlier than the Isha in this table.
+        val current = cycle.lastOrNull { !it.time.isAfter(now) }
+            ?: prayers.isha.let { it.copy(time = it.time.minusSeconds(86_400)) }
+        val next = prayers.nextPrayer ?: cycle.firstOrNull { it.time.isAfter(now) } ?: prayers.fajr
+        val elapsed = ((now.epochSecond - current.time.epochSecond).coerceAtLeast(0) / 60).toInt()
+        val remaining = ((next.time.epochSecond - now.epochSecond).coerceAtLeast(0) / 60).toInt()
+        return PrayerStatus(current, next, elapsed, remaining)
     }
 
     fun getMethodFromName(name: String): CalculationMethod {

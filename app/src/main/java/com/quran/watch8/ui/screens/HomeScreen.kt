@@ -857,28 +857,12 @@ private fun SmartWatchFaceTile(
     val def = TileActionCatalog.getDef(activeActionId)
     val bgColor = parseHexColor(slot.colorHex, Color(0xFF1E293B))
 
-    // Prayer calculations
-    val now = Instant.now()
-    val allPrayers = if (prayers != null) listOf(prayers.fajr, prayers.sunrise, prayers.dhuhr, prayers.asr, prayers.maghrib, prayers.isha) else emptyList()
-    val pastPrayers = allPrayers.filter { it.time.isBefore(now) }
-    val lastPrayer = pastPrayers.lastOrNull() ?: prayers?.isha
-    // PrayerTimesHelper already rolls this over to tomorrow's Fajr after Isha.
-    // Re-scanning today's list here fell back to a time ~18h in the past and
-    // the countdown clamped to "0m" all night.
-    val nextPrayer = prayers?.nextPrayer ?: prayers?.fajr
-
-    val elapsedSec = if (lastPrayer != null) (now.epochSecond - lastPrayer.time.epochSecond).coerceAtLeast(0) else 0L
-    val elapsedH = elapsedSec / 3600
-    val elapsedM = (elapsedSec % 3600) / 60
-    val remainingSec = if (nextPrayer != null) (nextPrayer.time.epochSecond - now.epochSecond).coerceAtLeast(0) else 0L
-    val remainingH = remainingSec / 3600
-    val remainingM = (remainingSec % 3600) / 60
-    val elapsedStr = PrayerTimesHelper.formatCountdown((elapsedSec / 60).toInt())
-    val countdownStr = if (nextPrayer != null) {
-        PrayerTimesHelper.formatCountdown((remainingSec / 60).toInt())
-    } else {
-        "1h 23m"
-    }
+    // Prayer calculations -- one shared source so the tiles, the watch faces
+    // and the schedule screen never disagree about "next" or "remaining".
+    val prayerStatus = remember(prayers, currentTime) { PrayerTimesHelper.status(prayers) }
+    val nextPrayer = prayerStatus?.next
+    val elapsedStr = prayerStatus?.elapsedText ?: "—"
+    val countdownStr = prayerStatus?.remainingText ?: "—"
 
     val isColorOnly = slot.displayStyle == "color_only" || activeActionId == "color_only"
     val showIcon = slot.displayStyle == "icon" || slot.displayStyle == "both" || slot.displayStyle == "full"
@@ -901,7 +885,8 @@ private fun SmartWatchFaceTile(
         "date_big"         -> shortDate
         "prayer"           -> "${nextPrayer?.nameAr ?: "الصلاة"} ${nextPrayer?.formatted ?: "—:—"}"
         "prayer_countdown" -> "${nextPrayer?.nameAr ?: "الصلاة"} $countdownStr"
-        "prayer_elapsed"   -> "${nextPrayer?.nameAr ?: "الصلاة"} $elapsedStr"
+        // Time *since* a prayer names the prayer that passed, not the one ahead.
+        "prayer_elapsed"   -> "${prayerStatus?.current?.nameAr ?: "الصلاة"} $elapsedStr"
         "tasbih"           -> "$currentDhikr $tasbihCount"
         "qibla"            -> "$qiblaDeg°"
         "quran"            -> "المصحف"
@@ -919,7 +904,8 @@ private fun SmartWatchFaceTile(
     // meaning for this tile resolves to nothing rather than printing itself.
     val prayerName = nextPrayer?.nameAr ?: "الصلاة"
     val tokenName = when (activeActionId) {
-        "prayer", "prayer_countdown", "prayer_elapsed" -> prayerName
+        "prayer", "prayer_countdown" -> prayerName
+        "prayer_elapsed" -> prayerStatus?.current?.nameAr ?: "الصلاة"
         "tasbih"       -> currentDhikr
         "quran_resume" -> lastPos?.surahNameAr ?: "سورة الكهف"
         "locations"    -> locationName.substringBefore(" (").trim()

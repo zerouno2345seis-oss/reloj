@@ -1412,7 +1412,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
 .designer-detail[open] summary::after { transform: rotate(180deg); }
 .detail-content { display: grid; gap: 12px; padding: 12px; }
 @media (max-width: 940px) {
-  #tab-tiles .designer-grid { display: flex; flex-direction: column; }
+  /* align-items:start is inherited from the grid rule; in a flex column that is
+     a *cross-axis* rule, so every panel shrank to its content width and the
+     watch ended up a few pixels wide. */
+  #tab-tiles .designer-grid { display: flex; flex-direction: column; align-items: stretch; }
   #tab-tiles .canvas-column { position: relative; top: auto; }
   #tab-tiles .designer-inspector-panel { position: relative; top: auto; order: 2; width: 100%; max-height: none; }
   #tab-tiles .canvas-column { order: 1; }
@@ -1478,3 +1481,65 @@ button:focus-visible, input:focus-visible, select:focus-visible { box-shadow: 0 
   color: var(--finder-text);
   font-size: 12px;
 }
+
+/* ════════════════ OVERVIEW: THE TWO LAYERS, VISIBLE ON ARRIVAL ════════════════ */
+/* The overview used to show a single invented "12:45" circle. It now shows the
+   two things the app actually has -- the layer-1 face and the tile grid -- each
+   rendered from the real config, each a door into its own editor. */
+.overview-previews { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; padding: 12px; }
+.overview-preview-card { display: grid; gap: 6px; padding: 6px; border: 1px solid var(--finder-border); border-radius: 14px; background: var(--finder-surface); cursor: pointer; font: inherit; text-align: center; transition: border-color .15s ease, transform .15s ease; }
+.overview-preview-card:hover { border-color: var(--finder-accent, #007aff); transform: translateY(-1px); }
+.overview-preview-card .mini-watch { min-height: 0; padding: 10px; border-radius: 12px; }
+.overview-preview-card .mini-watch-screen { width: min(100%, 168px); gap: 4px; border-width: 7px; padding: 10px; }
+.overview-preview-card .mini-watch-screen span { font-size: 26px; }
+.overview-preview-card .mini-watch-screen.tiles { display: block; place-content: stretch; overflow: hidden; padding: 12px; }
+.overview-preview-card .mini-watch-screen.tiles .preset-preview-grid { width: 100%; height: 100%; }
+.overview-preview-caption { color: var(--finder-secondary); font-size: 11px; }
+.overview-preview-caption strong { color: var(--finder-text); }
+@media (max-width: 620px) { .overview-previews { grid-template-columns: 1fr; } }
+
+/* ════════════════ DESIGNER: THE SIMULATOR NEVER SCROLLS AWAY ════════════════ */
+/* Below 940px the rail stacks under the canvas, so reaching a property used to
+   scroll the watch off the top of the screen -- editing blind. The canvas stays
+   pinned instead, and shrinks once you leave the top so the properties still
+   get most of the viewport. */
+@media (max-width: 940px) {
+  #tab-tiles .canvas-column {
+    position: sticky;
+    top: 56px;
+    z-index: 12;
+    /* align-self:start comes from the desktop grid rule and would shrink the
+       column to its content width here. */
+    align-self: stretch;
+    width: 100%;
+    background: var(--finder-bg);
+    padding-bottom: 6px;
+  }
+  #tab-tiles .watch-frame,
+  #tab-tiles .watch-stage { transition: padding .18s ease; }
+  /* A percentage width here would resolve against a stage that is itself
+     sized by its content -- the frame collapsed to a few pixels. A viewport
+     length has no such circularity. */
+  #tab-tiles .designer-grid.canvas-compact .watch-stage { width: 100%; min-height: 0; padding: 8px; }
+  /* min-width defaults to min-content on a grid item, and the tile labels give
+     the watch a wide min-content -- so the frame ignored every smaller width
+     until it was told it may shrink. */
+  #tab-tiles .designer-grid.canvas-compact .watch-frame,
+  #tab-tiles .designer-grid.canvas-compact .watch-screen { min-width: 0; }
+  #tab-tiles .designer-grid.canvas-compact .watch-frame { width: min(46vw, 210px); padding: 8px; }
+  #tab-tiles .designer-grid.canvas-compact .canvas-toolbar,
+  #tab-tiles .designer-grid.canvas-compact .canvas-help,
+  #tab-tiles .designer-grid.canvas-compact .mobile-quick-actions { display: none; }
+}
+
+/* Layers moved to the foot of the properties rail, so it reads as one column:
+   what the element is, then how it looks, then everything else on the face. */
+#tab-tiles .inspector-scroll > .layers-below { margin: 10px; }
+
+/* The overview's face uses the studio's own dial markup, so it needs the same
+   kind of box: a square, positioned stage rather than a centred text grid. */
+.mini-watch-screen.overview-face-dial { display: block; position: relative; place-content: stretch; padding: 0; overflow: hidden; }
+.mini-watch-screen.overview-face-dial > * { width: 100%; height: 100%; }
+.mini-watch-screen.overview-face-dial .wf-dial-number,
+.mini-watch-screen.overview-face-dial .wf-emblem-badge { display: none; }
+.mini-watch-screen.overview-face-dial .wf-center-clock { font-size: 26px; }
