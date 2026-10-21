@@ -246,9 +246,11 @@ test('reader typography has one definition, previewed in settings', async () => 
   const typography = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/ReaderTypography.kt', root), 'utf8');
   assert.match(typography, /const val SAMPLE_AYAH/);
   assert.match(typography, /fun coerceFontSize/);
-  for (const source of [reader, settings]) {
-    assert.match(source, /ReaderTypography\.fontFamily\(/);
-  }
+  // The reader draws its round pages with the platform, so it takes the same
+  // choice as a Typeface; settings previews it as a Compose FontFamily.
+  assert.match(reader, /ReaderTypography\.typeface\(/);
+  assert.match(settings, /ReaderTypography\.fontFamily\(/);
+  assert.match(typography, /fun typeface\([\s\S]{0,200}"sansserif", "tajawal", "cairo" -> Typeface\.SANS_SERIF[\s\S]{0,80}"serif", "naskh" -> Typeface\.SERIF/);
   assert.match(settings, /ReaderTypography\.SAMPLE_AYAH/);
   assert.match(settings, /ReaderTypography\.coerceFontSize/);
   // No screen keeps its own copy of the font table any more.

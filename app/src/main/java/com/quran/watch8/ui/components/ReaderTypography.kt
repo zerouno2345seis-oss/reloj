@@ -1,5 +1,7 @@
 package com.quran.watch8.ui.components
 
+import android.content.Context
+import android.graphics.Typeface
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -47,6 +49,15 @@ object ReaderTypography {
         "serif", "naskh" -> FontFamily.Serif
         else        -> QuranFont
     }
+
+    /** The same choice as [fontFamily], for text drawn by the platform. */
+    fun typeface(context: Context, id: String): Typeface = when (id) {
+        "sansserif", "tajawal", "cairo" -> Typeface.SANS_SERIF
+        "serif", "naskh" -> Typeface.SERIF
+        else -> quranTypeface(context)
+    }
+
+    fun quranTypeface(context: Context): Typeface = context.resources.getFont(R.font.amiri_quran)
 
     fun backgroundColor(id: String, customHex: String): Color = when (id) {
         "navy"   -> Color(0xFF070F1E)
