@@ -6,6 +6,8 @@ import com.quran.watch8.data.model.Ayah
 import com.quran.watch8.data.model.QuranResponse
 import com.quran.watch8.data.model.SurahMetadata
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
 
@@ -20,16 +22,22 @@ class QuranRepository(private val context: Context) {
     //  Arabic text normalization helpers
     // ──────────────────────────────────────────────────────────
 
+    // Compiled once: building these per call recompiled them for each of the
+    // 6,236 ayahs on every search keystroke.
+    private val MARKS = Regex("[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08F0-\u08F2]")
+    private val ALEF_VARIANTS = Regex("[أإآ\u0671]")
+    private val WHITESPACE = Regex("\\s+")
+
     /**
      * Strips all Arabic diacritics (harakat, tanwin, shadda, sukun, tatweel, Quranic marks),
      * normalises alef variants (أ إ آ ٱ) → ا, alef maqsura ى → ي, teh marbuta ة → ه.
      * This makes search work correctly on Uthmani Hafs text which carries full tashkeel.
      */
     private fun normalizeArabic(text: String): String = text
-        // All standard harakat + Quranic extended marks (U+0610–U+061A, U+064B–U+065F, U+0670, U+06D6–U+06ED)
-        .replace(Regex("[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]"), "")
+        // All standard harakat + Quranic extended marks (U+0610–U+061A, U+064B–U+065F, U+0670, U+06D6–U+06ED, open tanween U+08F0–U+08F2)
+        .replace(MARKS, "")
         // Alef variants → bare alef
-        .replace(Regex("[أإآ\u0671]"), "ا")
+        .replace(ALEF_VARIANTS, "ا")
         // Alef maqsura → ya
         .replace("ى", "ي")
         // Teh marbuta → ha
@@ -62,23 +70,30 @@ class QuranRepository(private val context: Context) {
         return word
     }
 
-    private var allAyahs: List<Ayah> = emptyList()
-    private var ayahsBySurah: Map<Int, List<Ayah>> = emptyMap()
+    @Volatile private var allAyahs: List<Ayah> = emptyList()
+    @Volatile private var ayahsBySurah: Map<Int, List<Ayah>> = emptyMap()
+    /** Search form of each ayah, same order as [allAyahs]; built on first search. */
+    @Volatile private var normalizedTexts: List<String>? = null
     private val gson = Gson()
+    // The view model and MainActivity both ask for the text at start-up; without
+    // this they parsed the 1.6 MB file twice, side by side.
+    private val loadLock = Mutex()
 
     suspend fun loadQuran(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            if (allAyahs.isNotEmpty()) return@withContext true
-            context.assets.open("quran_uthmani.min.json").use { input ->
-                val reader = InputStreamReader(input, Charsets.UTF_8)
-                val response = gson.fromJson(reader, QuranResponse::class.java)
-                allAyahs = response.quran
-                ayahsBySurah = allAyahs.groupBy { it.chapter }
+        loadLock.withLock {
+            try {
+                if (allAyahs.isNotEmpty()) return@withLock true
+                context.assets.open("quran_uthmani.min.json").use { input ->
+                    val reader = InputStreamReader(input, Charsets.UTF_8)
+                    val response = gson.fromJson(reader, QuranResponse::class.java)
+                    ayahsBySurah = response.quran.groupBy { it.chapter }
+                    allAyahs = response.quran
+                }
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
             }
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
         }
     }
 
@@ -87,7 +102,9 @@ class QuranRepository(private val context: Context) {
     }
 
     fun getAyah(surah: Int, ayah: Int): Ayah? {
-        return allAyahs.find { it.chapter == surah && it.verse == ayah }
+        val list = ayahsBySurah[surah] ?: return null
+        // Verses are stored in order, so the index is the verse number - 1.
+        return list.getOrNull(ayah - 1)?.takeIf { it.verse == ayah } ?: list.find { it.verse == ayah }
     }
 
     fun getAllSurahs() = SurahMetadata.surahs
@@ -106,21 +123,23 @@ class QuranRepository(private val context: Context) {
         val normalizedQuery = normalizeArabic(query.trim())
         if (normalizedQuery.length < 2) return emptyList()
 
-        return allAyahs.filter { ayah ->
-            val normalizedText = normalizeArabic(ayah.text)
+        val ayahs = allAyahs
+        val texts = normalizedTexts ?: ayahs.map { normalizeArabic(it.text) }.also { normalizedTexts = it }
+        return ayahs.indices.asSequence().filter { i ->
+            val normalizedText = texts[i]
 
             // Tier 1: exact phrase match after normalization
             if (normalizedText.contains(normalizedQuery)) return@filter true
 
             // Tier 2 & 3: per-word root-like match
-            normalizedText.split(Regex("\\s+")).any { word ->
+            normalizedText.split(WHITESPACE).any { word ->
                 val stripped = stripArabicPrefixes(word)
                 // The normalised query appears anywhere inside the stripped word
                 stripped.contains(normalizedQuery) ||
                 // Or inside the original (normalised) word
                 word.contains(normalizedQuery)
             }
-        }.take(limit)
+        }.map { ayahs[it] }.take(limit).toList()
     }
 
     /**

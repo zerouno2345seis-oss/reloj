@@ -13,8 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.SpanStyle
@@ -26,21 +24,22 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumnDefaults
 import androidx.wear.compose.foundation.lazy.itemsIndexed
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.Ayah
 import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.WatchIcons
-import com.quran.watch8.ui.components.rememberUltraRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahGreen
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
 
 /**
  * Enhanced Quran Reader Screen for Galaxy Watch Circular Screen
@@ -57,11 +56,10 @@ fun QuranReaderScreen(
     startAyah: Int = -1,
     listIndex: Int = -1,
     onBack: () -> Unit,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onOpenSurah: (Int) -> Unit = {}
 ) {
     val listState = rememberScalingLazyListState()
-    val scope = rememberCoroutineScope()
-    val focusRequester = remember { FocusRequester() }
 
     val fontSize by viewModel.fontSize.collectAsState()
     val ayahColorName by viewModel.ayahColor.collectAsState()
@@ -73,10 +71,14 @@ fun QuranReaderScreen(
     val customReaderTextColorHex by viewModel.customReaderTextColor.collectAsState()
 
     // ── Load ayahs ────────────────────────────────────────────────────────────
+    // Read this surah's verses directly, keyed on the surah and on the text
+    // having loaded. The old shared `currentSurahAyahs` was filled once: open
+    // the reader before the 1.6 MB text finished parsing and the page stayed
+    // empty, and "next surah" swapped the verses under the old surah's header.
     LaunchedEffect(surahNumber) {
         viewModel.loadSurah(surahNumber)
     }
-    val ayahs = viewModel.currentSurahAyahs
+    val ayahs = remember(surahNumber, viewModel.isQuranLoaded) { viewModel.surahAyahs(surahNumber) }
 
     val surahInfo = SurahMetadata.getSurah(surahNumber)
     // Shared with the settings screen, so its sample verse is the page.
@@ -94,12 +96,6 @@ fun QuranReaderScreen(
     var selectedAyahForAction by remember { mutableStateOf<Ayah?>(null) }
     var actionToastText by remember { mutableStateOf<String?>(null) }
     var doubleTapInfoText by remember { mutableStateOf<String?>(null) }
-
-    // Instant Rotary focus on screen load
-    LaunchedEffect(Unit) {
-        delay(80)
-        focusRequester.requestFocus()
-    }
 
     // Auto-hide scroll indicator
     LaunchedEffect(showScrollIndicator) {
@@ -126,27 +122,35 @@ fun QuranReaderScreen(
         }
     }
 
-    // Scroll to target ayah or listIndex
-    LaunchedEffect(startAyah, listIndex, ayahs.size) {
-        if (listIndex >= 0 && ayahs.isNotEmpty()) {
-            listState.animateScrollToItem(listIndex.coerceIn(0, ayahStartIndex + ayahs.size - 1))
-        } else if (startAyah > 0 && ayahs.isNotEmpty()) {
+    // Jump straight to the target ayah. This used to animate through every
+    // verse in between -- a visible crawl of a few seconds to reach the middle
+    // of al-Baqarah. The ayah number wins over the stored list index, which
+    // goes stale whenever the header rows change.
+    var positioned by remember(surahNumber) { mutableStateOf(startAyah <= 0 && listIndex < 0) }
+    LaunchedEffect(surahNumber, startAyah, listIndex, ayahs.size) {
+        if (ayahs.isEmpty() || positioned) return@LaunchedEffect
+        val lastIndex = ayahStartIndex + ayahs.size - 1
+        val target = if (startAyah > 0) {
             val exactAyahIndex = ayahs.indexOfFirst { it.verse == startAyah }
-            val targetIndex = if (exactAyahIndex >= 0) {
-                ayahStartIndex + exactAyahIndex
-            } else {
-                (ayahStartIndex + startAyah - 1).coerceIn(0, ayahStartIndex + ayahs.size - 1)
-            }
-            listState.animateScrollToItem(targetIndex)
+            if (exactAyahIndex >= 0) ayahStartIndex + exactAyahIndex
+            else (ayahStartIndex + startAyah - 1).coerceIn(0, lastIndex)
+        } else {
+            listIndex.coerceIn(0, lastIndex)
         }
+        listState.scrollToItem(target)
+        positioned = true
     }
 
-    // Save reading position instantaneously
-    LaunchedEffect(listState, ayahs) {
+    // Remember where reading stopped, once the page has settled. Before the
+    // jump above lands the centre is ayah 1, and saving that overwrote the
+    // very position the reader was opened to resume.
+    LaunchedEffect(listState, ayahs, positioned) {
+        if (!positioned) return@LaunchedEffect
         snapshotFlow { listState.centerItemIndex }
             .distinctUntilChanged()
-            .collect { centerIndex ->
-                if (ayahs.isEmpty()) return@collect
+            .collectLatest { centerIndex ->
+                if (ayahs.isEmpty()) return@collectLatest
+                delay(600L) // one database write per pause, not per verse scrolled past
                 val ayahIdx = (centerIndex - ayahStartIndex).coerceIn(0, ayahs.size - 1)
                 val ayah = ayahs.getOrNull(ayahIdx) ?: ayahs.first()
                 val snippet = ayah.text.take(90)
@@ -160,22 +164,15 @@ fun QuranReaderScreen(
             }
     }
 
-    val ultraRotaryMod = rememberUltraRotaryScrollModifier(
-        listState = listState,
-        focusRequester = focusRequester,
-        enabled = selectedAyahForAction == null
-    )
-
+    // No vignette: it dimmed the top and bottom lines of every page.
     Scaffold(
         timeText = { if (showControls && selectedAyahForAction == null) TimeText() },
-        vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-        positionIndicator = { if (showScrollIndicator) PositionIndicator(scalingLazyListState = listState) }
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(screenBgColor)
-                .then(ultraRotaryMod)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onTap = {
@@ -191,12 +188,18 @@ fun QuranReaderScreen(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(
-                    top = if (showControls) 48.dp else 28.dp,
-                    bottom = if (showControls) 80.dp else 36.dp,
-                    start = 10.dp,
-                    end = 10.dp
-                )
+                // Fixed padding: changing it on every tap made the page jump.
+                contentPadding = PaddingValues(top = 36.dp, bottom = 56.dp, start = 12.dp, end = 12.dp),
+                // Text at full size and full opacity from edge to edge. The
+                // default shrinks rows to 70% and fades them to 50% near the top
+                // and bottom, which squeezed verses while they were being read.
+                scalingParams = ScalingLazyColumnDefaults.scalingParams(edgeScale = 1f, edgeAlpha = 1f),
+                // The list handles the bezel itself: it holds focus, smooths
+                // each detent into a short animated scroll, and ticks once per
+                // detent. The hand-rolled handler it replaces took focus away
+                // from the list, jumped 4.5x the raw distance per event with
+                // no animation, and buzzed on every event.
+                rotaryScrollableBehavior = RotaryScrollableDefaults.behavior(listState)
             ) {
                 // Surah Name Header
                 item {
@@ -233,8 +236,9 @@ fun QuranReaderScreen(
                 }
 
                 // Ayahs with Double-Tap detection and safe circular text container
-                itemsIndexed(ayahs) { _, ayah ->
-                    val annotated = buildAnnotatedString {
+                itemsIndexed(ayahs, key = { _, ayah -> ayah.verse }) { _, ayah ->
+                    // Built once per verse and style, not on every frame of a scroll.
+                    val annotated = remember(ayah, fontSize, ayahNumberColor, quranTextColor, selectedFont) { buildAnnotatedString {
                         withStyle(
                             SpanStyle(
                                 color = ayahNumberColor,
@@ -249,7 +253,7 @@ fun QuranReaderScreen(
                                 fontSize = fontSize.sp
                             )
                         ) { append(ayah.text) }
-                    }
+                    } }
 
                     Box(
                         modifier = Modifier
@@ -277,7 +281,7 @@ fun QuranReaderScreen(
                         Text(
                             text = annotated,
                             textAlign = TextAlign.Center,
-                            lineHeight = (fontSize * 1.45f).sp,
+                            lineHeight = (fontSize * ReaderTypography.LINE_HEIGHT_FACTOR).sp,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -441,14 +445,14 @@ fun QuranReaderScreen(
                     )
                     if (surahNumber > 1) {
                         CompactChip(
-                            onClick = { viewModel.loadSurah(surahNumber - 1); scope.launch { listState.scrollToItem(0) } },
+                            onClick = { onOpenSurah(surahNumber - 1) },
                             label = { Text("السابقة", fontSize = 10.sp) },
                             colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
                         )
                     }
                     if (surahNumber < 114) {
                         CompactChip(
-                            onClick = { viewModel.loadSurah(surahNumber + 1); scope.launch { listState.scrollToItem(0) } },
+                            onClick = { onOpenSurah(surahNumber + 1) },
                             label = { Text("التالية", fontSize = 10.sp) },
                             colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
                         )

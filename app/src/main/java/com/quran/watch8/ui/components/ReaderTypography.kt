@@ -1,7 +1,9 @@
 package com.quran.watch8.ui.components
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import com.quran.watch8.R
 import com.quran.watch8.ui.screens.parseHexColor
 import com.quran.watch8.ui.theme.AyahGreen
 import com.quran.watch8.ui.theme.AyahYellow
@@ -24,14 +26,22 @@ object ReaderTypography {
 
     fun coerceFontSize(value: Float): Float = value.coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE)
 
+    /**
+     * Amiri Quran, bundled. The text carries Uthmani marks the watch's system
+     * fonts cannot draw -- the small high sukun (U+06E1, ~37k times) and the
+     * open tanween (U+08F0..U+08F2) -- so with a system font those letters came
+     * out as empty boxes. Every Quranic choice maps here; only the explicit
+     * "sansserif"/"serif" choices still use the system fonts.
+     */
+    val QuranFont: FontFamily = FontFamily(Font(R.font.amiri_quran))
+
+    /** Amiri's marks sit high above and below the line; tighter spacing clips them. */
+    const val LINE_HEIGHT_FACTOR = 1.85f
+
     fun fontFamily(id: String): FontFamily = when (id) {
-        "sansserif" -> FontFamily.SansSerif
-        "serif"     -> FontFamily.Serif
-        "kufi"      -> FontFamily.Cursive
-        "uthmani"   -> FontFamily.Serif
-        "amiri", "naskh" -> FontFamily.Serif
-        "tajawal", "cairo" -> FontFamily.SansSerif
-        else        -> FontFamily.Default
+        "sansserif", "tajawal", "cairo" -> FontFamily.SansSerif
+        "serif", "naskh" -> FontFamily.Serif
+        else        -> QuranFont
     }
 
     fun backgroundColor(id: String, customHex: String): Color = when (id) {

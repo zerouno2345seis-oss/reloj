@@ -191,7 +191,8 @@ class MainActivity : ComponentActivity() {
                                 onBack               = { navController.popBackStack() },
                                 onNavigateToReader   = { surah -> navController.navigate("reader/$surah") },
                                 onNavigateToBookmarks = { navController.navigate("bookmarks") },
-                                viewModel            = viewModel
+                                viewModel            = viewModel,
+                                onNavigateToAyah     = { surah, ayah -> navController.navigate("reader/$surah?startAyah=$ayah") }
                             )
                         }
 
@@ -214,7 +215,14 @@ class MainActivity : ComponentActivity() {
                                 startAyah   = startAyah,
                                 listIndex   = listIndex,
                                 onBack      = { navController.popBackStack() },
-                                viewModel   = viewModel
+                                viewModel   = viewModel,
+                                // Previous/next surah replaces this page rather than
+                                // stacking one reader on another for every surah read.
+                                onOpenSurah = { next ->
+                                    navController.navigate("reader/$next") {
+                                        popUpTo(back.destination.id) { inclusive = true }
+                                    }
+                                }
                             )
                         }
 

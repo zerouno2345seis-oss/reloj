@@ -14,7 +14,6 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.SurahMetadata
-import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
@@ -26,7 +25,6 @@ fun BookmarksScreen(
     viewModel: MainViewModel
 ) {
     val listState = rememberScalingLazyListState()
-    val rotaryMod = rememberRotaryScrollModifier(listState)
     val bookmarks by viewModel.bookmarks.collectAsState()
 
     // Sort mode: false = by time added (newest first), true = by Quran order (Surah & Ayah number)
@@ -47,7 +45,7 @@ fun BookmarksScreen(
     ) {
         ScalingLazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().then(rotaryMod),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(top = 24.dp, bottom = 40.dp, start = 8.dp, end = 8.dp)
         ) {

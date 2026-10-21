@@ -17,7 +17,6 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
-import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.data.model.SurahMetadata
@@ -30,10 +29,13 @@ fun QuranScreen(
     onBack: () -> Unit,
     onNavigateToReader: (Int) -> Unit,
     onNavigateToBookmarks: () -> Unit,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    // A search hit names one ayah; opening its surah at the top made you scroll
+    // the whole way down to it.
+    onNavigateToAyah: (surah: Int, ayah: Int) -> Unit = { surah, _ -> onNavigateToReader(surah) }
 ) {
+    val lastReading by viewModel.lastReadingPosition.collectAsState()
     val listState = rememberScalingLazyListState()
-    val rotaryMod = rememberRotaryScrollModifier(listState)
     var showSearchResults by remember { mutableStateOf(false) }
     val searchResults by remember { derivedStateOf { viewModel.searchResults } }
     val surahResults by remember { derivedStateOf { viewModel.surahSearchResults } }
@@ -55,7 +57,7 @@ fun QuranScreen(
     ) {
         ScalingLazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().then(rotaryMod),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = WatchSafeInsets.listContentPadding
         ) {
@@ -85,6 +87,26 @@ fun QuranScreen(
                         .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                         .padding(vertical = 6.dp)
                 )
+            }
+
+            // One tap back to where reading stopped -- the most common way in.
+            lastReading?.let { pos ->
+                item {
+                    Chip(
+                        onClick = { onNavigateToAyah(pos.surah, pos.ayahNumber) },
+                        label = { Text("متابعة القراءة", style = MaterialTheme.typography.button) },
+                        secondaryLabel = {
+                            Text("${pos.surahNameAr} · ${pos.ayahNumber}", style = MaterialTheme.typography.caption3)
+                        },
+                        colors = ChipDefaults.primaryChipColors(
+                            backgroundColor = Color(0xFF0F766E),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
+                            .padding(vertical = 4.dp)
+                    )
+                }
             }
 
             item {
@@ -127,7 +149,7 @@ fun QuranScreen(
                 items(searchResults.take(15)) { ayah ->
                     CompactChip(
                         onClick = {
-                            onNavigateToReader(ayah.chapter)
+                            onNavigateToAyah(ayah.chapter, ayah.verse)
                             viewModel.clearSearch()
                             showSearchResults = false
                         },

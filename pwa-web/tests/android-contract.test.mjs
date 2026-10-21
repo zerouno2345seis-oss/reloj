@@ -55,7 +55,9 @@ test('watch prayer strip is rendered as two explicit rows', () => {
 
 test('reader settings support the expanded range, fonts, and synced custom colours', () => {
   assert.match(preferences, /coerceIn\(8f,\s*48f\)/);
-  for (const font of ['amiri', 'naskh', 'tajawal', 'cairo']) assert.match(settings, new RegExp(`"${font}"`));
+  // The watch offers only choices that draw differently; every font id the web
+  // can sync still resolves (see the typography test below).
+  for (const font of ['default', 'sansserif', 'serif']) assert.match(settings, new RegExp(`"${font}"`));
   assert.match(preferences, /customReaderBgColor/);
   assert.match(preferences, /customReaderTextColor/);
   assert.match(preferences, /customAyahColor/);
@@ -251,6 +253,11 @@ test('reader typography has one definition, previewed in settings', async () => 
   assert.match(settings, /ReaderTypography\.coerceFontSize/);
   // No screen keeps its own copy of the font table any more.
   assert.doesNotMatch(reader, /"kufi"\s*->\s*FontFamily\.Cursive/);
+  // System fonts cannot draw the Uthmani marks in this text (U+06E1, U+08F0-2):
+  // Quranic choices must resolve to the bundled Quran font.
+  assert.match(typography, /R\.font\.amiri_quran/);
+  assert.doesNotMatch(typography, /FontFamily\.Cursive/);
+  for (const font of ['naskh', 'tajawal', 'cairo', 'sansserif', 'serif']) assert.match(typography, new RegExp(`"${font}"`));
 });
 
 // The first layer is the navigation start destination, so swipe-right was dead.

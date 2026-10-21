@@ -48,10 +48,11 @@ fun SettingsScreen(
     val fontFamily by viewModel.fontFamily.collectAsState()
     val notifications by viewModel.notificationsEnabled.collectAsState()
     val tileConfig by viewModel.tilesConfig.collectAsState()
+    // Only choices that draw differently. The old list offered nine names, most
+    // of which fell back to the same system font. System fonts lack some
+    // Uthmani marks, so the bundled Quran font is the default.
     val readerFontOptions = listOf(
-        "default" to "افتراضي", "uthmani" to "عثماني", "amiri" to "أميري",
-        "naskh" to "نسخ", "kufi" to "كوفي", "tajawal" to "تجوال",
-        "cairo" to "كايرو", "sansserif" to "بسيط", "serif" to "تقليدي"
+        "default" to "المصحف", "sansserif" to "بسيط", "serif" to "تقليدي"
     )
 
     var presets by remember { mutableStateOf(PresetManager.getAllPresets(context)) }
@@ -190,7 +191,7 @@ fun SettingsScreen(
                         color = ReaderTypography.textColor(readerTextColor, customReaderTextColor),
                         fontFamily = ReaderTypography.fontFamily(fontFamily),
                         fontSize = fontSize.sp,
-                        lineHeight = (fontSize * 1.45f).sp,
+                        lineHeight = (fontSize * ReaderTypography.LINE_HEIGHT_FACTOR).sp,
                         textAlign = TextAlign.Center,
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis
@@ -234,7 +235,7 @@ fun SettingsScreen(
                             onClick = { viewModel.setFontFamily(id) },
                             label = { Text(label, fontSize = 8.sp, maxLines = 1) },
                             colors = ChipDefaults.chipColors(
-                                backgroundColor = if (fontFamily == id) Color(0xFF0D9488) else Color(0xFF222222),
+                                backgroundColor = if (ReaderTypography.fontFamily(fontFamily) == ReaderTypography.fontFamily(id)) Color(0xFF0D9488) else Color(0xFF222222),
                                 contentColor = Color.White
                             ),
                             modifier = Modifier.weight(1f)

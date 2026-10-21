@@ -213,12 +213,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { prefs.saveLastPosition(surahNumber, 1) }
     }
 
+    private var searchJob: kotlinx.coroutines.Job? = null
+
+    /** Scans all 6,236 ayahs, so it runs off the main thread; a newer query cancels an older one. */
     fun searchQuran(query: String) {
-        searchResults      = quranRepo.searchText(query)
-        surahSearchResults = quranRepo.searchSurah(query)
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            val (ayahs, surahs) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                quranRepo.searchText(query) to quranRepo.searchSurah(query)
+            }
+            searchResults      = ayahs
+            surahSearchResults = surahs
+        }
     }
 
+    /** One surah's verses, straight from the loaded text (empty until it has loaded). */
+    fun surahAyahs(surahNumber: Int): List<Ayah> = quranRepo.getSurahAyahs(surahNumber)
+
     fun clearSearch() {
+        searchJob?.cancel()
         searchResults      = emptyList()
         surahSearchResults = emptyList()
     }
