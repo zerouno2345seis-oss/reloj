@@ -287,7 +287,9 @@ fun QuranReaderScreen(
                                 fontSize = fontSize.sp
                             )
                         ) { append(ayah.text) }
-                        append(' ')
+                        // No-break space: the mark stays on the verse's last
+                        // line instead of wrapping onto a line of its own.
+                        append('\u00A0')
                         withStyle(
                             SpanStyle(
                                 color = ayahNumberColor,
@@ -481,44 +483,45 @@ fun QuranReaderScreen(
                 }
             }
 
-            // ── Floating Navigation Controls Bar ───────────────────────────────
+            // ── Floating Navigation Controls ──────────────────────────────────
+            // Round buttons, no bar: the bar's square ends still met the rim.
+            // Right to left, as Arabic reads: previous surah on the right.
             AnimatedVisibility(
                 visible = showControls && selectedAyahForAction == null,
                 enter = fadeIn(),
                 exit = fadeOut(),
-                // Raised off the rim: at 8 dp the circle cut off the outer chips.
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 22.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xEE1E293B))
-                        .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(20.dp))
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    CompactChip(
-                        onClick = onBack,
-                        label = { Text("‹ خروج", fontSize = 10.sp) },
-                        colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
-                    )
-                    if (surahNumber > 1) {
-                        CompactChip(
-                            onClick = { onOpenSurah(surahNumber - 1) },
-                            label = { Text("السابقة", fontSize = 10.sp) },
-                            colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
-                        )
-                    }
-                    if (surahNumber < 114) {
-                        CompactChip(
-                            onClick = { onOpenSurah(surahNumber + 1) },
-                            label = { Text("التالية", fontSize = 10.sp) },
-                            colors = ChipDefaults.secondaryChipColors(backgroundColor = Color(0xFF334155))
-                        )
-                    }
+                    ReaderNavButton("التالية", enabled = surahNumber < 114) { onOpenSurah(surahNumber + 1) }
+                    ReaderNavButton("خروج", enabled = true, onClick = onBack)
+                    ReaderNavButton("السابقة", enabled = surahNumber > 1) { onOpenSurah(surahNumber - 1) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ReaderNavButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (enabled) Color(0xEE1E293B) else Color(0x661E293B))
+            .border(1.dp, if (enabled) Color(0xFF38BDF8) else Color(0x5538BDF8), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            fontSize = 10.sp,
+            maxLines = 1,
+            color = if (enabled) Color.White else Color.Gray,
+            textAlign = TextAlign.Center
+        )
     }
 }
