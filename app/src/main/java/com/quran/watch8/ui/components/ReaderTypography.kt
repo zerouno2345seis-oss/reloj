@@ -38,6 +38,10 @@ object ReaderTypography {
     /** Amiri's marks sit high above and below the line; tighter spacing clips them. */
     const val LINE_HEIGHT_FACTOR = 1.85f
 
+    /** End-of-ayah sign with the number in Arabic-Indic digits, e.g. ۝١٢. */
+    fun ayahEndMark(verse: Int): String =
+        "\u06DD" + verse.toString().map { '\u0660' + (it - '0') }.joinToString("")
+
     fun fontFamily(id: String): FontFamily = when (id) {
         "sansserif", "tajawal", "cairo" -> FontFamily.SansSerif
         "serif", "naskh" -> FontFamily.Serif

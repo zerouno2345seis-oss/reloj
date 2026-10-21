@@ -201,7 +201,7 @@ fun QuranReaderScreen(
 
     // No vignette: it dimmed the top and bottom lines of every page.
     Scaffold(
-        timeText = { if (showControls && selectedAyahForAction == null) TimeText() },
+        // No clock here: it was drawn over the surah name at the top of the page.
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
     ) {
         Box(
@@ -273,14 +273,13 @@ fun QuranReaderScreen(
                 // Ayahs with Double-Tap detection and safe circular text container
                 itemsIndexed(ayahs, key = { _, ayah -> ayah.verse }) { _, ayah ->
                     // Built once per verse and style, not on every frame of a scroll.
+                    // The verse number closes the verse, as in the printed mushaf:
+                    // U+06DD followed by Arabic-Indic digits, which Amiri draws as
+                    // one ornament with the digits inside. It always uses the
+                    // Quran face, since the system fonts cannot draw it. The old
+                    // ﴿N﴾ prefix came out in the system font as mirrored
+                    // brackets around a Latin digit.
                     val annotated = remember(ayah, fontSize, ayahNumberColor, quranTextColor, selectedFont) { buildAnnotatedString {
-                        withStyle(
-                            SpanStyle(
-                                color = ayahNumberColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = (fontSize - 2).sp
-                            )
-                        ) { append("﴿${ayah.verse}﴾ ") }
                         withStyle(
                             SpanStyle(
                                 color = quranTextColor,
@@ -288,6 +287,14 @@ fun QuranReaderScreen(
                                 fontSize = fontSize.sp
                             )
                         ) { append(ayah.text) }
+                        append(' ')
+                        withStyle(
+                            SpanStyle(
+                                color = ayahNumberColor,
+                                fontFamily = ReaderTypography.QuranFont,
+                                fontSize = fontSize.sp
+                            )
+                        ) { append(ReaderTypography.ayahEndMark(ayah.verse)) }
                     } }
 
                     Box(
@@ -479,16 +486,17 @@ fun QuranReaderScreen(
                 visible = showControls && selectedAyahForAction == null,
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)
+                // Raised off the rim: at 8 dp the circle cut off the outer chips.
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color(0xEE1E293B))
                         .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(20.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     CompactChip(
                         onClick = onBack,
