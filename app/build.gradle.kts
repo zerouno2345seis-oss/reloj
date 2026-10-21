@@ -20,6 +20,10 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Signed with the debug key so it installs over the debug build
+            // with `adb install -r` and keeps bookmarks and settings. The
+            // debuggable build runs Compose noticeably slower on the watch.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
