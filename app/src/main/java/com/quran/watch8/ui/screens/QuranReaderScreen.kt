@@ -14,7 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -86,6 +91,36 @@ fun QuranReaderScreen(
     val screenBgColor = ReaderTypography.backgroundColor(readerBgColorName, customReaderBgColorHex)
     val quranTextColor = ReaderTypography.textColor(readerTextColorName, customReaderTextColorHex)
     val selectedFont = ReaderTypography.fontFamily(fontFamilyName)
+
+    // On a round face a line is only as wide as the circle at its height, so
+    // with a 12 dp margin the first and last words of lines near the top and
+    // bottom fell outside the glass. Keep the text inside the inscribed square
+    // (about 14.6% of the width on each side, less a little so the middle of
+    // the page is not starved), give the page room above and below, and fade
+    // the last few dp of the rim where any line is cut anyway.
+    val configuration = LocalConfiguration.current
+    val isRound = configuration.isScreenRound
+    val screenWidth = configuration.screenWidthDp.dp
+    val screenHeight = configuration.screenHeightDp.dp
+    val sideMargin = if (isRound) screenWidth * 0.13f else 8.dp
+    val topMargin = if (isRound) screenHeight * 0.16f else 16.dp
+    val bottomMargin = if (isRound) screenHeight * 0.24f else 32.dp
+    val rimFade = if (isRound) screenHeight * 0.09f else 0.dp
+
+    // Amiri hangs its marks well above and below the letters. Compose trims
+    // the extra line height above the first line and below the last one by
+    // default, which pressed the last line's lower marks into the next verse.
+    val ayahTextStyle = remember(fontSize) {
+        TextStyle(
+            lineHeight = (fontSize * ReaderTypography.LINE_HEIGHT_FACTOR).sp,
+            lineHeightStyle = LineHeightStyle(
+                alignment = LineHeightStyle.Alignment.Center,
+                trim = LineHeightStyle.Trim.None
+            ),
+            platformStyle = PlatformTextStyle(includeFontPadding = true),
+            textAlign = TextAlign.Center
+        )
+    }
 
     val headerCount = 2
     val bismillahOffset = if (surahNumber != 1 && surahNumber != 9) 1 else 0
@@ -189,7 +224,7 @@ fun QuranReaderScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 // Fixed padding: changing it on every tap made the page jump.
-                contentPadding = PaddingValues(top = 36.dp, bottom = 56.dp, start = 12.dp, end = 12.dp),
+                contentPadding = PaddingValues(top = topMargin, bottom = bottomMargin, start = sideMargin, end = sideMargin),
                 // Text at full size and full opacity from edge to edge. The
                 // default shrinks rows to 70% and fades them to 50% near the top
                 // and bottom, which squeezed verses while they were being read.
@@ -229,7 +264,7 @@ fun QuranReaderScreen(
                             color = quranTextColor,
                             fontFamily = selectedFont,
                             fontSize = (fontSize + 1).sp,
-                            textAlign = TextAlign.Center,
+                            style = ayahTextStyle,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         )
                     }
@@ -257,8 +292,8 @@ fun QuranReaderScreen(
 
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.95f)
-                            .padding(vertical = 3.dp)
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
                             .pointerInput(ayah.verse) {
                                 detectTapGestures(
                                     onDoubleTap = {
@@ -280,12 +315,29 @@ fun QuranReaderScreen(
                     ) {
                         Text(
                             text = annotated,
-                            textAlign = TextAlign.Center,
-                            lineHeight = (fontSize * ReaderTypography.LINE_HEIGHT_FACTOR).sp,
+                            style = ayahTextStyle,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
+            }
+
+            // Rim fade: only the thin band where the circle cuts every line.
+            if (rimFade > 0.dp) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(rimFade)
+                        .background(Brush.verticalGradient(listOf(screenBgColor, Color.Transparent)))
+                )
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(rimFade)
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, screenBgColor)))
+                )
             }
 
             // ── Floating Double-Tap Quick Info Overlay (Auto-Hides) ───────────
