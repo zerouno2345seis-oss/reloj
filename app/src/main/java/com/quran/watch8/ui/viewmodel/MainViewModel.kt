@@ -59,6 +59,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val customReaderTextColor = prefs.customReaderTextColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "#FFFFFF")
     val fontFamily      = prefs.fontFamily.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "default")
     val homeStyle       = prefs.homeStyle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "metro")
+    val readerMode      = prefs.readerMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "fill")
+    val lineAuto        = prefs.lineAuto.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val lineSpeed       = prefs.lineSpeed.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "medium")
+    val readingUsage    = prefs.readingUsageJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val tilesConfig     = prefs.tilesConfigJson.map { com.quran.watch8.data.model.TileConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.data.model.TileConfig())
     val tilesDisplayMode= prefs.tilesDisplayMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "icons_only")
     val watchFaceConfig = prefs.watchFaceConfigJson.map { com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, com.quran.watch8.data.model.WatchFaceConfig())
@@ -186,6 +190,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** One surah's verses, straight from the loaded text (empty until it has loaded). */
     fun surahAyahs(surahNumber: Int): List<Ayah> = quranRepo.getSurahAyahs(surahNumber)
 
+    /** The simple text, for the fonts that stretch; loaded on first use. */
+    suspend fun surahSimple(surahNumber: Int): List<String> {
+        quranRepo.loadSimple()
+        return quranRepo.getSurahSimple(surahNumber)
+    }
+
     fun clearSearch() {
         searchJob?.cancel()
         searchResults      = emptyList()
@@ -203,6 +213,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setCustomReaderTextColor(color: String){ viewModelScope.launch { prefs.setCustomReaderTextColor(color) } }
     fun setFontFamily(name: String)    { viewModelScope.launch { prefs.setFontFamily(name) } }
     fun setHomeStyle(style: String)    { viewModelScope.launch { prefs.setHomeStyle(style) } }
+    fun setReaderMode(mode: String)    { viewModelScope.launch { prefs.setReaderMode(mode) } }
+    fun setLineAuto(on: Boolean)       { viewModelScope.launch { prefs.setLineAuto(on) } }
+    fun setLineSpeed(speed: String)    { viewModelScope.launch { prefs.setLineSpeed(speed) } }
+    fun addReadingTime(mode: String, font: String, seconds: Long) {
+        viewModelScope.launch {
+            prefs.updateReadingUsage { com.quran.watch8.util.ReadingUsage.add(it, mode, font, seconds, java.time.LocalDate.now()) }
+        }
+    }
     fun setTileConfig(config: com.quran.watch8.data.model.TileConfig) { viewModelScope.launch { prefs.setTilesConfigJson(config.toJson()) } }
     fun setTilesDisplayMode(mode: String) { viewModelScope.launch { prefs.setTilesDisplayMode(mode) } }
     fun setWatchFaceConfig(config: com.quran.watch8.data.model.WatchFaceConfig) { viewModelScope.launch { prefs.setWatchFaceConfigJson(config.toJson()) } }

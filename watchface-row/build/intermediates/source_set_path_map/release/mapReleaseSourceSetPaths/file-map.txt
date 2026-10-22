@@ -1,7 +1,0 @@
-com.quran.watch8.watchface.row.watchface-row-pngs-0 /Users/mohamad/reloj-face1/watchface-row/build/generated/res/pngs/release
-com.quran.watch8.watchface.row.watchface-row-resValues-1 /Users/mohamad/reloj-face1/watchface-row/build/generated/res/resValues/release
-com.quran.watch8.watchface.row.watchface-row-packageReleaseResources-2 /Users/mohamad/reloj-face1/watchface-row/build/intermediates/incremental/release/packageReleaseResources/merged.dir
-com.quran.watch8.watchface.row.watchface-row-packageReleaseResources-3 /Users/mohamad/reloj-face1/watchface-row/build/intermediates/incremental/release/packageReleaseResources/stripped.dir
-com.quran.watch8.watchface.row.watchface-row-release-4 /Users/mohamad/reloj-face1/watchface-row/build/intermediates/merged_res/release/mergeReleaseResources
-com.quran.watch8.watchface.row.watchface-row-main-5 /Users/mohamad/reloj-face1/watchface-row/src/main/res
-com.quran.watch8.watchface.row.watchface-row-release-6 /Users/mohamad/reloj-face1/watchface-row/src/release/res

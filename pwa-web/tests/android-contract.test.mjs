@@ -19,11 +19,13 @@ const [settings, reader, preferences, mainActivity, locations, prayerHelper, app
   readFile(new URL('app/build.gradle.kts', root), 'utf8'),
 ]);
 
-test('reader settings support the expanded range, fonts, and synced custom colours', () => {
+test('reader settings support the expanded range, fonts, and synced custom colours', async () => {
   assert.match(preferences, /coerceIn\(8f,\s*48f\)/);
-  // The watch offers the two Quran faces, Madinah ("default") and Amiri; every
-  // other font id the web can sync still resolves (see the typography test).
-  for (const font of ['default', 'amiri']) assert.match(settings, new RegExp(`"${font}"`));
+  // The watch offers five reading fonts, Madinah ("default") first; settings
+  // lists them from the one table in ReaderTypography.
+  const typography = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/ReaderTypography.kt', root), 'utf8');
+  for (const font of ['default', 'amiri', 'amiri_plain', 'naskh', 'scheherazade']) assert.match(typography, new RegExp(`ReadingFont\\("${font}"`));
+  assert.match(settings, /ReaderTypography\.READING_FONTS/);
   assert.match(preferences, /customReaderBgColor/);
   assert.match(preferences, /customReaderTextColor/);
   assert.match(preferences, /customAyahColor/);
@@ -124,8 +126,8 @@ test('reader typography has one definition, previewed in settings', async () => 
   // choice as a Typeface; settings previews it as a Compose FontFamily.
   assert.match(reader, /ReaderTypography\.typeface\(/);
   assert.match(settings, /ReaderTypography\.fontFamily\(/);
-  assert.match(typography, /fun typeface\([\s\S]{0,200}"sansserif", "tajawal", "cairo" -> Typeface\.SANS_SERIF[\s\S]{0,80}"serif", "naskh" -> Typeface\.SERIF/);
-  assert.match(settings, /ReaderTypography\.SAMPLE_AYAH/);
+  assert.match(typography, /fun typeface\([\s\S]{0,200}"sansserif", "tajawal", "cairo" -> Typeface\.SANS_SERIF[\s\S]{0,80}"serif" -> Typeface\.SERIF/);
+  assert.match(settings, /ReaderTypography\.sampleAyah\(/);
   assert.match(settings, /ReaderTypography\.coerceFontSize/);
   // No screen keeps its own copy of the font table any more.
   assert.doesNotMatch(reader, /"kufi"\s*->\s*FontFamily\.Cursive/);
@@ -201,13 +203,14 @@ test('the app serves complications whose taps open the matching screen', async (
   assert.match(viewModel, /requestComplicationUpdate\(/);
 });
 
-// Reading glides: each screen opens with the last quarter of the one before,
-// dimmed, and the end of a surah runs on into the next through a divider.
-test('reader carries a quarter screen over and runs on into the next surah', async () => {
-  const passages = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/RoundPassages.kt', root), 'utf8');
-  assert.match(passages, /CARRY_SHARE = 0\.25f/);
-  assert.match(passages, /fun carryOf\(/);
-  assert.doesNotMatch(reader, /\.tail\b/);
+// Four display styles share one line engine; the line style pauses under a finger,
+// and the end of a surah runs on into the next.
+test('reader offers four display styles over one line engine', async () => {
+  const lines = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/ReaderLines.kt', root), 'utf8');
+  assert.match(lines, /object Kashida/);
+  for (const mode of ['"pages"', '"river"', '"line"']) assert.match(reader, new RegExp(mode));
+  assert.match(preferences, /it\[READER_MODE\] \?: "fill"/);
+  assert.match(reader, /if \(!auto \|\| touching\) return@LaunchedEffect/);
   assert.match(reader, /SurahDivider\(/);
   assert.match(reader, /onOpenSurah\(surahNumber \+ 1\)/);
 });

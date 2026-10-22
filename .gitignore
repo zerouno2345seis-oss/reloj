@@ -10,3 +10,4 @@ app/build/
 .kotlin/
 .cxx/
 .restore-points/
+watchface*/build/

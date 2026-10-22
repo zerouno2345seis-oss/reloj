@@ -26,6 +26,35 @@ class QuranRepository(private val context: Context) {
         private val OPEN_TANWEEN_SPACE = Regex("([\u08F0-\u08F2]\u0651?) (?=[\u0627\u0649])")
 
         fun joinOpenTanween(text: String): String = text.replace(OPEN_TANWEEN_SPACE, "$1")
+
+        /** The basmala as Tanzil's simple text writes it. */
+        const val SIMPLE_BASMALA = "بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ"
+
+        /**
+         * Reads Tanzil's simple text ("surah|verse|text" lines, a "#" copyright
+         * block at the end) into each surah's verses, in order. Tanzil starts
+         * verse 1 of every surah but al-Fatiha with the basmala; the reader
+         * draws the basmala itself, so it is left out here.
+         */
+        fun parseSimple(lines: Sequence<String>): Map<Int, List<String>> {
+            val bySurah = HashMap<Int, MutableList<String>>()
+            for (line in lines) {
+                if (line.isBlank() || line.startsWith("#")) continue
+                val parts = line.split('|', limit = 3)
+                if (parts.size < 3) continue
+                val surah = parts[0].toIntOrNull() ?: continue
+                var text = parts[2].trim()
+                if (surah != 1 && parts[1] == "1") {
+                    // At-Tin and al-Qadr write its first letter with a shadda: "بِّسْمِ".
+                    val rest = SIMPLE_BASMALA.substring(2) + " " // after "بِ"
+                    for (start in listOf("\u0628\u0650", "\u0628\u0651\u0650", "\u0628\u0650\u0651")) {
+                        if (text.startsWith(start + rest)) { text = text.substring(start.length + rest.length).trim(); break }
+                    }
+                }
+                bySurah.getOrPut(surah) { ArrayList() } += text
+            }
+            return bySurah
+        }
     }
 
     // ──────────────────────────────────────────────────────────
@@ -117,6 +146,32 @@ class QuranRepository(private val context: Context) {
         // Verses are stored in order, so the index is the verse number - 1.
         return list.getOrNull(ayah - 1)?.takeIf { it.verse == ayah } ?: list.find { it.verse == ayah }
     }
+
+    @Volatile private var simpleBySurah: Map<Int, List<String>> = emptyMap()
+    private val simpleLock = Mutex()
+
+    /**
+     * The simple (imla'i) text, with full vowel marks: the fonts that stretch
+     * with kashida read it, since the Uthmani letter forms cannot be stretched.
+     * Loaded on first use only.
+     */
+    suspend fun loadSimple(): Boolean = withContext(Dispatchers.IO) {
+        simpleLock.withLock {
+            if (simpleBySurah.isNotEmpty()) return@withLock true
+            try {
+                context.assets.open("quran_simple.txt").bufferedReader(Charsets.UTF_8).useLines {
+                    simpleBySurah = parseSimple(it)
+                }
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
+    }
+
+    /** One surah's verses in the simple text, verse 1 first; empty before [loadSimple]. */
+    fun getSurahSimple(surahNumber: Int): List<String> = simpleBySurah[surahNumber] ?: emptyList()
 
     fun getAllSurahs() = SurahMetadata.surahs
 

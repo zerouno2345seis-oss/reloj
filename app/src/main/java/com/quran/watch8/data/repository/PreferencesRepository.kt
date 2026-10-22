@@ -42,6 +42,10 @@ class PreferencesRepository(private val context: Context) {
         private val PERMISSIONS_REQUESTED = booleanPreferencesKey("permissions_requested")
         private val FONT_FAMILY = stringPreferencesKey("font_family")  // "default", "uthmani", "kufi", "sansserif", "serif"
         private val HOME_STYLE = stringPreferencesKey("home_style")    // "metro", "dashboard"
+        private val READER_MODE = stringPreferencesKey("reader_mode")  // "pages", "river", "line", "fill"
+        private val LINE_AUTO = booleanPreferencesKey("reader_line_auto")
+        private val LINE_SPEED = stringPreferencesKey("reader_line_speed") // "slow", "medium", "fast"
+        private val READING_USAGE_JSON = stringPreferencesKey("reading_usage_json")
         private val TILES_CONFIG_JSON = stringPreferencesKey("tiles_config_json")
         private val TILES_DISPLAY_MODE = stringPreferencesKey("tiles_display_mode") // "icons_only", "icons_and_text"
         private val PRAYER_REMINDERS_JSON = stringPreferencesKey("prayer_reminders_json")
@@ -65,6 +69,10 @@ class PreferencesRepository(private val context: Context) {
     val customReaderTextColor: Flow<String> = context.dataStore.data.map { it[CUSTOM_READER_TEXT_COLOR] ?: "#FFFFFF" }
     val fontFamily: Flow<String> = context.dataStore.data.map { it[FONT_FAMILY] ?: "default" }
     val homeStyle: Flow<String> = context.dataStore.data.map { it[HOME_STYLE] ?: "metro" }
+    val readerMode: Flow<String> = context.dataStore.data.map { it[READER_MODE] ?: "fill" }
+    val lineAuto: Flow<Boolean> = context.dataStore.data.map { it[LINE_AUTO] ?: true }
+    val lineSpeed: Flow<String> = context.dataStore.data.map { it[LINE_SPEED] ?: "medium" }
+    val readingUsageJson: Flow<String> = context.dataStore.data.map { it[READING_USAGE_JSON] ?: "" }
     val tilesConfigJson: Flow<String> = context.dataStore.data.map { it[TILES_CONFIG_JSON] ?: "" }
     val tilesDisplayMode: Flow<String> = context.dataStore.data.map { it[TILES_DISPLAY_MODE] ?: "icons_only" }
     val prayerRemindersJson: Flow<String> = context.dataStore.data.map { it[PRAYER_REMINDERS_JSON] ?: "" }
@@ -123,6 +131,23 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setFontFamily(name: String) {
         context.dataStore.edit { it[FONT_FAMILY] = name }
+    }
+
+    suspend fun setReaderMode(mode: String) {
+        context.dataStore.edit { it[READER_MODE] = mode }
+    }
+
+    suspend fun setLineAuto(on: Boolean) {
+        context.dataStore.edit { it[LINE_AUTO] = on }
+    }
+
+    suspend fun setLineSpeed(speed: String) {
+        context.dataStore.edit { it[LINE_SPEED] = speed }
+    }
+
+    /** Read-modify-write in one transaction, so two quick adds never lose one. */
+    suspend fun updateReadingUsage(transform: (String) -> String) {
+        context.dataStore.edit { it[READING_USAGE_JSON] = transform(it[READING_USAGE_JSON] ?: "") }
     }
 
     suspend fun setHomeStyle(style: String) {

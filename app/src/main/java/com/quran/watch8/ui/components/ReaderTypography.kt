@@ -76,18 +76,53 @@ object ReaderTypography {
     /** End-of-ayah sign with the number in Arabic-Indic digits, e.g. ۝١٢. */
     fun ayahEndMark(verse: Int): String = "\u06DD" + arabicDigits(verse)
 
+    /** A reading font the settings offer: its id, its name, and which text it reads. */
+    class ReadingFont(val id: String, val nameAr: String, val simpleText: Boolean)
+
+    /**
+     * The five reading fonts, Madinah first (the default). The first two draw
+     * the Uthmani text, whose letter forms cannot be stretched; the other
+     * three draw the simple text with full vowels and stretch with kashida,
+     * so their lines fill to the edge.
+     */
+    val READING_FONTS = listOf(
+        ReadingFont("default", "المدينة", simpleText = false),
+        ReadingFont("amiri", "أميري قرآني", simpleText = false),
+        ReadingFont("amiri_plain", "أميري", simpleText = true),
+        ReadingFont("naskh", "نسخ", simpleText = true),
+        ReadingFont("scheherazade", "شهرزاد", simpleText = true),
+    )
+
+    /** True when [id] reads the simple text and may stretch with kashida. */
+    fun usesSimpleText(id: String): Boolean = READING_FONTS.firstOrNull { it.id == id }?.simpleText == true
+
+    /** Al-Isra 82 in the simple text, for previewing the simple-text fonts. */
+    const val SAMPLE_AYAH_SIMPLE = "وَنُنَزِّلُ مِنَ الْقُرْآنِ مَا هُوَ شِفَاءٌ وَرَحْمَةٌ"
+
+    fun sampleAyah(id: String): String = if (usesSimpleText(id)) SAMPLE_AYAH_SIMPLE else SAMPLE_AYAH
+
+    private val AmiriPlainFont = FontFamily(Font(R.font.amiri_regular))
+    private val NaskhFont = FontFamily(Font(R.font.noto_naskh_arabic))
+    private val ScheherazadeFont = FontFamily(Font(R.font.scheherazade_new))
+
     fun fontFamily(id: String): FontFamily = when (id) {
         "sansserif", "tajawal", "cairo" -> FontFamily.SansSerif
-        "serif", "naskh" -> FontFamily.Serif
+        "serif" -> FontFamily.Serif
         "amiri" -> AmiriFont
+        "amiri_plain" -> AmiriPlainFont
+        "naskh" -> NaskhFont
+        "scheherazade" -> ScheherazadeFont
         else        -> QuranFont
     }
 
     /** The same choice as [fontFamily], for text drawn by the platform. */
     fun typeface(context: Context, id: String): Typeface = when (id) {
         "sansserif", "tajawal", "cairo" -> Typeface.SANS_SERIF
-        "serif", "naskh" -> Typeface.SERIF
+        "serif" -> Typeface.SERIF
         "amiri" -> quranTypeface(context)
+        "amiri_plain" -> context.resources.getFont(R.font.amiri_regular)
+        "naskh" -> context.resources.getFont(R.font.noto_naskh_arabic)
+        "scheherazade" -> context.resources.getFont(R.font.scheherazade_new)
         else -> madinah ?: quranTypeface(context)
     }
 

@@ -30,6 +30,7 @@ import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
 import com.quran.watch8.util.PrayerTimesHelper
+import com.quran.watch8.util.ReadingUsage
 
 /** A reading theme: one tap sets the page's background and text together. */
 private data class ReadingTheme(val bg: String, val text: String)
@@ -62,6 +63,11 @@ fun SettingsScreen(
     val notifications by viewModel.notificationsEnabled.collectAsState()
     val locationName by viewModel.selectedLocationName.collectAsState()
     val method by viewModel.calculationMethod.collectAsState()
+    val readerMode by viewModel.readerMode.collectAsState()
+    val lineAuto by viewModel.lineAuto.collectAsState()
+    val lineSpeed by viewModel.lineSpeed.collectAsState()
+    val usageJson by viewModel.readingUsage.collectAsState()
+    val mostUsed = remember(usageJson) { ReadingUsage.top(usageJson, java.time.LocalDate.now()) }
 
     val pageBg = ReaderTypography.backgroundColor(readerBgColor, customReaderBgColor)
     val pageText = ReaderTypography.textColor(readerTextColor, customReaderTextColor)
@@ -102,7 +108,7 @@ fun SettingsScreen(
                     // Closed the way the reader closes a verse.
                     Text(
                         text = buildAnnotatedString {
-                            append(ReaderTypography.SAMPLE_AYAH)
+                            append(ReaderTypography.sampleAyah(fontFamily))
                             append('\u00A0')
                             withStyle(SpanStyle(color = numberColor, fontFamily = ReaderTypography.QuranFont)) {
                                 append(ReaderTypography.ayahEndMark(82))
@@ -138,17 +144,78 @@ fun SettingsScreen(
                 }
             }
 
-            // Face: one of two. "default" is the Madinah mushaf face.
+            // How the reader lays the text out: four styles to try for a while.
+            item { SectionLabel("طريقة العرض") }
             item {
-                Row(
+                Column(modifier = width, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    READER_MODES.chunked(2).forEach { pair ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            pair.forEach { (id, name) ->
+                                ModeButton(name, selected = readerMode == id, modifier = Modifier.weight(1f)) { viewModel.setReaderMode(id) }
+                            }
+                        }
+                    }
+                }
+            }
+            // Which pair is read the most this week, counted on the watch.
+            if (mostUsed != null) {
+                item {
+                    val modeName = READER_MODES.firstOrNull { it.first == mostUsed.mode }?.second ?: mostUsed.mode
+                    val fontName = ReaderTypography.READING_FONTS.firstOrNull { it.id == mostUsed.font }?.nameAr ?: mostUsed.font
+                    Text(
+                        text = buildAnnotatedString {
+                            append("الأكثر استعمالًا هذا الأسبوع\n")
+                            withStyle(SpanStyle(color = AccentGold, fontWeight = FontWeight.Bold)) { append(modeName) }
+                            append(" بخط ")
+                            withStyle(SpanStyle(color = AccentGold, fontWeight = FontWeight.Bold)) { append(fontName) }
+                            append(" · ${usageDuration(mostUsed.seconds)}")
+                        },
+                        color = Color(0xFFD3DAD6),
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = width
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF1B2421))
+                            .border(1.dp, Color(0xFF2F3D38), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            // The five reading fonts, each showing its own "al-hamdu lillah".
+            item { SectionLabel("الخط") }
+            ReaderTypography.READING_FONTS.forEach { font ->
+                item {
+                    FontRow(font, selected = fontFamily == font.id || (font.id == "default" && ReaderTypography.READING_FONTS.none { it.id == fontFamily }), modifier = width) {
+                        viewModel.setFontFamily(font.id)
+                    }
+                }
+            }
+
+            // The "line in the middle" style moves on by itself; a finger on the glass holds it.
+            item { SectionLabel("التشغيل التلقائي") }
+            item {
+                ToggleChip(
+                    checked = lineAuto,
+                    onCheckedChange = { viewModel.setLineAuto(it) },
+                    label = { Text("يتقدّم السطر وحده", fontSize = 12.sp) },
+                    secondaryLabel = { Text("في «سطر في الوسط»", fontSize = 10.sp) },
+                    toggleControl = { Switch(checked = lineAuto, onCheckedChange = null) },
                     modifier = width
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color(0xFF151922))
-                        .padding(3.dp)
-                ) {
-                    val madinah = fontFamily != "amiri"
-                    Segment("المدينة", selected = madinah, modifier = Modifier.weight(1f)) { viewModel.setFontFamily("default") }
-                    Segment("الأميري", selected = !madinah, modifier = Modifier.weight(1f)) { viewModel.setFontFamily("amiri") }
+                )
+            }
+            if (lineAuto) {
+                item {
+                    Row(
+                        modifier = width
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Color(0xFF151922))
+                            .padding(3.dp)
+                    ) {
+                        LINE_SPEEDS.forEach { (id, name) ->
+                            Segment(name, selected = lineSpeed == id, modifier = Modifier.weight(1f)) { viewModel.setLineSpeed(id) }
+                        }
+                    }
                 }
             }
 
@@ -223,6 +290,81 @@ fun SettingsScreen(
                 UpdateChip(modifier = width.padding(top = 4.dp))
             }
         }
+    }
+}
+
+/** The reader's display styles, as settings names them. */
+private val READER_MODES = listOf(
+    "pages" to "صفحات",
+    "river" to "نهر",
+    "line" to "سطر في الوسط",
+    "fill" to "نهر ممتلئ",
+)
+
+private val LINE_SPEEDS = listOf("slow" to "بطيء", "medium" to "متوسط", "fast" to "سريع")
+
+private fun usageDuration(seconds: Long): String {
+    val minutes = seconds / 60
+    val h = minutes / 60
+    val m = minutes % 60
+    return when {
+        h == 0L -> "${ReaderTypography.arabicDigits(m.toInt())} د"
+        m == 0L -> "${ReaderTypography.arabicDigits(h.toInt())} س"
+        else -> "${ReaderTypography.arabicDigits(h.toInt())} س ${ReaderTypography.arabicDigits(m.toInt())} د"
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text, color = Color(0xFF9CA3AF), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+}
+
+@Composable
+private fun ModeButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) Color(0xFF0F766E) else Color(0xFF151922))
+            .clickable(onClick = onClick)
+            .padding(vertical = 9.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (selected) Color.White else Color(0xFFCBD5E1),
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1
+        )
+    }
+}
+
+/** A font's name, and "al-hamdu lillah" written in it, in the text it reads. */
+@Composable
+private fun FontRow(font: ReaderTypography.ReadingFont, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) Color(0xFF0F766E) else Color(0xFF151922))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            font.nameAr,
+            color = if (selected) Color.White else Color(0xFFCBD5E1),
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1
+        )
+        Text(
+            if (font.simpleText) "الْحَمْدُ لِلَّهِ" else "ٱلۡحَمۡدُ لِلَّهِ",
+            color = Color.White,
+            fontFamily = ReaderTypography.fontFamily(font.id),
+            fontSize = 17.sp,
+            maxLines = 1
+        )
     }
 }
 

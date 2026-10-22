@@ -1,0 +1,13 @@
+Text and fonts bundled with the reader
+
+quran_uthmani.min.json  Uthmani text in the King Fahd Complex (KFGQPC) encoding.
+quran_simple.txt        Tanzil Quran Text (Simple, Version 1.1), https://tanzil.net,
+                        Creative Commons Attribution 3.0. Shipped verbatim, with its
+                        copyright block; the reader only leaves out the basmala that
+                        Tanzil prefixes to verse 1, since it draws the basmala itself.
+fonts/kfgqpc_hafs.ttf   KFGQPC Uthmanic Script HAFS (V22), King Fahd Glorious Quran
+                        Printing Complex. Shipped unmodified, as its terms require.
+res/font/amiri_quran    Amiri Quran, SIL Open Font License (Amiri-OFL.txt / AmiriQuran-OFL.txt).
+res/font/amiri_regular  Amiri, SIL Open Font License (Amiri-OFL.txt).
+res/font/noto_naskh_arabic  Noto Naskh Arabic, SIL Open Font License (NotoNaskhArabic-OFL.txt).
+res/font/scheherazade_new   Scheherazade New, SIL Open Font License (ScheherazadeNew-OFL.txt).
