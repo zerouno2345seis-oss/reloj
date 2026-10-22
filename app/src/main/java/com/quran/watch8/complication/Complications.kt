@@ -108,28 +108,46 @@ class NextPrayerComplicationService : SuspendingComplicationDataSourceService() 
 }
 
 /**
- * The next prayer as one number, for our own watch face, which has no other
- * way to know a prayer's time: (index in Fajr..Isha) * 1440 + its minute of
- * the day on the watch's clock. The face takes `value % 1440` to draw the arc
- * up to it on the dial, and `floor(value / 1440)` to light its name.
+ * The prayers around now as one number, for our own watch faces, which have
+ * no other way to know a prayer's time:
+ *   index * 2_073_600 + previousMinute * 1440 + nextMinute
+ * where index is the next prayer's place in Fajr..Isha and the minutes are of
+ * the day on the watch's clock. A face takes `value % 1440` for the next
+ * prayer, `floor(value / 1440) % 1440` for the one before it, and
+ * `floor(value / 2073600)` to light the next one's name; from those and the
+ * clock it draws the time since the last prayer and the time to the next,
+ * live, in its own words. Every value stays below 2^24, exact in a float.
  */
 class NextPrayerTimeComplicationService : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? =
-        build(type, 3, 16 * 60 + 19, "العصر 16:19")
+        build(type, 3, 12 * 60 + 39, 16 * 60 + 19, "العصر 16:19")
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val prayers = todaysPrayers() ?: return null
-        val next = PrayerTimesHelper.status(prayers)?.next ?: return null
+        val status = PrayerTimesHelper.status(prayers) ?: return null
+        val next = status.next
         val index = PrayerTimesHelper.cycle(prayers).indexOfFirst { it.nameEn == next.nameEn }.coerceAtLeast(0)
-        val local = next.time.atZone(ZoneId.systemDefault())
-        return build(request.complicationType, index, local.hour * 60 + local.minute, "${next.nameAr} ${next.formatted}")
+        val zone = ZoneId.systemDefault()
+        val nextLocal = next.time.atZone(zone)
+        val previousLocal = status.current.time.atZone(zone)
+        return build(
+            request.complicationType, index,
+            previousLocal.hour * 60 + previousLocal.minute,
+            nextLocal.hour * 60 + nextLocal.minute,
+            "${next.nameAr} ${next.formatted}"
+        )
     }
 
-    private fun build(type: ComplicationType, index: Int, minuteOfDay: Int, label: String): ComplicationData? {
+    private fun build(type: ComplicationType, index: Int, previousMinute: Int, nextMinute: Int, label: String): ComplicationData? {
         if (type != ComplicationType.RANGED_VALUE) return null
-        return RangedValueComplicationData.Builder((index * 1440 + minuteOfDay).toFloat(), 0f, 5f * 1440, text(label))
+        val value = index * DAY_SQUARED + previousMinute * 1440 + nextMinute
+        return RangedValueComplicationData.Builder(value.toFloat(), 0f, 5f * DAY_SQUARED, text(label))
             .setText(text(label)).setTapAction(openRoute("prayer")).build()
+    }
+
+    private companion object {
+        const val DAY_SQUARED = 1440 * 1440
     }
 }
 
