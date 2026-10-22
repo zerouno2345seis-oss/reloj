@@ -12,7 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,8 +99,15 @@ fun SettingsScreen(
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Closed the way the reader closes a verse.
                     Text(
-                        text = ReaderTypography.SAMPLE_AYAH,
+                        text = buildAnnotatedString {
+                            append(ReaderTypography.SAMPLE_AYAH)
+                            append('\u00A0')
+                            withStyle(SpanStyle(color = numberColor, fontFamily = ReaderTypography.QuranFont)) {
+                                append(ReaderTypography.ayahEndMark(82))
+                            }
+                        },
                         color = pageText,
                         fontFamily = ReaderTypography.fontFamily(fontFamily),
                         fontSize = fontSize.sp,
@@ -137,7 +147,7 @@ fun SettingsScreen(
                         .padding(3.dp)
                 ) {
                     val madinah = fontFamily != "amiri"
-                    Segment("مصحف المدينة", selected = madinah, modifier = Modifier.weight(1f)) { viewModel.setFontFamily("default") }
+                    Segment("المدينة", selected = madinah, modifier = Modifier.weight(1f)) { viewModel.setFontFamily("default") }
                     Segment("الأميري", selected = !madinah, modifier = Modifier.weight(1f)) { viewModel.setFontFamily("amiri") }
                 }
             }
@@ -167,8 +177,8 @@ fun SettingsScreen(
                             Text(
                                 "ق",
                                 color = ReaderTypography.textColor(theme.text, ""),
-                                fontFamily = ReaderTypography.QuranFont,
-                                fontSize = 14.sp
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }

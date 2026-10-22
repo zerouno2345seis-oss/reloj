@@ -22,9 +22,12 @@ object ReaderTypography {
 
     const val MIN_FONT_SIZE = 8f
     const val MAX_FONT_SIZE = 48f
-
-    /** A short, familiar ayah: enough text to judge a size and a face by. */
-    const val SAMPLE_AYAH = "﴿ وَنُنَزِّلُ مِنَ ٱلْقُرْءَانِ مَا هُوَ شِفَآءٌ وَرَحْمَةٌ ﴾"
+    /**
+     * A short, familiar verse (al-Isra 82) to judge a size and a face by. No
+     * ornate brackets: the Madinah face drew them as broken marks; settings
+     * closes it with [ayahEndMark] as the reader does.
+     */
+    const val SAMPLE_AYAH = "وَنُنَزِّلُ مِنَ ٱلْقُرْءَانِ مَا هُوَ شِفَآءٌ وَرَحْمَةٌ"
 
     fun coerceFontSize(value: Float): Float = value.coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE)
 
