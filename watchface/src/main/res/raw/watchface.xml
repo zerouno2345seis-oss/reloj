@@ -1,210 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Generated layout; the three styles follow the approved canvas (الحلقة، العقارب، المحراب). -->
+<!-- The ring face (style 1 on the approved canvas). Validate with scripts/validate-watchface.sh before any install. -->
 <WatchFace width="450" height="450" clipShape="CIRCLE">
 <Metadata key="CLOCK_TYPE" value="DIGITAL"/>
 <Metadata key="PREVIEW_TIME" value="15:42:00"/>
-<UserConfigurations><ListConfiguration id="style" displayName="style_label" screenReaderText="style_label" defaultValue="0">
-<ListOption id="0" displayName="style_ring" screenReaderText="style_ring"/>
-<ListOption id="1" displayName="style_hands" screenReaderText="style_hands"/>
-<ListOption id="2" displayName="style_mihrab" screenReaderText="style_mihrab"/>
-</ListConfiguration></UserConfigurations>
 <Scene backgroundColor="#FF000000">
-<ListConfiguration id="style">
-<ListOption id="0"><Group name="ring" x="0" y="0" width="450" height="450">
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Arc centerX="225" centerY="225" width="420" height="420" startAngle="0" endAngle="360"><Stroke color="#FF1F2937" thickness="8" cap="ROUND"/></Arc></PartDraw>
-<ComplicationSlot slotId="0" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="TRUE">
+<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="420" height="420" startAngle="0" endAngle="360"><Stroke color="#FF1F2937" thickness="8"/></Arc><Variant mode="AMBIENT" target="alpha" value="0"/></PartDraw>
+<ComplicationSlot slotId="0" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE EMPTY" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerComplicationService" primaryProviderType="RANGED_VALUE"/>
 <BoundingBox x="95" y="250" width="260" height="38"/>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Arc centerX="225" centerY="225" width="420" height="420" startAngle="0" endAngle="0"><Transform target="endAngle" value="(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]) * 360)"/><Stroke color="#FFC9A227" thickness="8" cap="ROUND"/></Arc></PartDraw><PartDraw x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255"/><Arc centerX="225" centerY="225" width="420" height="420" startAngle="0" endAngle="0"><Transform target="endAngle" value="(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]) * 360)"/><Stroke color="#FF6B7280" thickness="2" cap="ROUND"/></Arc></PartDraw><PartText x="60" y="252" width="330" height="34"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFFFFFFF"><Template>%s · %s<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="[COMPLICATION.TITLE]"/></Template></Font></Text></PartText></Complication>
+<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="420" height="420" startAngle="0" endAngle="0"><Transform target="endAngle" value="(clamp([COMPLICATION.RANGED_VALUE_VALUE], 0, 1) * 360)"/><Stroke color="#FFC9A227" thickness="8" cap="ROUND"/></Arc></PartDraw><PartText x="60" y="252" width="330" height="34"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFFFFFFF"><Template>%s · %s<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="[COMPLICATION.TITLE]"/></Template></Font></Text></PartText></Complication>
+<Complication type="EMPTY"></Complication>
 </ComplicationSlot>
-<DigitalClock x="0" y="92" width="450" height="128"><TimeText format="HH:mm" hourFormat="24" align="CENTER" x="0" y="0" width="450" height="128"><Font family="SYNC_TO_DEVICE" size="108" weight="LIGHT" color="#FFFFFFFF"></Font></TimeText></DigitalClock>
-<ComplicationSlot slotId="1" x="75" y="218" width="300" height="30" supportedTypes="LONG_TEXT SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
+<DigitalClock x="0" y="92" width="450" height="128"><TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="450" height="128"><Font family="SYNC_TO_DEVICE" size="108" weight="LIGHT" color="#FFFFFFFF"></Font></TimeText></DigitalClock>
+<ComplicationSlot slotId="1" x="75" y="218" width="300" height="30" supportedTypes="LONG_TEXT SHORT_TEXT EMPTY" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.HijriDateComplicationService" primaryProviderType="LONG_TEXT"/>
 <BoundingBox x="0" y="0" width="300" height="30"/>
 <Complication type="LONG_TEXT"><PartText x="0" y="0" width="300" height="30"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
 <Complication type="SHORT_TEXT"><PartText x="0" y="0" width="300" height="30"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="2" x="120" y="296" width="210" height="44" supportedTypes="SHORT_TEXT" isCustomizable="TRUE">
+<Complication type="EMPTY"></Complication>
 <Variant mode="AMBIENT" target="alpha" value="0"/>
+</ComplicationSlot>
+<ComplicationSlot slotId="2" x="120" y="296" width="210" height="44" supportedTypes="SHORT_TEXT EMPTY" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.ContinueReadingComplicationService" primaryProviderType="SHORT_TEXT"/>
 <BoundingBox x="0" y="0" width="210" height="44"/>
 <Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="210" height="44"><RoundRectangle x="0" y="0" width="210" height="44" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#FF0F766E"/></RoundRectangle></PartDraw><PartText x="10" y="0" width="190" height="44"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" weight="BOLD" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="3" x="232" y="352" width="50" height="50" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
+<Complication type="EMPTY"></Complication>
 <Variant mode="AMBIENT" target="alpha" value="0"/>
+</ComplicationSlot>
+<ComplicationSlot slotId="3" x="232" y="352" width="50" height="50" supportedTypes="SMALL_IMAGE SHORT_TEXT EMPTY" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.QuranShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
 <BoundingOval x="0" y="0" width="50" height="50"/>
 <Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="50" height="50"><Ellipse x="0" y="0" width="50" height="50"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartImage x="12" y="12" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="50" height="50"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="4" x="168" y="352" width="50" height="50" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
+<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="50" height="50"><Ellipse x="0" y="0" width="50" height="50"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartText x="0" y="0" width="50" height="50"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Complication type="EMPTY"></Complication>
 <Variant mode="AMBIENT" target="alpha" value="0"/>
+</ComplicationSlot>
+<ComplicationSlot slotId="4" x="168" y="352" width="50" height="50" supportedTypes="SMALL_IMAGE SHORT_TEXT EMPTY" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.BookmarksShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
 <BoundingOval x="0" y="0" width="50" height="50"/>
 <Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="50" height="50"><Ellipse x="0" y="0" width="50" height="50"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartImage x="12" y="12" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="50" height="50"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-</Group></ListOption>
-<ListOption id="1"><Group name="hands" x="0" y="0" width="450" height="450">
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="225.0" startY="28.0" endX="225.0" endY="12.0"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="246.4" startY="21.1" endX="247.3" endY="13.2"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="267.6" startY="24.5" endX="269.3" endY="16.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="288.3" startY="30.0" endX="290.8" endY="22.4"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="308.4" startY="37.7" endX="311.6" endY="30.4"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="323.5" startY="54.4" endX="331.5" endY="40.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="345.5" startY="59.2" endX="350.2" endY="52.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="362.2" startY="72.7" endX="367.5" endY="66.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="377.3" startY="87.8" endX="383.3" endY="82.5"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="390.8" startY="104.5" endX="397.3" endY="99.8"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="395.6" startY="126.5" endX="409.5" endY="118.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="412.3" startY="141.6" endX="419.6" endY="138.4"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="420.0" startY="161.7" endX="427.6" endY="159.2"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="425.5" startY="182.4" endX="433.3" endY="180.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="428.9" startY="203.6" endX="436.8" endY="202.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="422.0" startY="225.0" endX="438.0" endY="225.0"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="428.9" startY="246.4" endX="436.8" endY="247.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="425.5" startY="267.6" endX="433.3" endY="269.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="420.0" startY="288.3" endX="427.6" endY="290.8"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="412.3" startY="308.4" endX="419.6" endY="311.6"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="395.6" startY="323.5" endX="409.5" endY="331.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="390.8" startY="345.5" endX="397.3" endY="350.2"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="377.3" startY="362.2" endX="383.3" endY="367.5"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="362.2" startY="377.3" endX="367.5" endY="383.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="345.5" startY="390.8" endX="350.2" endY="397.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="323.5" startY="395.6" endX="331.5" endY="409.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="308.4" startY="412.3" endX="311.6" endY="419.6"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="288.3" startY="420.0" endX="290.8" endY="427.6"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="267.6" startY="425.5" endX="269.3" endY="433.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="246.4" startY="428.9" endX="247.3" endY="436.8"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="225.0" startY="422.0" endX="225.0" endY="438.0"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="203.6" startY="428.9" endX="202.7" endY="436.8"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="182.4" startY="425.5" endX="180.7" endY="433.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="161.7" startY="420.0" endX="159.2" endY="427.6"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="141.6" startY="412.3" endX="138.4" endY="419.6"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="126.5" startY="395.6" endX="118.5" endY="409.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="104.5" startY="390.8" endX="99.8" endY="397.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="87.8" startY="377.3" endX="82.5" endY="383.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="72.7" startY="362.2" endX="66.7" endY="367.5"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="59.2" startY="345.5" endX="52.7" endY="350.2"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="54.4" startY="323.5" endX="40.5" endY="331.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="37.7" startY="308.4" endX="30.4" endY="311.6"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="30.0" startY="288.3" endX="22.4" endY="290.8"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="24.5" startY="267.6" endX="16.7" endY="269.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="21.1" startY="246.4" endX="13.2" endY="247.3"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="28.0" startY="225.0" endX="12.0" endY="225.0"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="21.1" startY="203.6" endX="13.2" endY="202.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="24.5" startY="182.4" endX="16.7" endY="180.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="30.0" startY="161.7" endX="22.4" endY="159.2"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="37.7" startY="141.6" endX="30.4" endY="138.4"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="54.4" startY="126.5" endX="40.5" endY="118.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="59.2" startY="104.5" endX="52.7" endY="99.8"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="72.7" startY="87.8" endX="66.7" endY="82.5"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="87.8" startY="72.7" endX="82.5" endY="66.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="104.5" startY="59.2" endX="99.8" endY="52.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="126.5" startY="54.4" endX="118.5" endY="40.5"><Stroke color="#FF9CA3AF" thickness="4" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="141.6" startY="37.7" endX="138.4" endY="30.4"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="161.7" startY="30.0" endX="159.2" endY="22.4"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="182.4" startY="24.5" endX="180.7" endY="16.7"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="203.6" startY="21.1" endX="202.7" endY="13.2"><Stroke color="#FF374151" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<ComplicationSlot slotId="15" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="FALSE">
+<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="50" height="50"><Ellipse x="0" y="0" width="50" height="50"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartText x="0" y="0" width="50" height="50"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Complication type="EMPTY"></Complication>
 <Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerTimeComplicationService" primaryProviderType="RANGED_VALUE"/>
-<BoundingOval x="205" y="205" width="40" height="40"/>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="382" height="382" startAngle="0" endAngle="0"><Transform target="startAngle" value="(([HOUR_0_11] + [MINUTE] / 60) * 30)"/><Transform target="endAngle" value="(([HOUR_0_11] + [MINUTE] / 60) * 30) + ((([COMPLICATION.RANGED_VALUE_VALUE] % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) * 0.5 * (1 - clamp(floor((([COMPLICATION.RANGED_VALUE_VALUE] % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) / 1200), 0, 1)))"/><Stroke color="#FFC9A227" thickness="9" cap="ROUND"/></Arc></PartDraw></Complication>
 </ComplicationSlot>
-<ComplicationSlot slotId="11" x="75" y="92" width="300" height="28" supportedTypes="LONG_TEXT SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.HijriDateComplicationService" primaryProviderType="LONG_TEXT"/>
-<BoundingBox x="0" y="0" width="300" height="28"/>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="300" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="300" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="10" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="TRUE">
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerComplicationService" primaryProviderType="RANGED_VALUE"/>
-<BoundingBox x="95" y="120" width="260" height="34"/>
-<Complication type="RANGED_VALUE"><PartText x="60" y="122" width="330" height="30"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" weight="BOLD" color="#FFFFFFFF"><Template>%s · %s<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="[COMPLICATION.TITLE]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="14" x="106" y="308" width="46" height="46" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.QuranShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
-<BoundingOval x="0" y="0" width="46" height="46"/>
-<Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="46" height="46"><Ellipse x="0" y="0" width="46" height="46"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartImage x="10" y="10" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="46" height="46"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="13" x="162" y="309" width="130" height="44" supportedTypes="SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.ContinueReadingComplicationService" primaryProviderType="SHORT_TEXT"/>
-<BoundingBox x="0" y="0" width="130" height="44"/>
-<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="130" height="44"><RoundRectangle x="0" y="0" width="130" height="44" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#FF0F766E"/></RoundRectangle></PartDraw><PartText x="10" y="0" width="110" height="44"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="17" weight="BOLD" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="12" x="302" y="308" width="46" height="46" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.BookmarksShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
-<BoundingOval x="0" y="0" width="46" height="46"/>
-<Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="46" height="46"><Ellipse x="0" y="0" width="46" height="46"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartImage x="10" y="10" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="46" height="46"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<Group name="hour" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Transform target="angle" value="(([HOUR_0_11] + [MINUTE] / 60) * 30)"/>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="225" endX="225" endY="114"><Stroke color="#FFFFFFFF" thickness="9" cap="ROUND"/></Line></PartDraw>
-</Group>
-<Group name="minute" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Transform target="angle" value="([MINUTE] * 6 + [SECOND] * 0.1)"/>
-<PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="225" endX="225" endY="53"><Stroke color="#FFFFFFFF" thickness="5" cap="ROUND"/></Line></PartDraw>
-</Group>
-<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="216" y="216" width="18" height="18"><Fill color="#FFC9A227"/></Ellipse><Ellipse x="222" y="222" width="6" height="6"><Fill color="#FF000000"/></Ellipse></PartDraw>
-</Group></ListOption>
-<ListOption id="2"><Group name="mihrab" x="0" y="0" width="450" height="450">
-<PartDraw x="0" y="0" width="450" height="450" alpha="255"><Variant mode="AMBIENT" target="alpha" value="0"/><Arc centerX="233.3" centerY="177" width="234.6" height="234.6" startAngle="270" endAngle="355.9"><Stroke color="#FFC9A227" thickness="2.5" cap="ROUND"/></Arc></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="255"><Variant mode="AMBIENT" target="alpha" value="0"/><Arc centerX="216.7" centerY="177" width="234.6" height="234.6" startAngle="4.1" endAngle="90"><Stroke color="#FFC9A227" thickness="2.5" cap="ROUND"/></Arc></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="255"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="116" startY="177" endX="116" endY="304"><Stroke color="#FFC9A227" thickness="2.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="255"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="334" startY="177" endX="334" endY="304"><Stroke color="#FFC9A227" thickness="2.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255"/><Arc centerX="233.3" centerY="177" width="234.6" height="234.6" startAngle="270" endAngle="355.9"><Stroke color="#FF6B7280" thickness="1.5" cap="ROUND"/></Arc></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255"/><Arc centerX="216.7" centerY="177" width="234.6" height="234.6" startAngle="4.1" endAngle="90"><Stroke color="#FF6B7280" thickness="1.5" cap="ROUND"/></Arc></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255"/><Line startX="116" startY="177" endX="116" endY="304"><Stroke color="#FF6B7280" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255"/><Line startX="334" startY="177" endX="334" endY="304"><Stroke color="#FF6B7280" thickness="1.5" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="115"><Variant mode="AMBIENT" target="alpha" value="0"/><Arc centerX="233.3" centerY="181" width="206.6" height="206.6" startAngle="270" endAngle="355.4"><Stroke color="#FFC9A227" thickness="1" cap="ROUND"/></Arc></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="115"><Variant mode="AMBIENT" target="alpha" value="0"/><Arc centerX="216.7" centerY="181" width="206.6" height="206.6" startAngle="4.6" endAngle="90"><Stroke color="#FFC9A227" thickness="1" cap="ROUND"/></Arc></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="115"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="130" startY="181" endX="130" endY="304"><Stroke color="#FFC9A227" thickness="1" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450" alpha="115"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="320" startY="181" endX="320" endY="304"><Stroke color="#FFC9A227" thickness="1" cap="ROUND"/></Line></PartDraw>
-<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Line startX="101" startY="304" endX="349" endY="304"><Stroke color="#FFC9A227" thickness="2.5" cap="ROUND"/></Line></PartDraw>
-<ComplicationSlot slotId="21" x="130" y="118" width="190" height="26" supportedTypes="LONG_TEXT SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.HijriDateComplicationService" primaryProviderType="LONG_TEXT"/>
-<BoundingBox x="0" y="0" width="190" height="26"/>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="190" height="26"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="190" height="26"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<DigitalClock x="130" y="144" width="190" height="94"><TimeText format="HH:mm" hourFormat="24" align="CENTER" x="0" y="0" width="190" height="94"><Font family="SYNC_TO_DEVICE" size="78" weight="BOLD" color="#FFFFFFFF"></Font></TimeText></DigitalClock>
-<ComplicationSlot slotId="20" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="TRUE">
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerComplicationService" primaryProviderType="RANGED_VALUE"/>
-<BoundingBox x="125" y="236" width="200" height="32"/>
-<Complication type="RANGED_VALUE"><PartText x="125" y="238" width="200" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFB8C0CC"><Template>%s · %s<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="[COMPLICATION.TITLE]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="25" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="FALSE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerTimeComplicationService" primaryProviderType="RANGED_VALUE"/>
-<BoundingBox x="55" y="312" width="340" height="32"/>
-<Complication type="RANGED_VALUE"><PartText x="315" y="314" width="60" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FF8B95A3"><Template>الفجر</Template></Font></Text></PartText><PartText x="315" y="314" width="60" height="28"><Transform target="alpha" value="(255 * (1 - clamp(abs(floor([COMPLICATION.RANGED_VALUE_VALUE] / 1440) - 0), 0, 1)))"/><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFC9A227"><Template>الفجر</Template></Font></Text></PartText><PartText x="255" y="314" width="60" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FF8B95A3"><Template>الظهر</Template></Font></Text></PartText><PartText x="255" y="314" width="60" height="28"><Transform target="alpha" value="(255 * (1 - clamp(abs(floor([COMPLICATION.RANGED_VALUE_VALUE] / 1440) - 1), 0, 1)))"/><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFC9A227"><Template>الظهر</Template></Font></Text></PartText><PartText x="195" y="314" width="60" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FF8B95A3"><Template>العصر</Template></Font></Text></PartText><PartText x="195" y="314" width="60" height="28"><Transform target="alpha" value="(255 * (1 - clamp(abs(floor([COMPLICATION.RANGED_VALUE_VALUE] / 1440) - 2), 0, 1)))"/><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFC9A227"><Template>العصر</Template></Font></Text></PartText><PartText x="135" y="314" width="60" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FF8B95A3"><Template>المغرب</Template></Font></Text></PartText><PartText x="135" y="314" width="60" height="28"><Transform target="alpha" value="(255 * (1 - clamp(abs(floor([COMPLICATION.RANGED_VALUE_VALUE] / 1440) - 3), 0, 1)))"/><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFC9A227"><Template>المغرب</Template></Font></Text></PartText><PartText x="75" y="314" width="60" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FF8B95A3"><Template>العشاء</Template></Font></Text></PartText><PartText x="75" y="314" width="60" height="28"><Transform target="alpha" value="(255 * (1 - clamp(abs(floor([COMPLICATION.RANGED_VALUE_VALUE] / 1440) - 4), 0, 1)))"/><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFC9A227"><Template>العشاء</Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="24" x="106" y="358" width="46" height="46" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.QuranShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
-<BoundingOval x="0" y="0" width="46" height="46"/>
-<Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="46" height="46"><Ellipse x="0" y="0" width="46" height="46"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartImage x="10" y="10" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="46" height="46"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="23" x="162" y="359" width="130" height="44" supportedTypes="SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.ContinueReadingComplicationService" primaryProviderType="SHORT_TEXT"/>
-<BoundingBox x="0" y="0" width="130" height="44"/>
-<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="130" height="44"><RoundRectangle x="0" y="0" width="130" height="44" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#FF0F766E"/></RoundRectangle></PartDraw><PartText x="10" y="0" width="110" height="44"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="17" weight="BOLD" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<ComplicationSlot slotId="22" x="302" y="358" width="46" height="46" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" primaryProvider="com.quran.watch8/com.quran.watch8.complication.BookmarksShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
-<BoundingOval x="0" y="0" width="46" height="46"/>
-<Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="46" height="46"><Ellipse x="0" y="0" width="46" height="46"><Fill color="#FF1F2937"/><Stroke color="#FF374151" thickness="1"/></Ellipse></PartDraw><PartImage x="10" y="10" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="46" height="46"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-</Group></ListOption>
-</ListConfiguration></Scene></WatchFace>
+</Scene></WatchFace>

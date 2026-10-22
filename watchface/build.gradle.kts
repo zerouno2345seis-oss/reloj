@@ -29,3 +29,12 @@ android {
         }
     }
 }
+
+// No build of a face that fails the official schema: an invalid face once
+// sent the watch into a reboot loop.
+val validateWatchFace by tasks.registering(Exec::class) {
+    commandLine(rootProject.file("scripts/validate-watchface.sh").path)
+    inputs.file("src/main/res/raw/watchface.xml")
+    outputs.upToDateWhen { false }
+}
+tasks.named("preBuild") { dependsOn(validateWatchFace) }

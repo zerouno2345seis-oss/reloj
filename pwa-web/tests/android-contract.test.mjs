@@ -214,14 +214,18 @@ test('reader carries a quarter screen over and runs on into the next surah', asy
 
 // Our own watch face is a code-free WFF package whose three styles draw the
 // app's complications; every provider it names must exist in the app.
-test('watch face is WFF and names only real complication services', async () => {
+test('watch face is WFF, validated before build, and names only real complication services', async () => {
   const faceManifest = await readFile(new URL('watchface/src/main/AndroidManifest.xml', root), 'utf8');
   const face = await readFile(new URL('watchface/src/main/res/raw/watchface.xml', root), 'utf8');
   assert.match(faceManifest, /android:hasCode="false"/);
   assert.match(faceManifest, /com\.google\.wear\.watchface\.format\.version/);
-  assert.match(face, /ListConfiguration id="style"[^>]*defaultValue="0"/);
+  const faceGradle = await readFile(new URL('watchface/build.gradle.kts', root), 'utf8');
+  assert.match(faceGradle, /validate-watchface\.sh/);
+  // Complication slots belong directly under Scene; inside a ListOption they
+  // fail the schema, and that face sent the watch into a reboot loop.
+  assert.doesNotMatch(face, /<ListOption[^/]*>[\s\S]*<ComplicationSlot/);
   const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
-  assert.ok(providers.length >= 15);
+  assert.ok(providers.length >= 5);
   for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));
   const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
   assert.equal(new Set(ids).size, ids.length);
