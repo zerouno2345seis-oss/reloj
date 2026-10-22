@@ -18,6 +18,16 @@ import java.io.InputStreamReader
  */
 class QuranRepository(private val context: Context) {
 
+    companion object {
+        // The bundled text puts a space between an open tanween (and any shadda
+        // after it) and the alef or alef maqsura that carries it -- "إِذࣰ ا",
+        // "هُدࣰ ى" -- about 2,400 times. Drawn as is, that alef stood apart
+        // from its word, and a line could even break between them.
+        private val OPEN_TANWEEN_SPACE = Regex("([\u08F0-\u08F2]\u0651?) (?=[\u0627\u0649])")
+
+        fun joinOpenTanween(text: String): String = text.replace(OPEN_TANWEEN_SPACE, "$1")
+    }
+
     // ──────────────────────────────────────────────────────────
     //  Arabic text normalization helpers
     // ──────────────────────────────────────────────────────────
@@ -86,8 +96,9 @@ class QuranRepository(private val context: Context) {
                 context.assets.open("quran_uthmani.min.json").use { input ->
                     val reader = InputStreamReader(input, Charsets.UTF_8)
                     val response = gson.fromJson(reader, QuranResponse::class.java)
-                    ayahsBySurah = response.quran.groupBy { it.chapter }
-                    allAyahs = response.quran
+                    val ayahs = response.quran.map { it.copy(text = joinOpenTanween(it.text)) }
+                    ayahsBySurah = ayahs.groupBy { it.chapter }
+                    allAyahs = ayahs
                 }
                 true
             } catch (e: Exception) {
