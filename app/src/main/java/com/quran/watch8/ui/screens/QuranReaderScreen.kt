@@ -133,7 +133,10 @@ fun QuranReaderScreen(
             RoundPageLayout(
                 diameterPx = diameterPx,
                 lineHeightPx = lineHeightPx,
-                marginPx = with(density) { 3.dp.roundToPx() },
+                // The glass ends a little inside the panel's circle, and the
+                // position indicator runs along the rim: at 3 dp the widest
+                // middle lines lost their first and last letters on the watch.
+                marginPx = with(density) { 10.dp.roundToPx() } + (diameterPx * 0.04f).roundToInt(),
                 minLineWidthPx = (diameterPx * 0.42f).roundToInt(),
                 textPaint = TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     this.typeface = typeface

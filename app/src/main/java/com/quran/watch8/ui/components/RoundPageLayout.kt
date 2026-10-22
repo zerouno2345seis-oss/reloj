@@ -28,6 +28,9 @@ import kotlin.math.sqrt
  * short ones towards the top and bottom. StaticLayout takes a left and right
  * indent per line, which is exactly that shape.
  *
+ * Lines are centred, not justified: with no kashida, stretching an Arabic
+ * line only widens the gaps between words, which on the watch left holes.
+ *
  * Breaking is greedy (BREAK_STRATEGY_SIMPLE): a line's breaks then depend only
  * on the text before it, so laying out just one page's text gives the same
  * lines it had when the page was cut from the longer run.
@@ -78,7 +81,6 @@ class RoundPageLayout(
             .setTextDirection(TextDirectionHeuristics.RTL)
             .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
             .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
-            .setJustificationMode(Layout.JUSTIFICATION_MODE_INTER_WORD)
             .setIncludePad(false)
             .setIndents(leftIndents, rightIndents)
             .build()
