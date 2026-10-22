@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="bg_label">الخلفية</string>
-    <string name="bg_mosques_label">المساجد</string>
-    <string name="bg_pattern_label">نقش النجوم</string>
-    <string name="bg_plain_label">أسود</string>
-    <string name="face_name">القرآن الكريم · صف أفقي</string>
-</resources>

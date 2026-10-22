@@ -50,17 +50,16 @@ def ge(d, a):   # 1 when d >= a
 
 
 def duration(d, x, y, w, h, size, color=WHITE):
-    """Under two hours: hours and minutes; from two hours: whole hours only."""
+    """Under two hours: hours and minutes; from two hours: whole hours only.
+    Written short (س for hours, د for minutes) so the numbers can be large."""
     m = f"({d} % 60)"
     hrs = f"floor({d} / 60)"
     no_min = f"(1 - clamp({m}, 0, 1))"
     cases = [
-        (f"{lt(d, 60)}", ("%s دقيقة", [d])),
-        (f"{ge(d, 60)} * {lt(d, 120)} * {no_min}", "ساعة"),
-        (f"{ge(d, 60)} * {lt(d, 120)} * clamp({m}, 0, 1)", ("ساعة و%s دقيقة", [m])),
-        (f"{ge(d, 120)} * {lt(d, 180)}", "ساعتان"),
-        (f"{ge(d, 180)} * {lt(d, 660)}", ("%s ساعات", [hrs])),
-        (f"{ge(d, 660)}", ("%s ساعة", [hrs])),
+        (f"{lt(d, 60)}", ("%sد", [d])),
+        (f"{ge(d, 60)} * {lt(d, 120)} * {no_min}", "1س"),
+        (f"{ge(d, 60)} * {lt(d, 120)} * clamp({m}, 0, 1)", ("1س %sد", [m])),
+        (f"{ge(d, 120)}", ("%sس", [hrs])),
     ]
     return "".join(text(x, y, w, h, body, size, color, alpha=f"(255 * {cond})") for cond, body in cases)
 
@@ -93,56 +92,52 @@ def main():
              '<Transform target="angle" value="([SECOND] * 6)"/><Variant mode="AMBIENT" target="alpha" value="0"/>'
              '<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="217" y="0" width="16" height="16"><Fill color="#667DF0C0"/></Ellipse>'
              '<Ellipse x="221" y="4" width="8" height="8"><Fill color="#FFF2FFF9"/></Ellipse></PartDraw></Group>')
-    # ── the two side chords and the bottom chord; the round screen trims the rectangles ──
-    p.append('<PartDraw x="389" y="93" width="61" height="264"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<Rectangle x="0" y="0" width="61" height="264"><Fill color="#FF1F8A5A"/></Rectangle></PartDraw>')
-    p.append('<PartDraw x="0" y="93" width="61" height="264"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<Rectangle x="0" y="0" width="61" height="264"><Fill color="#FFE8BC3E"/></Rectangle></PartDraw>')
+    # ── the bottom chord; the round screen trims the rectangle ──
     p.append('<PartDraw x="0" y="380" width="450" height="70"><Variant mode="AMBIENT" target="alpha" value="0"/>'
              '<Rectangle x="0" y="0" width="450" height="70"><Fill color="#E0041010"/></Rectangle>'
              '<Line startX="225" startY="6" endX="225" endY="52"><Stroke color="#38AADCC8" thickness="1.5"/></Line></PartDraw>')
 
     # ── the time ──
-    p.append('<DigitalClock x="0" y="127" width="450" height="119"><TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="450" height="119">'
-             + font(115) + '</Font></TimeText></DigitalClock>')
+    p.append('<DigitalClock x="0" y="142" width="450" height="114"><TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="450" height="114">'
+             + font(110) + '</Font></TimeText></DigitalClock>')
 
     # ── temperature (bottom left): the watch's own weather, not a slot ──
     p.append('<Group name="temperature" x="123" y="384" width="100" height="47"><Variant mode="AMBIENT" target="alpha" value="0"/>'
              '<PartDraw x="6" y="10" width="22" height="28"><RoundRectangle x="7" y="0" width="8" height="18" cornerRadiusX="4" cornerRadiusY="4"><Stroke color="#FFE8BC3E" thickness="2"/></RoundRectangle>'
              '<Ellipse x="3" y="15" width="16" height="12"><Stroke color="#FFE8BC3E" thickness="2"/></Ellipse></PartDraw>'
-             + text(30, 0, 70, 47, ("%s°", ["[WEATHER.TEMPERATURE]"]), 20, alpha="(255 * [WEATHER.IS_AVAILABLE])")
-             + text(30, 0, 70, 47, "--°", 20, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))")
+             + text(30, 0, 70, 47, ("%s°", ["[WEATHER.TEMPERATURE]"]), 24, alpha="(255 * [WEATHER.IS_AVAILABLE])")
+             + text(30, 0, 70, 47, "--°", 24, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))")
              + '</Group>')
 
     # ── slots ──
-    # 1. Quran, right chord
-    arc_r = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="45" endAngle="135" thickness="62"/>'
-    arc_l = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="225" endAngle="315" thickness="62"/>'
+    # 1. Quran, right edge: a narrow see-through band, the icon alone
+    arc_r = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="45" endAngle="135" thickness="44"/>'
+    arc_l = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="225" endAngle="315" thickness="44"/>'
     icon = lambda x, y, s: (f'<Complication type="SMALL_IMAGE"><PartImage x="{x}" y="{y}" width="{s}" height="{s}"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>')
-    p.append(slot(1, 389, 93, 61, 264, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, icon(14, 116, 32)))
-    # 2. bookmarks, left chord
-    p.append(slot(2, 0, 93, 61, 264, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, icon(15, 116, 30)))
+    p.append(slot(1, 406, 93, 44, 264, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, icon(6, 115, 34)))
+    # 2. bookmarks, left edge
+    p.append(slot(2, 0, 93, 44, 264, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, icon(4, 115, 34)))
     # 3. bottom right: battery by default
     small = ('<Complication type="SHORT_TEXT">'
              '<PartImage x="70" y="12" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
-             + text(0, 0, 70, 47, ("%s", ["[COMPLICATION.TEXT]"]), 20) + '</Complication>'
+             + text(0, 0, 70, 47, ("%s", ["[COMPLICATION.TEXT]"]), 24) + '</Complication>'
              '<Complication type="RANGED_VALUE">'
              '<PartImage x="70" y="12" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
-             + text(0, 0, 70, 47, ("%s", ["[COMPLICATION.TEXT]"]), 20) + '</Complication>')
+             + text(0, 0, 70, 47, ("%s", ["[COMPLICATION.TEXT]"]), 24) + '</Complication>')
     p.append(slot(3, 227, 384, 100, 47, "SHORT_TEXT RANGED_VALUE", None, "RANGED_VALUE",
                   '<BoundingBox x="0" y="0" width="100" height="47"/>', small, system="WATCH_BATTERY"))
     # 4. the date, top
     p.append(slot(4, 125, 29, 200, 36, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
                   '<BoundingBox x="0" y="0" width="200" height="36"/>',
-                  '<Complication type="SHORT_TEXT">' + text(0, 0, 200, 36, ("%s", ["[COMPLICATION.TEXT]"]), 28) + '</Complication>',
+                  '<Complication type="SHORT_TEXT">' + text(0, 0, 200, 36, ("%s", ["[COMPLICATION.TEXT]"]), 30) + '</Complication>',
                   ambient=False))
     # 5. last reading position
-    reading = ('<Complication type="LONG_TEXT"><PartDraw x="0" y="0" width="276" height="56">'
-               '<RoundRectangle x="0" y="0" width="276" height="56" cornerRadiusX="18" cornerRadiusY="18"><Fill color="#B80A201C"/><Stroke color="#59AADCC8" thickness="1"/></RoundRectangle></PartDraw>'
-               + text(10, 3, 256, 20, ("%s", ["[COMPLICATION.TITLE]"]), 13, SOFT, SEMI)
-               + text(10, 21, 256, 32, ("%s", ["[COMPLICATION.TEXT]"]), 19) + '</Complication>')
-    p.append(slot(5, 87, 74, 276, 56, "LONG_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
-                  '<BoundingBox x="0" y="0" width="276" height="56"/>', reading))
+    reading = ('<Complication type="LONG_TEXT"><PartDraw x="0" y="0" width="310" height="70">'
+               '<RoundRectangle x="0" y="0" width="310" height="70" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#B80A201C"/><Stroke color="#59AADCC8" thickness="1"/></RoundRectangle></PartDraw>'
+               + text(12, 4, 286, 24, ("%s", ["[COMPLICATION.TITLE]"]), 16, SOFT, SEMI)
+               + text(12, 27, 286, 38, ("%s", ["[COMPLICATION.TEXT]"]), 23) + '</Complication>')
+    p.append(slot(5, 70, 68, 310, 70, "LONG_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
+                  '<BoundingBox x="0" y="0" width="310" height="70"/>', reading))
     # 6. the prayer row: passed (right) | next and its time (middle) | left (left)
     V = "[COMPLICATION.RANGED_VALUE_VALUE]"
     now = "([HOUR_0_23] * 60 + [MINUTE])"
@@ -156,14 +151,14 @@ def main():
            f'<Line startX="{col:.0f}" startY="14" endX="{col:.0f}" endY="87"><Stroke color="#38AADCC8" thickness="1"/></Line>'
            f'<Line startX="{2*col:.0f}" startY="14" endX="{2*col:.0f}" endY="87"><Stroke color="#38AADCC8" thickness="1"/></Line></PartDraw>'
            # right column (RTL first): passed
-           + text(int(2 * col), 22, int(col), 20, "مضى", 13, SOFT, SEMI)
-           + duration(passed, int(2 * col), 44, int(col), 34, 17)
+           + text(int(2 * col), 14, int(col), 24, "مضى", 17, SOFT, SEMI)
+           + duration(passed, int(2 * col), 42, int(col), 42, 26)
            # middle: the next prayer and its time
-           + text(int(col), 16, int(col), 34, ("%s", ["[COMPLICATION.TEXT]"]), 23)
-           + text(int(col), 52, int(col), 32, ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), 25)
+           + text(int(col), 10, int(col), 38, ("%s", ["[COMPLICATION.TEXT]"]), 26)
+           + text(int(col), 52, int(col), 32, ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), 29)
            # left: the time to it
-           + text(0, 22, int(col), 20, "متبقي", 13, SOFT, SEMI)
-           + duration(left, 0, 44, int(col), 34, 17)
+           + text(0, 14, int(col), 24, "متبقي", 17, SOFT, SEMI)
+           + duration(left, 0, 42, int(col), 42, 26)
            + '</Complication>')
     p.append(slot(6, 64, 269, 323, 101, "RANGED_VALUE", "PrayerWindowComplicationService", "RANGED_VALUE",
                   '<BoundingBox x="0" y="0" width="323" height="101"/>', row, customizable="FALSE", ambient=False))
