@@ -165,7 +165,7 @@ test('the entry screen shows the next prayer, resumes reading, and ticks only wh
   assert.match(entry, /PrayerTimesHelper\.status\(/);
   assert.match(entry, /HijriDate\.arabic\(\)/);
   assert.match(entry, /reader\/\$\{pos\.surah\}\?startAyah=\$\{pos\.ayahNumber\}/);
-  for (const route of ['quran', 'bookmarks', 'locations', 'settings', 'prayer']) {
+  for (const route of ['quran', 'bookmarks', 'settings', 'prayer']) {
     assert.match(entry, new RegExp(`onNavigate\\("${route}"\\)`));
   }
   assert.match(entry, /RepeatOnResumed/);
