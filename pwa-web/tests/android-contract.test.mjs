@@ -212,17 +212,21 @@ test('reader carries a quarter screen over and runs on into the next surah', asy
   assert.match(reader, /onOpenSurah\(surahNumber \+ 1\)/);
 });
 
-// Our own watch face is a code-free WFF package whose three styles draw the
-// app's complications; every provider it names must exist in the app.
-test('watch face is WFF and names only real complication services', async () => {
-  const faceManifest = await readFile(new URL('watchface/src/main/AndroidManifest.xml', root), 'utf8');
-  const face = await readFile(new URL('watchface/src/main/res/raw/watchface.xml', root), 'utf8');
-  assert.match(faceManifest, /android:hasCode="false"/);
-  assert.match(faceManifest, /com\.google\.wear\.watchface\.format\.version/);
-  assert.match(face, /ListConfiguration id="style"[^>]*defaultValue="0"/);
-  const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
-  assert.ok(providers.length >= 15);
-  for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));
-  const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
-  assert.equal(new Set(ids).size, ids.length);
+// Our own watch faces are code-free WFF packages, one per style, because WFF
+// allows at most eight complication slots in a face (the host drops them all
+// otherwise). Every provider a face names must exist in the app.
+test('watch faces are WFF, hold at most eight slots and name only real services', async () => {
+  for (const dir of ['watchface', 'watchface-hands', 'watchface-mihrab']) {
+    const faceManifest = await readFile(new URL(`${dir}/src/main/AndroidManifest.xml`, root), 'utf8');
+    const face = await readFile(new URL(`${dir}/src/main/res/raw/watchface.xml`, root), 'utf8');
+    assert.match(faceManifest, /android:hasCode="false"/);
+    assert.match(faceManifest, /com\.google\.wear\.watchface\.format\.version/);
+    assert.doesNotMatch(face, /<ListConfiguration/);
+    const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
+    assert.ok(providers.length >= 4);
+    for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));
+    const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
+    assert.ok(ids.length >= 1 && ids.length <= 8, `${dir} has ${ids.length} slots`);
+    assert.equal(new Set(ids).size, ids.length);
+  }
 });

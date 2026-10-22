@@ -1,4 +1,4 @@
-// Our own watch face, in Watch Face Format: a code-free package (since
+// Our own watch face (ring style), in Watch Face Format: a code-free package (since
 // January 2026 the only kind Wear OS installs). It draws the face and shows
 // the app's complications, which carry the data and the taps into the app.
 plugins {
