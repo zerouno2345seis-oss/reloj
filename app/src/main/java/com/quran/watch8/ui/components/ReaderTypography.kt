@@ -35,7 +35,31 @@ object ReaderTypography {
      * out as empty boxes. Every Quranic choice maps here; only the explicit
      * "sansserif"/"serif" choices still use the system fonts.
      */
-    val QuranFont: FontFamily = FontFamily(Font(R.font.amiri_quran))
+    val AmiriFont: FontFamily = FontFamily(Font(R.font.amiri_quran))
+
+    /**
+     * The Madinah mushaf face (KFGQPC Uthmanic Script HAFS), the one the
+     * bundled text is encoded for. It ships unmodified in assets/fonts with
+     * its licence, which forbids altering the font, so it is loaded as is;
+     * without it every Quranic choice falls back to Amiri.
+     */
+    @Volatile private var madinah: Typeface? = null
+
+    /** Loads the Madinah face once, at start-up. */
+    fun load(context: Context) {
+        if (madinah != null) return
+        madinah = try {
+            Typeface.createFromAsset(context.assets, MADINAH_ASSET)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private const val MADINAH_ASSET = "fonts/kfgqpc_hafs.ttf"
+
+    /** The default reading face: Madinah when bundled, otherwise Amiri. */
+    val QuranFont: FontFamily
+        get() = madinah?.let { FontFamily(androidx.compose.ui.text.font.Typeface(it)) } ?: AmiriFont
 
     /**
      * Amiri's marks sit high above and below the line. 1.85 left visible gaps
@@ -52,6 +76,7 @@ object ReaderTypography {
     fun fontFamily(id: String): FontFamily = when (id) {
         "sansserif", "tajawal", "cairo" -> FontFamily.SansSerif
         "serif", "naskh" -> FontFamily.Serif
+        "amiri" -> AmiriFont
         else        -> QuranFont
     }
 
@@ -59,9 +84,11 @@ object ReaderTypography {
     fun typeface(context: Context, id: String): Typeface = when (id) {
         "sansserif", "tajawal", "cairo" -> Typeface.SANS_SERIF
         "serif", "naskh" -> Typeface.SERIF
-        else -> quranTypeface(context)
+        "amiri" -> quranTypeface(context)
+        else -> madinah ?: quranTypeface(context)
     }
 
+    /** Amiri Quran: also draws the ۝ verse-number ornament on every face. */
     fun quranTypeface(context: Context): Typeface = context.resources.getFont(R.font.amiri_quran)
 
     fun backgroundColor(id: String, customHex: String): Color = when (id) {

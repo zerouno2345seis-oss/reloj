@@ -50,7 +50,7 @@ fun SettingsScreen(
     // of which fell back to the same system font. System fonts lack some
     // Uthmani marks, so the bundled Quran font is the default.
     val readerFontOptions = listOf(
-        "default" to "المصحف", "sansserif" to "بسيط", "serif" to "تقليدي"
+        "default" to "المدينة", "amiri" to "الأميري", "sansserif" to "بسيط", "serif" to "تقليدي"
     )
 
 
@@ -141,7 +141,7 @@ fun SettingsScreen(
                 Text("خط القراءة", style = MaterialTheme.typography.caption2, color = Color.Gray)
             }
 
-            items(readerFontOptions.chunked(3)) { fontRow ->
+            items(readerFontOptions.chunked(2)) { fontRow ->
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -151,7 +151,7 @@ fun SettingsScreen(
                             onClick = { viewModel.setFontFamily(id) },
                             label = { Text(label, fontSize = 8.sp, maxLines = 1) },
                             colors = ChipDefaults.chipColors(
-                                backgroundColor = if (ReaderTypography.fontFamily(fontFamily) == ReaderTypography.fontFamily(id)) Color(0xFF0D9488) else Color(0xFF222222),
+                                backgroundColor = if (fontFamily == id || (id == "default" && fontFamily !in readerFontOptions.map { it.first })) Color(0xFF0D9488) else Color(0xFF222222),
                                 contentColor = Color.White
                             ),
                             modifier = Modifier.weight(1f)

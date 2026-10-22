@@ -21,6 +21,7 @@ class QuranWatchApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        com.quran.watch8.ui.components.ReaderTypography.load(this)
         quranRepository = QuranRepository(this)
         prefsRepository = PreferencesRepository(this)
 
