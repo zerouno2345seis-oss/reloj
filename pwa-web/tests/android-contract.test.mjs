@@ -227,6 +227,11 @@ test('watch face is WFF, validated before build, and names only real complicatio
   const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
   assert.ok(providers.length >= 5);
   for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));
+  // Samsung's runtime throws (and drops the face) when a slot's fallback
+  // type is not one of its supported types.
+  for (const m of face.matchAll(/<ComplicationSlot[^>]*supportedTypes="([^"]+)"[^>]*>\s*<DefaultProviderPolicy[^>]*defaultSystemProviderType="(\w+)"/g)) {
+    assert.ok(m[1].split(' ').includes(m[2]), `fallback ${m[2]} not in ${m[1]}`);
+  }
   const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
   assert.equal(new Set(ids).size, ids.length);
 });
