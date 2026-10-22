@@ -236,5 +236,12 @@ test('watch faces are WFF, validated before build, and name only real services',
     const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
     assert.ok(ids.length >= 1 && ids.length <= 8, `${dir} has ${ids.length} slots`);
     assert.equal(new Set(ids).size, ids.length);
+    // A Template whose text has no placeholder renders as "Error" on the watch.
+    for (const m of face.matchAll(/<Template>([^<]*)</g)) assert.match(m[1], /%[sd]/, `${dir}: template "${m[1]}"`);
+    // Every font the face names is bundled with it.
+    for (const fam of new Set([...face.matchAll(/family="([^"]+)"/g)].map((m) => m[1]))) {
+      if (fam === 'SYNC_TO_DEVICE') continue;
+      await readFile(new URL(`${dir}/src/main/res/font/${fam}.ttf`, root));
+    }
   }
 });

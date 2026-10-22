@@ -1,45 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ring: one face per package, because WFF allows at most eight complication slots in a face.
-     Large type spread over the whole dial; the always-on screen keeps the date, time and next prayer. -->
+     Rows sized to the chord of the dial at their height; bold bundled font. -->
 <WatchFace width="450" height="450" clipShape="CIRCLE">
 <Metadata key="CLOCK_TYPE" value="DIGITAL"/>
 <Metadata key="PREVIEW_TIME" value="15:42:00"/>
 <Scene backgroundColor="#FF000000">
 <ComplicationSlot slotId="0" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="RANGED_VALUE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerComplicationService" primaryProviderType="RANGED_VALUE"/>
-<BoundingBox x="165" y="4" width="120" height="40"/>
+<BoundingBox x="165" y="4" width="120" height="36"/>
 <Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="436" height="436" startAngle="0" endAngle="0"><Transform target="endAngle" value="(clamp([COMPLICATION.RANGED_VALUE_VALUE], 0, 1) * 360)"/><Stroke color="#FFC9A227" thickness="10" cap="ROUND"/></Arc><Variant mode="AMBIENT" target="alpha" value="0"/></PartDraw><PartDraw x="0" y="0" width="450" height="450" alpha="0"><Arc centerX="225" centerY="225" width="436" height="436" startAngle="0" endAngle="0"><Transform target="endAngle" value="(clamp([COMPLICATION.RANGED_VALUE_VALUE], 0, 1) * 360)"/><Stroke color="#FF6B7280" thickness="3" cap="ROUND"/></Arc><Variant mode="AMBIENT" target="alpha" value="255"/></PartDraw></Complication>
 </ComplicationSlot>
+<ComplicationSlot slotId="1" x="90" y="64" width="270" height="36" supportedTypes="LONG_TEXT SHORT_TEXT" isCustomizable="TRUE">
+<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="LONG_TEXT" primaryProvider="com.quran.watch8/com.quran.watch8.complication.HijriDateComplicationService" primaryProviderType="LONG_TEXT"/>
+<BoundingBox x="0" y="0" width="270" height="36"/>
+<Complication type="LONG_TEXT"><PartText x="0" y="0" width="270" height="36"><Text align="CENTER" ellipsis="TRUE"><Font family="plex_semibold" size="26" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="270" height="36"><Text align="CENTER" ellipsis="TRUE"><Font family="plex_semibold" size="26" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+</ComplicationSlot>
+<DigitalClock x="11" y="104" width="428" height="128"><TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="428" height="128"><Font family="plex_bold" size="128" weight="NORMAL" color="#FFFFFFFF"></Font></TimeText></DigitalClock>
 <ComplicationSlot slotId="5" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="FALSE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="RANGED_VALUE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerTimeComplicationService" primaryProviderType="RANGED_VALUE"/>
-<BoundingBox x="40" y="242" width="370" height="50"/>
-<Complication type="RANGED_VALUE"><PartText x="20" y="244" width="410" height="46"><Transform target="alpha" value="(255 * clamp(floor(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) / 60), 0, 1))"/><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="28" weight="BOLD" color="#FFFFFFFF"><Template>%s · بعد %d س %d د<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="floor(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) / 60)"/><Parameter expression="(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) % 60)"/></Template></Font></Text></PartText><PartText x="20" y="244" width="410" height="46"><Transform target="alpha" value="(255 * (1 - clamp(floor(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) / 60), 0, 1)))"/><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="28" weight="BOLD" color="#FFFFFFFF"><Template>%s · بعد %d د<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) % 60)"/></Template></Font></Text></PartText></Complication>
+<BoundingBox x="26" y="236" width="398" height="42"/>
+<Complication type="RANGED_VALUE"><PartText x="26" y="236" width="398" height="42"><Transform target="alpha" value="(255 * clamp(floor(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) / 60), 0, 1))"/><Text align="CENTER" ellipsis="TRUE"><Font family="plex_bold" size="30" weight="NORMAL" color="#FFC9A227"><Template>%s · بعد %d س %d د<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="floor(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) / 60)"/><Parameter expression="(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) % 60)"/></Template></Font></Text></PartText><PartText x="26" y="236" width="398" height="42"><Transform target="alpha" value="(255 * (1 - clamp(floor(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) / 60), 0, 1)))"/><Text align="CENTER" ellipsis="TRUE"><Font family="plex_bold" size="30" weight="NORMAL" color="#FFC9A227"><Template>%s · بعد %d د<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="(((floor([COMPLICATION.RANGED_VALUE_VALUE]) % 1440 - ([HOUR_0_23] * 60 + [MINUTE]) + 1440) % 1440) % 60)"/></Template></Font></Text></PartText></Complication>
 </ComplicationSlot>
-<ComplicationSlot slotId="1" x="55" y="66" width="340" height="44" supportedTypes="LONG_TEXT SHORT_TEXT" isCustomizable="TRUE">
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="LONG_TEXT" primaryProvider="com.quran.watch8/com.quran.watch8.complication.HijriDateComplicationService" primaryProviderType="LONG_TEXT"/>
-<BoundingBox x="0" y="0" width="340" height="44"/>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="340" height="44"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="28" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="340" height="44"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="28" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-</ComplicationSlot>
-<DigitalClock x="98" y="112" width="254" height="116"><TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="254" height="116"><Font family="SYNC_TO_DEVICE" size="92" weight="NORMAL" color="#FFFFFFFF"></Font></TimeText></DigitalClock>
-<ComplicationSlot slotId="3" x="352" y="138" width="68" height="68" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
-<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.QuranShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
-<BoundingOval x="0" y="0" width="68" height="68"/>
-<Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="68" height="68"><Ellipse x="0" y="0" width="68" height="68"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartImage x="16" y="16" width="36" height="36"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="68" height="68"><Ellipse x="0" y="0" width="68" height="68"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartText x="0" y="0" width="68" height="68"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-<Variant mode="AMBIENT" target="alpha" value="0"/>
-</ComplicationSlot>
-<ComplicationSlot slotId="4" x="30" y="138" width="68" height="68" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
+<ComplicationSlot slotId="4" x="71" y="294" width="68" height="68" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.BookmarksShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
 <BoundingOval x="0" y="0" width="68" height="68"/>
 <Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="68" height="68"><Ellipse x="0" y="0" width="68" height="68"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartImage x="16" y="16" width="36" height="36"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
-<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="68" height="68"><Ellipse x="0" y="0" width="68" height="68"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartText x="0" y="0" width="68" height="68"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="68" height="68"><Ellipse x="0" y="0" width="68" height="68"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartText x="0" y="0" width="68" height="68"><Text align="CENTER" ellipsis="TRUE"><Font family="plex_semibold" size="16" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
 <Variant mode="AMBIENT" target="alpha" value="0"/>
 </ComplicationSlot>
-<ComplicationSlot slotId="2" x="70" y="306" width="310" height="66" supportedTypes="SHORT_TEXT" isCustomizable="TRUE">
+<ComplicationSlot slotId="2" x="149" y="294" width="152" height="68" supportedTypes="SHORT_TEXT" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SHORT_TEXT" primaryProvider="com.quran.watch8/com.quran.watch8.complication.ContinueReadingComplicationService" primaryProviderType="SHORT_TEXT"/>
-<BoundingBox x="0" y="0" width="310" height="66"/>
-<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="310" height="66"><RoundRectangle x="0" y="0" width="310" height="66" cornerRadiusX="33" cornerRadiusY="33"><Fill color="#FF0F766E"/></RoundRectangle></PartDraw><PartText x="14" y="0" width="282" height="66"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="28" weight="BOLD" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<BoundingBox x="0" y="0" width="152" height="68"/>
+<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="152" height="68"><RoundRectangle x="0" y="0" width="152" height="68" cornerRadiusX="34" cornerRadiusY="34"><Fill color="#FF0F766E"/></RoundRectangle></PartDraw><PartText x="14" y="0" width="124" height="68"><Text align="CENTER" ellipsis="TRUE"><Font family="plex_bold" size="25" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Variant mode="AMBIENT" target="alpha" value="0"/>
+</ComplicationSlot>
+<ComplicationSlot slotId="3" x="311" y="294" width="68" height="68" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
+<DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.QuranShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/>
+<BoundingOval x="0" y="0" width="68" height="68"/>
+<Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="68" height="68"><Ellipse x="0" y="0" width="68" height="68"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartImage x="16" y="16" width="36" height="36"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
+<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="68" height="68"><Ellipse x="0" y="0" width="68" height="68"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartText x="0" y="0" width="68" height="68"><Text align="CENTER" ellipsis="TRUE"><Font family="plex_semibold" size="16" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
 <Variant mode="AMBIENT" target="alpha" value="0"/>
 </ComplicationSlot>
 </Scene></WatchFace>
