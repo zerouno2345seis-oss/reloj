@@ -31,6 +31,7 @@ import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -231,6 +232,19 @@ fun QuranReaderScreen(
                 }
         }
 
+        // The screen stays lit while reading: the watch's own timeout is a
+        // few seconds, shorter than a long verse. Each turn of the page
+        // re-arms it; three minutes with no turn lets the watch sleep again.
+        val view = LocalView.current
+        LaunchedEffect(pagerState) {
+            snapshotFlow { pagerState.currentPage }.collectLatest {
+                view.keepScreenOn = true
+                delay(READING_AWAKE_MS)
+                view.keepScreenOn = false
+            }
+        }
+        DisposableEffect(view) { onDispose { view.keepScreenOn = false } }
+
         // ── Bezel: one screen per detent ──────────────────────────────────────
         // A detent arrives as one event of about scaledVerticalScrollFactor
         // pixels; half of that moves on, and what is left of the event is
@@ -412,6 +426,8 @@ fun QuranReaderScreen(
         }
     }
 }
+
+private const val READING_AWAKE_MS = 3 * 60_000L
 
 @Composable
 private fun ReaderNavButton(label: String, enabled: Boolean, onClick: () -> Unit) {
