@@ -49,7 +49,7 @@ class QuranPrayerTileService : TileService() {
                 val prayers = PrayerTimesHelper.calculate(
                     latitude = prefs.selectedLat.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.latitude,
                     longitude = prefs.selectedLng.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.longitude,
-                    methodName = prefs.calculationMethod.firstOrNull() ?: "ISNA",
+                    methodName = prefs.calculationMethod.firstOrNull() ?: PrayerTimesHelper.DEFAULT_METHOD,
                     locationName = prefs.selectedLocationName.firstOrNull() ?: "بوينس آيرس"
                 )
                 result.set(buildTile(prayers))

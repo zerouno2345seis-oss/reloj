@@ -1,5 +1,6 @@
 package com.quran.watch8.data.repository
 
+import com.quran.watch8.util.PrayerTimesHelper
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
@@ -30,7 +31,9 @@ class PreferencesRepository(private val context: Context) {
         private val BOOKMARKS_JSON = stringPreferencesKey("bookmarks_json")
         private val LOCATIONS_JSON = stringPreferencesKey("locations_json")
         private val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
-        private val CALCULATION_METHOD = stringPreferencesKey("calculation_method")
+        // A new key: older builds may have stored "ISNA", and the times must now
+        // follow IslamicFinder (MWL) unless a method is picked again.
+        private val CALCULATION_METHOD = stringPreferencesKey("prayer_method")
         private val SELECTED_LOCATION_ID = stringPreferencesKey("selected_location_id")
         private val SELECTED_LAT = doublePreferencesKey("selected_lat")
         private val SELECTED_LNG = doublePreferencesKey("selected_lng")
@@ -80,7 +83,7 @@ class PreferencesRepository(private val context: Context) {
         (it[LAST_SURAH] ?: 1) to (it[LAST_AYAH] ?: 1)
     }
     val notificationsEnabled: Flow<Boolean> = context.dataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: true }
-    val calculationMethod: Flow<String> = context.dataStore.data.map { it[CALCULATION_METHOD] ?: "ISNA" }
+    val calculationMethod: Flow<String> = context.dataStore.data.map { it[CALCULATION_METHOD] ?: PrayerTimesHelper.DEFAULT_METHOD }
     val selectedLocationId: Flow<String> = context.dataStore.data.map { it[SELECTED_LOCATION_ID] ?: "ba_caba" }
     val selectedLat: Flow<Double> = context.dataStore.data.map { it[SELECTED_LAT] ?: -34.6037 }
     val selectedLng: Flow<Double> = context.dataStore.data.map { it[SELECTED_LNG] ?: -58.3816 }

@@ -2,7 +2,7 @@ package com.quran.watch8.data.model
 
 /**
  * Presets focused on Argentina, especially Buenos Aires Province + CABA.
- * Default calculation method for Argentina: ISNA (widely used).
+ * Default calculation method: Muslim World League, as on IslamicFinder.
  */
 data class LocationPreset(
     val id: String,

@@ -71,7 +71,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedLocationName = prefs.selectedLocationName.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "بوينس آيرس (العاصمة)")
     val selectedLat  = prefs.selectedLat.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), -34.6037)
     val selectedLng  = prefs.selectedLng.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), -58.3816)
-    val calculationMethod = prefs.calculationMethod.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ISNA")
+    val calculationMethod = prefs.calculationMethod.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PrayerTimesHelper.DEFAULT_METHOD)
     val useGps       = prefs.useGps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     // ─────────────────────────────── Room flows ────────────────────────────────
