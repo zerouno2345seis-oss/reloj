@@ -134,6 +134,40 @@ class NextPrayerTimeComplicationService : SuspendingComplicationDataSourceServic
 }
 
 /** Where reading stopped; a tap opens the reader there. */
+/**
+ * The previous and next prayer as one number, for our own faces, which show
+ * a single line that a tap turns between "next in", "since the last" and
+ * "next at". value = mode * 1440² + previous minute * 1440 + next minute,
+ * minutes of the day on the watch's clock; under 2²⁴, so exact as a float.
+ * The face works out the minutes from its own clock, so the line stays live
+ * between updates. Text is the next prayer's name, title the previous one's.
+ */
+class PrayerClockComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? =
+        build(type, 0, 13 * 60 + 9, 16 * 60 + 19, "العصر", "الظهر")
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val status = PrayerTimesHelper.status(todaysPrayers()) ?: return null
+        val zone = ZoneId.systemDefault()
+        fun minuteOfDay(t: Instant) = t.atZone(zone).let { it.hour * 60 + it.minute }
+        PrayerClockMode.refreshAt(this, status.next.time.toEpochMilli() + 2_000)
+        return build(
+            request.complicationType, PrayerClockMode.get(this),
+            minuteOfDay(status.current.time), minuteOfDay(status.next.time),
+            status.next.nameAr, status.current.nameAr
+        )
+    }
+
+    private fun build(type: ComplicationType, mode: Int, previous: Int, next: Int, nextName: String, previousName: String): ComplicationData? {
+        if (type != ComplicationType.RANGED_VALUE) return null
+        val value = mode * 1440 * 1440 + previous * 1440 + next
+        return RangedValueComplicationData.Builder(value.toFloat(), 0f, 3f * 1440 * 1440, text("$nextName $previousName"))
+            .setText(text(nextName)).setTitle(text(previousName))
+            .setTapAction(PrayerClockMode.nextModeIntent(this)).build()
+    }
+}
+
 class ContinueReadingComplicationService : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? =

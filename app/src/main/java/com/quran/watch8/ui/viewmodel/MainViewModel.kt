@@ -319,6 +319,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             com.quran.watch8.complication.requestComplicationUpdate(
                 appContext, com.quran.watch8.complication.NextPrayerTimeComplicationService::class.java
             )
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.PrayerClockComplicationService::class.java
+            )
             com.quran.watch8.util.PrayerAlarmScheduler.scheduleAll(appContext)
         }
     }

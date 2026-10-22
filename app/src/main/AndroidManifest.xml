@@ -120,6 +120,28 @@
                 android:value="300" />
         </service>
 
+        <!-- Feeds our own faces the previous and next prayer; a tap on it switches what the face shows. -->
+        <service
+            android:name=".complication.PrayerClockComplicationService"
+            android:exported="true"
+            android:icon="@drawable/img_prayer"
+            android:label="الصلاة الماضية والقادمة (لواجهة التطبيق)"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="RANGED_VALUE" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="300" />
+        </service>
+
+        <receiver
+            android:name=".complication.PrayerClockModeReceiver"
+            android:exported="false" />
+
         <!-- Feeds our own watch face the next prayer's time as a number; see the class. -->
         <service
             android:name=".complication.NextPrayerTimeComplicationService"
