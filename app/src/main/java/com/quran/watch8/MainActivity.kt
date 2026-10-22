@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,8 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -34,7 +31,6 @@ import com.quran.watch8.ui.viewmodel.MainViewModel
 class MainActivity : ComponentActivity() {
 
     private lateinit var viewModelRef: MainViewModel
-    private var navControllerRef: androidx.navigation.NavHostController? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -42,65 +38,13 @@ class MainActivity : ComponentActivity() {
         if (::viewModelRef.isInitialized) viewModelRef.onPermissionsResult(results)
     }
 
-    override fun onNewIntent(intent: android.content.Intent) {
-        super.onNewIntent(intent)
-        handlePresetIntent(intent)
-    }
-
-    /**
-     * Pull the cloud config every time the app comes to the foreground. Without
-     * this the watch only checked once per cold start, so a design synced from
-     * the web while the app was already open never arrived. One HTTPS GET on
-     * resume costs nothing while the app is closed, unlike background polling.
-     */
-    override fun onResume() {
-        super.onResume()
-        // Weather has no background timer any more; it is topped up here, and
-        // only when the cached reading has actually aged out.
-        if (::viewModelRef.isInitialized) viewModelRef.refreshWeatherIfStale()
-        lifecycleScope.launch {
-            val (ok, message) = com.quran.watch8.util.LocalSyncServer.syncWithCloud(applicationContext, "pull")
-            if (ok && message.startsWith(com.quran.watch8.util.LocalSyncServer.APPLIED_PREFIX)) {
-                Toast.makeText(
-                    this@MainActivity,
-                    message.removePrefix(com.quran.watch8.util.LocalSyncServer.APPLIED_PREFIX),
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
-        }
-    }
-
-    private fun handlePresetIntent(intent: android.content.Intent?) {
-        val presetId = intent?.getStringExtra("apply_preset")
-        if (!presetId.isNullOrBlank()) {
-            com.quran.watch8.data.model.PresetManager.applyPreset(applicationContext, presetId)
-            navControllerRef?.popBackStack("watchface", false)
-        }
-        val modelName = intent?.getStringExtra("set_watchface_model")
-        if (!modelName.isNullOrBlank() && ::viewModelRef.isInitialized) {
-            try {
-                val m = com.quran.watch8.data.model.WatchFaceModelId.valueOf(modelName)
-                viewModelRef.setWatchFaceModel(m)
-                navControllerRef?.popBackStack("watchface", false)
-            } catch (_: Exception) {}
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // No sync server to start: the LAN socket is gone and onResume below
-        // does the cloud pull that its startup path used to duplicate.
-
         setContent {
             QuranWatchTheme {
                 val navController = rememberSwipeDismissableNavController()
-                navControllerRef = navController
                 val viewModel: MainViewModel = viewModel()
                 viewModelRef = viewModel
-                LaunchedEffect(Unit) {
-                    handlePresetIntent(intent)
-                }
-
                 var permissionsHandled by remember { mutableStateOf(false) }
                 var showPermissionScreen by remember { mutableStateOf(false) }
 
@@ -154,34 +98,12 @@ class MainActivity : ComponentActivity() {
 
                     SwipeDismissableNavHost(
                         navController    = navController,
-                        startDestination = "watchface"
+                        startDestination = "entry"
                     ) {
-                        composable("watchface") {
-                            WatchFaceHomeScreen(
+                        // The way in: the time, the next prayer, and the Quran.
+                        composable("entry") {
+                            EntryScreen(
                                 onNavigate = { route -> navController.navigate(route) },
-                                onOpenAppDrawer = { navController.navigate("app_drawer") },
-                                viewModel = viewModel
-                            )
-                        }
-
-                        composable("tiles") {
-                            HomeScreen(
-                                onNavigate = { route -> navController.navigate(route) },
-                                viewModel  = viewModel
-                            )
-                        }
-
-                        composable("home") {
-                            HomeScreen(
-                                onNavigate = { route -> navController.navigate(route) },
-                                viewModel  = viewModel
-                            )
-                        }
-
-                        composable("app_drawer") {
-                            AppDrawerScreen(
-                                onBack = { navController.popBackStack() },
-                                onExitToWatchFace = { navController.popBackStack("watchface", false) },
                                 viewModel = viewModel
                             )
                         }
@@ -239,14 +161,8 @@ class MainActivity : ComponentActivity() {
                         composable("prayer") {
                             PrayerTimesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
-                        composable("qibla") {
-                            QiblaCompassScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
-                        }
                         composable("locations") {
                             LocationsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
-                        }
-                        composable("presets") {
-                            PresetsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
                         composable("settings") {
                             SettingsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)

@@ -20,8 +20,6 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
-import com.quran.watch8.data.model.PresetItem
-import com.quran.watch8.data.model.PresetManager
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.UpdateChip
@@ -48,7 +46,6 @@ fun SettingsScreen(
     val customReaderTextColor by viewModel.customReaderTextColor.collectAsState()
     val fontFamily by viewModel.fontFamily.collectAsState()
     val notifications by viewModel.notificationsEnabled.collectAsState()
-    val tileConfig by viewModel.tilesConfig.collectAsState()
     // Only choices that draw differently. The old list offered nine names, most
     // of which fell back to the same system font. System fonts lack some
     // Uthmani marks, so the bundled Quran font is the default.
@@ -56,7 +53,6 @@ fun SettingsScreen(
         "default" to "المصحف", "sansserif" to "بسيط", "serif" to "تقليدي"
     )
 
-    var presets by remember { mutableStateOf(PresetManager.getAllPresets(context)) }
 
     fun vibrateShort() {
         try {
@@ -80,91 +76,6 @@ fun SettingsScreen(
         ) {
             item {
                 UpdateChip(modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction))
-            }
-
-            item {
-                Text(
-                    text = "القوالب الجاهزة",
-                    fontSize = 15.sp,
-                    lineHeight = 18.sp,
-                    color = AccentGold,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            item {
-                Chip(
-                    onClick = {
-                        val customNumber = presets.count { it.isCustom } + 1
-                        val saved = PresetManager.saveCustomPreset(
-                            context = context,
-                            title = "واجهتي $customNumber",
-                            icon = "⭐",
-                            config = tileConfig
-                        )
-                        presets = PresetManager.getAllPresets(context)
-                        vibrateShort()
-                        Toast.makeText(context, "تم حفظ ${saved.title} كقالب جاهز", Toast.LENGTH_SHORT).show()
-                    },
-                    label = {
-                        Text(
-                            text = "＋ حفظ الواجهة الحالية كقالب",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    },
-                    colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF0D9488)),
-                    modifier = Modifier
-                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
-                        .padding(bottom = 5.dp)
-                )
-            }
-
-            items(presets) { preset ->
-                Chip(
-                    onClick = {
-                        PresetManager.applyPreset(context, preset.id)
-                        vibrateShort()
-                        Toast.makeText(context, "تم تفعيل: ${preset.title}", Toast.LENGTH_SHORT).show()
-                        onBack()
-                    },
-                    label = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(text = preset.icon, fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = preset.title,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    text = preset.description,
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 9.sp,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    },
-                    colors = ChipDefaults.primaryChipColors(
-                        backgroundColor = Color(0xFF1E293B)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
-                        .padding(vertical = 3.dp)
-                )
             }
 
             item {

@@ -26,7 +26,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 shrinks the APK (about 53 MB unshrunk); keep rules for the
+            // Gson-parsed classes are in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             // Signed with the debug key so it installs over the debug build
             // with `adb install -r` and keeps bookmarks and settings. The
             // debuggable build runs Compose noticeably slower on the watch.
@@ -87,12 +90,6 @@ dependencies {
     implementation("androidx.wear.protolayout:protolayout-expression:$protoLayoutVersion")
     implementation("com.google.guava:guava:33.3.1-android")
 
-    // Wear OS Watch Face Service
-    val watchfaceVersion = "1.2.1"
-    implementation("androidx.wear.watchface:watchface:$watchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-guava:$watchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-editor:$watchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-complications-data-source:$watchfaceVersion")
 
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

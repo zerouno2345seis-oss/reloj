@@ -53,8 +53,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
@@ -92,7 +90,7 @@
         <service
             android:name=".tile.QuranPrayerTileService"
             android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER"
-            android:label="أوضاع وقوالب الساعة 🎨"
+            android:label="مواقيت الصلاة"
             android:exported="true">
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
@@ -102,27 +100,6 @@
                 android:resource="@mipmap/ic_launcher" />
         </service>
 
-        <!-- Watch Face Service — single clean entry -->
-        <service
-            android:name=".watchface.QuranWatchFaceService"
-            android:directBootAware="true"
-            android:exported="true"
-            android:label="وجه القرآن الكريم"
-            android:permission="android.permission.BIND_WALLPAPER">
-            <intent-filter>
-                <action android:name="android.service.wallpaper.WallpaperService" />
-                <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.service.wallpaper"
-                android:resource="@xml/watch_face" />
-            <meta-data
-                android:name="com.google.android.wearable.watchface.preview"
-                android:resource="@mipmap/ic_launcher" />
-            <meta-data
-                android:name="com.google.android.wearable.watchface.preview_circular"
-                android:resource="@mipmap/ic_launcher_round" />
-        </service>
 
     </application>
 </manifest>
