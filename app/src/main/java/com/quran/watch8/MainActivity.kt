@@ -31,6 +31,14 @@ import com.quran.watch8.ui.viewmodel.MainViewModel
 class MainActivity : ComponentActivity() {
 
     private lateinit var viewModelRef: MainViewModel
+    // A route asked for by a watch-face complication or the tile.
+    private var pendingRoute by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingRoute = intent.getStringExtra("targetRoute")
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -40,6 +48,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingRoute = intent.getStringExtra("targetRoute")
         setContent {
             QuranWatchTheme {
                 val navController = rememberSwipeDismissableNavController()
@@ -89,10 +98,14 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    LaunchedEffect(intent) {
-                        val route = intent.getStringExtra("targetRoute")
+                    LaunchedEffect(pendingRoute) {
+                        val route = pendingRoute
                         if (!route.isNullOrBlank()) {
+                            // Straight there from the entry screen, so back
+                            // returns to it rather than to an older page.
+                            navController.popBackStack("entry", inclusive = false)
                             navController.navigate(route)
+                            pendingRoute = null
                         }
                     }
 

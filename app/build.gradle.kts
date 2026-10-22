@@ -90,6 +90,9 @@ dependencies {
     implementation("androidx.wear.protolayout:protolayout-expression:$protoLayoutVersion")
     implementation("com.google.guava:guava:33.3.1-android")
 
+    // Complication data sources: what a watch face shows from this app.
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
+
 
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

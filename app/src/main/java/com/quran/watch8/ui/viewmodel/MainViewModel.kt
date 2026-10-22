@@ -283,6 +283,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             db.saveReadingPosition(surah, ayahIndex, ayahNumber, surahNameAr, ayahSnippet)
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.ContinueReadingComplicationService::class.java
+            )
         }
     }
 
@@ -310,6 +313,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val useName   = name ?: selectedLocationName.first()
             val method    = calculationMethod.first()
             prayerTimes = PrayerTimesHelper.calculate(useLat, useLng, method, locationName = useName)
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.NextPrayerComplicationService::class.java
+            )
             com.quran.watch8.util.PrayerAlarmScheduler.scheduleAll(appContext)
         }
     }

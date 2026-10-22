@@ -156,8 +156,8 @@ test('the watch can update itself from this repository\'s releases', async () =>
 test('the app opens on the entry screen and no longer claims the launcher', () => {
   assert.match(mainActivity, /startDestination\s*=\s*"entry"/);
   assert.doesNotMatch(manifest, /category\.HOME/);
-  assert.doesNotMatch(manifest, /WallpaperService|watchface/);
-  assert.doesNotMatch(gradle, /androidx\.wear\.watchface/);
+  assert.doesNotMatch(manifest, /WallpaperService|WATCH_FACE/);
+  assert.doesNotMatch(gradle, /androidx\.wear\.watchface:watchface:/);
   assert.doesNotMatch(codeOnly(viewModel), /weather|pushToCloud|syncWithCloud/i);
 });
 
@@ -182,4 +182,18 @@ test('the tile shows prayer times from the saved location and opens the app', ()
 
 test('the release build is shrunk by R8', () => {
   assert.match(gradle, /release \{[\s\S]*?isMinifyEnabled = true/);
+});
+
+// A real watch face (Watch Face Format, no code) reaches the app through
+// complications; each one opens its part of the app directly.
+test('the app serves complications whose taps open the matching screen', async () => {
+  const complications = await readFile(new URL('app/src/main/java/com/quran/watch8/complication/Complications.kt', root), 'utf8');
+  for (const name of ['NextPrayer', 'ContinueReading', 'HijriDate', 'QuranShortcut', 'BookmarksShortcut']) {
+    assert.match(manifest, new RegExp(`\\.complication\\.${name}ComplicationService`));
+  }
+  assert.match(manifest, /BIND_COMPLICATION_PROVIDER/);
+  assert.match(complications, /putExtra\("targetRoute", route\)/);
+  assert.match(mainActivity, /override fun onNewIntent/);
+  assert.match(mainActivity, /pendingRoute = intent\.getStringExtra\("targetRoute"\)/);
+  assert.match(viewModel, /requestComplicationUpdate\(/);
 });
