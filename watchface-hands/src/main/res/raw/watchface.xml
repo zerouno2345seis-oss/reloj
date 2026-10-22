@@ -74,13 +74,13 @@
 <Variant mode="AMBIENT" target="alpha" value="0"/>
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="LONG_TEXT" primaryProvider="com.quran.watch8/com.quran.watch8.complication.HijriDateComplicationService" primaryProviderType="LONG_TEXT"/>
 <BoundingBox x="0" y="0" width="300" height="28"/>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="300" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="300" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Complication type="LONG_TEXT"><PartText x="0" y="0" width="300" height="32"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="22" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="300" height="32"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="22" weight="NORMAL" color="#FFC9A227"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
 </ComplicationSlot>
 <ComplicationSlot slotId="10" x="0" y="0" width="450" height="450" supportedTypes="RANGED_VALUE" isCustomizable="TRUE">
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="RANGED_VALUE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.NextPrayerComplicationService" primaryProviderType="RANGED_VALUE"/>
 <BoundingBox x="95" y="120" width="260" height="34"/>
-<Complication type="RANGED_VALUE"><PartText x="60" y="122" width="330" height="30"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" weight="BOLD" color="#FFFFFFFF"><Template>%s · %s<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="[COMPLICATION.TITLE]"/></Template></Font></Text></PartText></Complication>
+<Complication type="RANGED_VALUE"><PartText x="45" y="120" width="360" height="36"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FFFFFFFF"><Template>%s · %s<Parameter expression="[COMPLICATION.TEXT]"/><Parameter expression="[COMPLICATION.TITLE]"/></Template></Font></Text></PartText></Complication>
 </ComplicationSlot>
 <ComplicationSlot slotId="14" x="106" y="308" width="46" height="46" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
 <Variant mode="AMBIENT" target="alpha" value="0"/>
@@ -93,7 +93,7 @@
 <Variant mode="AMBIENT" target="alpha" value="0"/>
 <DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SHORT_TEXT" primaryProvider="com.quran.watch8/com.quran.watch8.complication.ContinueReadingComplicationService" primaryProviderType="SHORT_TEXT"/>
 <BoundingBox x="0" y="0" width="130" height="44"/>
-<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="130" height="44"><RoundRectangle x="0" y="0" width="130" height="44" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#FF0F766E"/></RoundRectangle></PartDraw><PartText x="10" y="0" width="110" height="44"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="17" weight="BOLD" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
+<Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="130" height="44"><RoundRectangle x="0" y="0" width="130" height="44" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#FF0F766E"/></RoundRectangle></PartDraw><PartText x="10" y="0" width="110" height="44"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
 </ComplicationSlot>
 <ComplicationSlot slotId="12" x="302" y="308" width="46" height="46" supportedTypes="SMALL_IMAGE SHORT_TEXT" isCustomizable="TRUE">
 <Variant mode="AMBIENT" target="alpha" value="0"/>
@@ -102,18 +102,18 @@
 <Complication type="SMALL_IMAGE"><PartDraw x="0" y="0" width="46" height="46"><Ellipse x="0" y="0" width="46" height="46"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="1.5"/></Ellipse></PartDraw><PartImage x="10" y="10" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>
 <Complication type="SHORT_TEXT"><PartText x="0" y="0" width="46" height="46"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
 </ComplicationSlot>
-<PartText x="296" y="64" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>1<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="359" y="127" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>2<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="382" y="213" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>3<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="359" y="299" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>4<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="296" y="362" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>5<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="210" y="385" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>6<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="124" y="362" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>7<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="61" y="299" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>8<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="38" y="213" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>9<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="61" y="127" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>10<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="124" y="64" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>11<Parameter expression="0"/></Template></Font></Text></PartText>
-<PartText x="210" y="41" width="30" height="24"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="17" weight="NORMAL" color="#FFB8C0CC"><Template>12<Parameter expression="0"/></Template></Font></Text></PartText>
+<PartText x="289" y="59" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>1</Template></Font></Text></PartText>
+<PartText x="352" y="122" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>2</Template></Font></Text></PartText>
+<PartText x="375" y="208" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>3</Template></Font></Text></PartText>
+<PartText x="352" y="294" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>4</Template></Font></Text></PartText>
+<PartText x="289" y="357" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>5</Template></Font></Text></PartText>
+<PartText x="203" y="380" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>6</Template></Font></Text></PartText>
+<PartText x="117" y="357" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>7</Template></Font></Text></PartText>
+<PartText x="54" y="294" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>8</Template></Font></Text></PartText>
+<PartText x="31" y="208" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>9</Template></Font></Text></PartText>
+<PartText x="54" y="122" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>10</Template></Font></Text></PartText>
+<PartText x="117" y="59" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>11</Template></Font></Text></PartText>
+<PartText x="203" y="36" width="44" height="34"><Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="26" weight="BOLD" color="#FFE5E7EB"><Template>12</Template></Font></Text></PartText>
 <Group name="hour" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Transform target="angle" value="(([HOUR_0_11] + [MINUTE] / 60) * 30)"/>
 <PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="225" endX="225" endY="114"><Stroke color="#FFFFFFFF" thickness="9" cap="ROUND"/></Line></PartDraw>
 </Group>
