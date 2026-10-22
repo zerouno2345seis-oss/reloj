@@ -1,23 +1,44 @@
 package com.quran.watch8.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
+import com.quran.watch8.data.model.Bookmark
 import com.quran.watch8.data.model.SurahMetadata
+import com.quran.watch8.ui.components.ReaderTypography
+import com.quran.watch8.ui.components.WatchSafeInsets
+import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
-import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
+/**
+ * One card per bookmark: the surah, the verse number in a gold badge, and the
+ * verse's opening words in the Quran face. A tap opens the reader there; a
+ * sideways swipe reveals "حذف". The read and delete buttons that used to sit
+ * in every card took most of its room on the watch.
+ */
 @Composable
 fun BookmarksScreen(
     onBack: () -> Unit,
@@ -25,54 +46,50 @@ fun BookmarksScreen(
     viewModel: MainViewModel
 ) {
     val listState = rememberScalingLazyListState()
+    val rotaryMod = rememberRotaryScrollModifier(listState)
     val bookmarks by viewModel.bookmarks.collectAsState()
 
-    // Sort mode: false = by time added (newest first), true = by Quran order (Surah & Ayah number)
+    // false = newest first, true = in mushaf order
     var sortByQuranOrder by remember { mutableStateOf(false) }
-
     val sortedBookmarks = remember(bookmarks, sortByQuranOrder) {
-        if (sortByQuranOrder) {
-            bookmarks.sortedWith(compareBy({ it.surah }, { it.ayah }))
-        } else {
-            bookmarks.sortedByDescending { it.timestamp }
-        }
+        if (sortByQuranOrder) bookmarks.sortedWith(compareBy({ it.surah }, { it.ayah }))
+        else bookmarks.sortedByDescending { it.timestamp }
     }
 
     Scaffold(
-        timeText = { TimeText() },
-        vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
+        timeText = {},
+        vignette = {},
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
     ) {
         ScalingLazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(rotaryMod),
             horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(top = 24.dp, bottom = 40.dp, start = 8.dp, end = 8.dp)
+            contentPadding = WatchSafeInsets.listContentPadding
         ) {
             item {
-                Text(
-                    text = "الإشارات المرجعية",
-                    style = MaterialTheme.typography.title3,
-                    color = AccentGold,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("الإشارات", color = AccentGold, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    if (bookmarks.isNotEmpty()) {
+                        Text(
+                            " (${ReaderTypography.arabicDigits(bookmarks.size)})",
+                            color = Color(0xFF9CA3AF),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
             }
 
-            if (bookmarks.isNotEmpty()) {
-                // Sorting Toggle Chip
+            if (bookmarks.size > 1) {
                 item {
-                    CompactChip(
-                        onClick = { sortByQuranOrder = !sortByQuranOrder },
-                        label = {
-                            Text(
-                                text = if (sortByQuranOrder) "📖 الترتيب: حسب المصحف والسور" else "⏱️ الترتيب: حسب وقت الإضافة",
-                                fontSize = 10.sp,
-                                color = AyahYellow
-                            )
-                        },
-                        colors = ChipDefaults.primaryChipColors(backgroundColor = Color(0xFF1E242E)),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    Text(
+                        text = if (sortByQuranOrder) "حسب المصحف" else "الأحدث أولًا",
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 11.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { sortByQuranOrder = !sortByQuranOrder }
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
                     )
                 }
             }
@@ -80,70 +97,116 @@ fun BookmarksScreen(
             if (sortedBookmarks.isEmpty()) {
                 item {
                     Text(
-                        text = "لا توجد إشارات بعد\nاضغط مطولاً على أي آية لإضافتها",
-                        style = MaterialTheme.typography.body2,
+                        text = "لا توجد إشارات بعد\nاضغط مطوّلًا على أي آية لإضافتها",
                         color = Color.Gray,
+                        fontSize = 12.sp,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(24.dp)
+                        modifier = Modifier.padding(20.dp)
                     )
                 }
             } else {
                 items(sortedBookmarks, key = { it.id }) { bookmark ->
-                    val surahName = SurahMetadata.getSurah(bookmark.surah)?.nameAr ?: "سورة ${bookmark.surah}"
-
-                    // Reading and deleting are two separate targets. The delete
-                    // used to be a caption inside the chip's label -- it looked
-                    // like a button and did nothing, because the whole chip
-                    // opened the ayah. The date is kept in the record (it still
-                    // drives the "by time added" sort) but not printed: on a
-                    // watch it only crowds the verse.
-                    Card(
-                        onClick = { onOpenAyah(bookmark.surah, bookmark.ayah) },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                        backgroundPainter = CardDefaults.cardBackgroundPainter(
-                            startBackgroundColor = Color(0xFF151922),
-                            endBackgroundColor = Color(0xFF151922)
-                        )
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = if (!bookmark.note.isNullOrBlank()) bookmark.note!!
-                                       else "$surahName [${bookmark.surah}:${bookmark.ayah}]",
-                                style = MaterialTheme.typography.body2,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 2
-                            )
-                            Text(
-                                text = "﴿ ${bookmark.textSnippet} ﴾",
-                                style = MaterialTheme.typography.caption3,
-                                color = AyahYellow,
-                                maxLines = 2
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                CompactChip(
-                                    onClick = { onOpenAyah(bookmark.surah, bookmark.ayah) },
-                                    label = { Text("📖 قراءة", fontSize = 10.sp) },
-                                    colors = ChipDefaults.primaryChipColors(
-                                        backgroundColor = Color(0xFF1E3A5F)
-                                    )
-                                )
-                                CompactChip(
-                                    onClick = { viewModel.removeBookmark(bookmark.id) },
-                                    label = { Text("🗑️ حذف", fontSize = 10.sp, color = Color(0xFFFF6B6B)) },
-                                    colors = ChipDefaults.secondaryChipColors(
-                                        backgroundColor = Color(0xFF3B1E22)
-                                    )
-                                )
-                            }
-                        }
-                    }
+                    BookmarkCard(
+                        bookmark = bookmark,
+                        modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction + 0.06f),
+                        onOpen = { onOpenAyah(bookmark.surah, bookmark.ayah) },
+                        onDelete = { viewModel.removeBookmark(bookmark.id) }
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BookmarkCard(
+    bookmark: Bookmark,
+    modifier: Modifier,
+    onOpen: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val surahName = SurahMetadata.getSurah(bookmark.surah)?.nameAr ?: "سورة ${bookmark.surah}"
+    val revealPx = with(LocalDensity.current) { 64.dp.toPx() }
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val shape = RoundedCornerShape(20.dp)
+
+    Box(modifier = modifier.padding(vertical = 2.dp).clip(shape)) {
+        // Behind the card, uncovered by the swipe.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color(0xFF7F1D1D))
+                .clickable(enabled = offset.value > revealPx / 2) { onDelete() },
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                "حذف",
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(with(LocalDensity.current) { revealPx.toDp() }),
+                textAlign = TextAlign.Center
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offset.value.roundToInt(), 0) }
+                .clip(shape)
+                .background(Color(0xFF151922))
+                .pointerInput(bookmark.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch { offset.animateTo(if (offset.value > revealPx / 2) revealPx else 0f) }
+                        },
+                        onHorizontalDrag = { change, drag ->
+                            change.consume()
+                            scope.launch { offset.snapTo((offset.value + drag).coerceIn(0f, revealPx)) }
+                        }
+                    )
+                }
+                .clickable {
+                    if (offset.value > 0f) scope.launch { offset.animateTo(0f) } else onOpen()
+                }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (!bookmark.note.isNullOrBlank()) bookmark.note!! else surahName,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Text(
+                    text = ReaderTypography.arabicDigits(bookmark.ayah),
+                    color = AccentGold,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF3A2F0B))
+                        .padding(horizontal = 8.dp, vertical = 1.dp)
+                )
+            }
+            Text(
+                text = bookmark.textSnippet,
+                color = Color(0xFFE5E7EB),
+                fontFamily = ReaderTypography.QuranFont,
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+            )
         }
     }
 }

@@ -21,9 +21,9 @@ const [settings, reader, preferences, mainActivity, locations, prayerHelper, app
 
 test('reader settings support the expanded range, fonts, and synced custom colours', () => {
   assert.match(preferences, /coerceIn\(8f,\s*48f\)/);
-  // The watch offers only choices that draw differently; every font id the web
-  // can sync still resolves (see the typography test below).
-  for (const font of ['default', 'sansserif', 'serif']) assert.match(settings, new RegExp(`"${font}"`));
+  // The watch offers the two Quran faces, Madinah ("default") and Amiri; every
+  // other font id the web can sync still resolves (see the typography test).
+  for (const font of ['default', 'amiri']) assert.match(settings, new RegExp(`"${font}"`));
   assert.match(preferences, /customReaderBgColor/);
   assert.match(preferences, /customReaderTextColor/);
   assert.match(preferences, /customAyahColor/);
@@ -106,7 +106,10 @@ test('every WatchIcons composable is actually used', async () => {
 // A delete button that is only a caption inside another button does nothing.
 test('a bookmark on the watch can be opened or deleted, and shows no timestamp', async () => {
   const bookmarks = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/BookmarksScreen.kt', root), 'utf8');
-  assert.match(bookmarks, /onClick = \{ viewModel\.removeBookmark\(bookmark\.id\) \}/);
+  // A tap opens the verse; a sideways swipe uncovers the delete.
+  assert.match(bookmarks, /onOpen = \{ onOpenAyah\(bookmark\.surah, bookmark\.ayah\) \}/);
+  assert.match(bookmarks, /onDelete = \{ viewModel\.removeBookmark\(bookmark\.id\) \}/);
+  assert.match(bookmarks, /detectHorizontalDragGestures/);
   assert.doesNotMatch(bookmarks, /SimpleDateFormat|dateFormat/);
   // The timestamp still exists -- it is what "by time added" sorts on.
   assert.match(bookmarks, /sortedByDescending \{ it\.timestamp \}/);

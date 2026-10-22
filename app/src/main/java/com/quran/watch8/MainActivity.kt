@@ -178,7 +178,11 @@ class MainActivity : ComponentActivity() {
                             LocationsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
                         composable("settings") {
-                            SettingsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                            SettingsScreen(
+                                onBack = { navController.popBackStack() },
+                                viewModel = viewModel,
+                                onOpenLocations = { navController.navigate("locations") }
+                            )
                         }
                     }
                 }

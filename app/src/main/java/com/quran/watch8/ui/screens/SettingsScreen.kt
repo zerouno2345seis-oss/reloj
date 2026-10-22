@@ -1,40 +1,51 @@
 package com.quran.watch8.ui.screens
 
-import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
-import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.UpdateChip
 import com.quran.watch8.ui.components.WatchSafeInsets
+import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.theme.AccentGold
-import com.quran.watch8.ui.theme.AyahGreen
-import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
+import com.quran.watch8.util.PrayerTimesHelper
+
+/** A reading theme: one tap sets the page's background and text together. */
+private data class ReadingTheme(val bg: String, val text: String)
+
+// Three rows of tiny chips (7-8 sp, unreadable on the watch) became four
+// ready pairs. The ids are the ones ReaderTypography already understands.
+private val readingThemes = listOf(
+    ReadingTheme("black", "white"),
+    ReadingTheme("sepia", "ivory"),
+    ReadingTheme("forest", "mint"),
+    ReadingTheme("navy", "cyan"),
+)
 
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onOpenLocations: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     val listState = rememberScalingLazyListState()
     val rotaryMod = rememberRotaryScrollModifier(listState)
     val fontSize by viewModel.fontSize.collectAsState()
@@ -46,20 +57,13 @@ fun SettingsScreen(
     val customReaderTextColor by viewModel.customReaderTextColor.collectAsState()
     val fontFamily by viewModel.fontFamily.collectAsState()
     val notifications by viewModel.notificationsEnabled.collectAsState()
-    // Only choices that draw differently. The old list offered nine names, most
-    // of which fell back to the same system font. System fonts lack some
-    // Uthmani marks, so the bundled Quran font is the default.
-    val readerFontOptions = listOf(
-        "default" to "المدينة", "amiri" to "الأميري", "sansserif" to "بسيط", "serif" to "تقليدي"
-    )
+    val locationName by viewModel.selectedLocationName.collectAsState()
+    val method by viewModel.calculationMethod.collectAsState()
 
-
-    fun vibrateShort() {
-        try {
-            val v = context.getSystemService(android.os.Vibrator::class.java)
-            v?.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-        } catch (_: Exception) {}
-    }
+    val pageBg = ReaderTypography.backgroundColor(readerBgColor, customReaderBgColor)
+    val pageText = ReaderTypography.textColor(readerTextColor, customReaderTextColor)
+    val numberColor = ReaderTypography.ayahNumberColor(ayahColor, customAyahColor)
+    val width = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction)
 
     Scaffold(
         timeText = {},
@@ -68,198 +72,180 @@ fun SettingsScreen(
     ) {
         ScalingLazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .then(rotaryMod),
+            modifier = Modifier.fillMaxSize().then(rotaryMod),
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = WatchSafeInsets.listContentPadding
         ) {
             item {
-                UpdateChip(modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction))
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "⚙️ إعدادات عامة",
-                    style = MaterialTheme.typography.caption1,
+                    text = "الإعدادات",
                     color = AccentGold,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            // A size and a face are only judgeable against real text, so the
-            // page itself is shown here -- same font, same colours, same
-            // stored values the reader uses. Changing either here or in the
-            // reader moves this sample and the page together.
+            // The page itself, in the stored font, size and colours, so every
+            // choice below is judged against real text before reading.
             item {
-                Spacer(modifier = Modifier.height(8.dp))
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(ReaderTypography.backgroundColor(readerBgColor, customReaderBgColor))
-                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    modifier = width
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(pageBg)
+                        .border(1.dp, Color(0xFF1F2937), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = ReaderTypography.SAMPLE_AYAH,
-                        color = ReaderTypography.textColor(readerTextColor, customReaderTextColor),
+                        color = pageText,
                         fontFamily = ReaderTypography.fontFamily(fontFamily),
                         fontSize = fontSize.sp,
                         lineHeight = (fontSize * ReaderTypography.LINE_HEIGHT_FACTOR).sp,
                         textAlign = TextAlign.Center,
-                        maxLines = 4,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
+            // Size: two big targets and the number between them.
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("حجم خط القرآن", style = MaterialTheme.typography.caption2, color = Color.Gray)
-                Spacer(modifier = Modifier.height(4.dp))
                 Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = width
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(Color(0xFF151922))
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CompactChip(
-                        onClick = { viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f)) },
-                        label = { Text("−") }
-                    )
-                    Text("${fontSize.toInt()} sp", color = AyahYellow, fontWeight = FontWeight.Bold)
-                    CompactChip(
-                        onClick = { viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f)) },
-                        label = { Text("+") }
-                    )
+                    RoundButton("+") { viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f)) }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(ReaderTypography.arabicDigits(fontSize.toInt()), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text("حجم الخط", color = Color(0xFF9CA3AF), fontSize = 10.sp)
+                    }
+                    RoundButton("−") { viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f)) }
+                }
+            }
+
+            // Face: one of two. "default" is the Madinah mushaf face.
+            item {
+                Row(
+                    modifier = width
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFF151922))
+                        .padding(3.dp)
+                ) {
+                    val madinah = fontFamily != "amiri"
+                    Segment("مصحف المدينة", selected = madinah, modifier = Modifier.weight(1f)) { viewModel.setFontFamily("default") }
+                    Segment("الأميري", selected = !madinah, modifier = Modifier.weight(1f)) { viewModel.setFontFamily("amiri") }
                 }
             }
 
             item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("خط القراءة", style = MaterialTheme.typography.caption2, color = Color.Gray)
+                Text("ألوان القراءة", color = Color(0xFF9CA3AF), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
             }
-
-            items(readerFontOptions.chunked(2)) { fontRow ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    fontRow.forEach { (id, label) ->
-                        CompactChip(
-                            onClick = { viewModel.setFontFamily(id) },
-                            label = { Text(label, fontSize = 8.sp, maxLines = 1) },
-                            colors = ChipDefaults.chipColors(
-                                backgroundColor = if (fontFamily == id || (id == "default" && fontFamily !in readerFontOptions.map { it.first })) Color(0xFF0D9488) else Color(0xFF222222),
-                                contentColor = Color.White
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    readingThemes.forEach { theme ->
+                        val selected = readerBgColor == theme.bg && readerTextColor == theme.text
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(ReaderTypography.backgroundColor(theme.bg, ""))
+                                .border(
+                                    BorderStroke(if (selected) 2.dp else 1.dp, if (selected) AccentGold else Color(0xFF374151)),
+                                    CircleShape
+                                )
+                                .clickable {
+                                    viewModel.setReaderBgColor(theme.bg)
+                                    viewModel.setReaderTextColor(theme.text)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "ق",
+                                color = ReaderTypography.textColor(theme.text, ""),
+                                fontFamily = ReaderTypography.QuranFont,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
             }
 
             item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("لون أرقام الآيات", style = MaterialTheme.typography.caption2, color = Color.Gray)
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Chip(
-                        onClick = { viewModel.setAyahColor("yellow") },
-                        label = { Text("أصفر 🟡", color = if (ayahColor == "yellow") Color.Black else Color.White, fontSize = 11.sp) },
-                        colors = ChipDefaults.primaryChipColors(
-                            backgroundColor = if (ayahColor == "yellow") AyahYellow else Color(0xFF222222)
-                        ),
-                        modifier = Modifier.weight(1f).padding(end = 4.dp)
-                    )
-                    Chip(
-                        onClick = { viewModel.setAyahColor("green") },
-                        label = { Text("أخضر 🟢", color = if (ayahColor == "green") Color.Black else Color.White, fontSize = 11.sp) },
-                        colors = ChipDefaults.primaryChipColors(
-                            backgroundColor = if (ayahColor == "green") AyahGreen else Color(0xFF222222)
-                        ),
-                        modifier = Modifier.weight(1f).padding(start = 4.dp)
-                    )
-                }
-            }
-
-            item {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    CompactChip(onClick = { viewModel.setAyahColor("cyan") }, label = { Text("سماوي", fontSize = 9.sp) }, modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    CompactChip(onClick = { viewModel.setAyahColor("rose") }, label = { Text("وردي", fontSize = 9.sp) }, modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    CompactChip(
-                        onClick = { viewModel.setAyahColor("custom") },
-                        label = { Text("مخصص", fontSize = 9.sp, color = parseHexColor(customAyahColor, Color.White)) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("خلفية القارئ", style = MaterialTheme.typography.caption2, color = Color.Gray)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                    listOf("black" to "أسود", "navy" to "كحلي", "sepia" to "ورقي", "forest" to "أخضر", "slate" to "رمادي").forEach { (id, label) ->
-                        CompactChip(
-                            onClick = { viewModel.setReaderBgColor(id) },
-                            label = { Text(label, fontSize = 7.sp) },
-                            colors = ChipDefaults.chipColors(backgroundColor = if (readerBgColor == id) Color(0xFF0D9488) else Color(0xFF222222)),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                CompactChip(
-                    onClick = { viewModel.setReaderBgColor("custom") },
-                    label = { Text("اللون المخصص من المصمم", fontSize = 8.sp) },
-                    colors = ChipDefaults.chipColors(backgroundColor = parseHexColor(customReaderBgColor, Color(0xFF222222))),
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("لون متن الآية", style = MaterialTheme.typography.caption2, color = Color.Gray)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                    listOf("white" to "أبيض", "ivory" to "عاجي", "mint" to "نعناع", "golden" to "ذهبي", "cyan" to "سماوي").forEach { (id, label) ->
-                        CompactChip(
-                            onClick = { viewModel.setReaderTextColor(id) },
-                            label = { Text(label, fontSize = 7.sp) },
-                            colors = ChipDefaults.chipColors(backgroundColor = if (readerTextColor == id) Color(0xFF0D9488) else Color(0xFF222222)),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                CompactChip(
-                    onClick = { viewModel.setReaderTextColor("custom") },
-                    label = { Text("اللون المخصص من المصمم", fontSize = 8.sp, color = parseHexColor(customReaderTextColor, Color.White)) },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
                 ToggleChip(
                     checked = notifications,
                     onCheckedChange = { viewModel.setNotifications(it) },
-                    label = { Text("تنبيهات الأذان", fontSize = 11.sp) },
-                    toggleControl = {
-                        Switch(
-                            checked = notifications,
-                            onCheckedChange = { viewModel.setNotifications(it) }
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    label = { Text("تنبيهات الأذان", fontSize = 13.sp) },
+                    toggleControl = { Switch(checked = notifications, onCheckedChange = null) },
+                    modifier = width.padding(top = 6.dp)
                 )
             }
+
+            item {
+                Chip(
+                    onClick = onOpenLocations,
+                    label = { Text("الموقع", fontSize = 13.sp) },
+                    secondaryLabel = { Text(locationName, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = width
+                )
+            }
+
+            // Read-only: the times follow IslamicFinder.
+            item {
+                Chip(
+                    onClick = {},
+                    enabled = false,
+                    label = { Text("طريقة الحساب", fontSize = 13.sp) },
+                    secondaryLabel = {
+                        Text("${PrayerTimesHelper.methodDisplayName(method)} · IslamicFinder", fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = width
+                )
+            }
+
+            item {
+                UpdateChip(modifier = width.padding(top = 4.dp))
+            }
         }
+    }
+}
+
+@Composable
+private fun RoundButton(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF273142))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun Segment(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (selected) Color(0xFF0F766E) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (selected) Color.White else Color(0xFFCBD5E1),
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1
+        )
     }
 }
