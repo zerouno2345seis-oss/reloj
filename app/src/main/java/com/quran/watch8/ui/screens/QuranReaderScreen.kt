@@ -149,13 +149,14 @@ fun QuranReaderScreen(
             RoundPassages(
                 diameterPx = diameterPx,
                 lineHeightPx = (fontPx * ReaderTypography.LINE_HEIGHT_FACTOR).roundToInt(),
-                // The glass ends a little inside the panel's circle, and the
-                // position indicator runs along the rim.
-                marginPx = with(density) { 10.dp.roundToPx() } + (diameterPx * 0.04f).roundToInt(),
+                // Lines run nearly to the glass, as in other watch mushafs the
+                // owner compared: the old 10 dp + 4% margin left the page
+                // looking empty. The position indicator may touch the text.
+                marginPx = with(density) { 6.dp.roundToPx() },
                 // Nothing is drawn above or below the text any more (a double
                 // tap shows the surah and verse), so only a sliver is kept.
                 capPx = (diameterPx * 0.04f).roundToInt(),
-                minLineWidthPx = (diameterPx * 0.34f).roundToInt(),
+                minLineWidthPx = (diameterPx * 0.26f).roundToInt(),
                 paint = TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     this.typeface = typeface
                     textSize = fontPx

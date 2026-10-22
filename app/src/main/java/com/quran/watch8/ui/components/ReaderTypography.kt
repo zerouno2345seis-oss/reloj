@@ -66,7 +66,7 @@ object ReaderTypography {
      * between lines on the watch; 1.65 still keeps the marks of neighbouring
      * lines apart.
      */
-    const val LINE_HEIGHT_FACTOR = 1.65f
+    const val LINE_HEIGHT_FACTOR = 1.4f
 
     fun arabicDigits(n: Int): String = n.toString().map { '\u0660' + (it - '0') }.joinToString("")
 

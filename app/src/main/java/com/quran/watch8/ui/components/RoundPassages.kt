@@ -262,11 +262,14 @@ class RoundPassages(
             // left half empty to keep a stretch together read as wasted space.
             var resumeAt = 0
             if (j < units.size) {
+                // Every try extends the whole units placed above, not the last
+                // try: extending `pieces` itself appended the same words twice.
+                val whole = pieces
                 var lo = 1
                 var hi = units[j].words.size - 1
                 while (lo <= hi) {
                     val mid = (lo + hi) / 2
-                    val candidate = pieces + Piece(units[j], 0, mid)
+                    val candidate = whole + Piece(units[j], 0, mid)
                     val t = compose(candidate, base.size)
                     val f = fit(t.first)
                     if (f != null) { pieces = candidate; placed = f; text = t; resumeAt = mid; lo = mid + 1 } else hi = mid - 1
