@@ -104,21 +104,23 @@ fun EntryScreen(
         }
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 22.dp),
+            // Everything has to sit inside the circle: the first version ran
+            // taller than the glass and pushed "continue" and the buttons off
+            // the bottom on the SM-L500. Weekday and place moved to the table.
+            modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(hijri, fontSize = 12.sp, color = AccentGold, maxLines = 1)
+            Text(hijri, fontSize = 11.sp, color = AccentGold, maxLines = 1)
             Text(
                 text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                fontSize = 50.sp,
+                fontSize = 40.sp,
                 fontWeight = FontWeight.Light,
                 color = Color.White,
                 maxLines = 1
             )
-            Text(weekday, fontSize = 11.sp, color = Color(0xFF9CA3AF), maxLines = 1)
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(2.dp))
             // The next prayer; a tap opens the whole day.
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -127,23 +129,15 @@ fun EntryScreen(
             ) {
                 Text(
                     text = status?.let { "${it.next.nameAr} ${it.next.formatted}" } ?: "مواقيت الصلاة",
-                    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1
+                    fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1
                 )
                 Text(
                     text = status?.let { "بعد ${it.remainingText}" } ?: "",
-                    fontSize = 11.sp, color = AccentGold, maxLines = 1
-                )
-            }
-            val place = prayers?.locationName.orEmpty()
-            if (place.isNotBlank()) {
-                Text(
-                    text = place,
-                    fontSize = 10.sp, color = Color(0xFF6B7280), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable { onNavigate("locations") }.padding(vertical = 2.dp)
+                    fontSize = 10.sp, color = AccentGold, maxLines = 1
                 )
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             // Back to where reading stopped.
             Box(
                 contentAlignment = Alignment.Center,
@@ -154,7 +148,7 @@ fun EntryScreen(
                         val pos = lastRead
                         onNavigate(if (pos != null) "reader/${pos.surah}?startAyah=${pos.ayahNumber}" else "quran")
                     }
-                    .padding(horizontal = 16.dp, vertical = 7.dp)
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
             ) {
                 Text(
                     text = lastRead?.let { "متابعة: ${it.surahNameAr} ${ReaderTypography.arabicDigits(it.ayahNumber)}" } ?: "ابدأ القراءة",
@@ -163,7 +157,7 @@ fun EntryScreen(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(5.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 FaceButton(onClick = { onNavigate("settings") }) {
                     Text("⚙", fontSize = 15.sp, color = Color.White)
