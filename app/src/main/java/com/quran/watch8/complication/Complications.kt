@@ -177,10 +177,10 @@ class ContinueReadingComplicationService : SuspendingComplicationDataSourceServi
         val position = (applicationContext as QuranWatchApplication)
             .databaseRepository.lastReadingPosition.firstOrNull()
         return if (position == null) build(request.complicationType, null, 0, 0)
-        else build(request.complicationType, position.surahNameAr, position.surah, position.ayahNumber)
+        else build(request.complicationType, position.surahNameAr, position.surah, position.ayahNumber, position.ayahSnippet)
     }
 
-    private fun build(type: ComplicationType, surahName: String?, surah: Int, ayah: Int): ComplicationData? {
+    private fun build(type: ComplicationType, surahName: String?, surah: Int, ayah: Int, snippet: String = ""): ComplicationData? {
         val tap = openRoute(if (surahName != null) "reader/$surah?startAyah=$ayah" else "quran")
         val label = if (surahName != null) "$surahName ${ReaderTypography.arabicDigits(ayah)}" else "المصحف"
         val icon = MonochromaticImage.Builder(Icon.createWithResource(this, R.drawable.img_quran)).build()
@@ -188,12 +188,64 @@ class ContinueReadingComplicationService : SuspendingComplicationDataSourceServi
             ComplicationType.SHORT_TEXT ->
                 ShortTextComplicationData.Builder(text(label), text("متابعة القراءة: $label"))
                     .setMonochromaticImage(icon).setTapAction(tap).build()
-            ComplicationType.LONG_TEXT ->
-                LongTextComplicationData.Builder(text(label), text("متابعة القراءة: $label"))
-                    .setTitle(text("متابعة القراءة")).setMonochromaticImage(icon).setTapAction(tap).build()
+            // Title: where reading stopped, in Western digits; text: the verse's
+            // first words, so the face can show the place and how it begins.
+            ComplicationType.LONG_TEXT -> {
+                val place = if (surahName != null) "$surahName · الآية $ayah" else "المصحف"
+                val opening = snippet.split(' ').filter { it.isNotBlank() }.take(4).joinToString(" ").ifBlank { place }
+                LongTextComplicationData.Builder(text(opening), text("متابعة القراءة: $place"))
+                    .setTitle(text(place)).setMonochromaticImage(icon).setTapAction(tap).build()
+            }
             else -> null
         }
     }
+}
+
+/**
+ * The previous and the next prayer as one number, for the row face:
+ * value = previous minute * 1440 + next minute (minutes of the day on the
+ * watch's clock). The face works out the time since the one and to the other
+ * from its own clock, so both stay live between updates. Text is the next
+ * prayer's name, title the previous one's; a tap opens the prayer table.
+ */
+class PrayerWindowComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? =
+        build(type, 14 * 60 + 50, 18 * 60 + 30, "المغرب", "العصر")
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val status = PrayerTimesHelper.status(todaysPrayers()) ?: return null
+        val zone = ZoneId.systemDefault()
+        fun minuteOfDay(t: Instant) = t.atZone(zone).let { it.hour * 60 + it.minute }
+        PrayerClockMode.refreshAt(this, status.next.time.toEpochMilli() + 2_000)
+        return build(
+            request.complicationType, minuteOfDay(status.current.time), minuteOfDay(status.next.time),
+            status.next.nameAr, status.current.nameAr
+        )
+    }
+
+    private fun build(type: ComplicationType, previous: Int, next: Int, nextName: String, previousName: String): ComplicationData? {
+        if (type != ComplicationType.RANGED_VALUE) return null
+        return RangedValueComplicationData.Builder((previous * 1440 + next).toFloat(), 0f, 1440f * 1440, text(nextName))
+            .setText(text(nextName)).setTitle(text(previousName))
+            .setTapAction(openRoute("prayer")).build()
+    }
+}
+
+/** Today's date as day/month in Western digits, e.g. "22/10". */
+class GregorianDateComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? = build(type, "22/10")
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val today = java.time.LocalDate.now()
+        return build(request.complicationType, "${today.dayOfMonth}/${today.monthValue}")
+    }
+
+    private fun build(type: ComplicationType, date: String): ComplicationData? =
+        if (type == ComplicationType.SHORT_TEXT)
+            ShortTextComplicationData.Builder(text(date), text(date)).setTapAction(openRoute("prayer")).build()
+        else null
 }
 
 /** Today's Hijri date. */

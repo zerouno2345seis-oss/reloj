@@ -20,9 +20,11 @@ import java.net.URL
  * reaches the watch over whatever internet it has -- no Mac, no wireless
  * debugging, which the watch drops whenever its screen sleeps.
  *
- * A release is tagged `v<versionCode>` and carries one `.apk` asset, signed
+ * A release is tagged `v<versionCode>` and carries the app's `.apk`, signed
  * with the same key as the installed app (Android refuses anything else, and
- * the same key keeps bookmarks and settings).
+ * the same key keeps bookmarks and settings). It may also carry watch faces,
+ * each a separate package named `face-<package>-v<versionCode>.apk`; a face
+ * missing or older on the watch is installed with the app.
  */
 object SelfUpdater {
     private const val TAG = "SelfUpdater"
@@ -41,13 +43,25 @@ object SelfUpdater {
     )
 
     sealed interface Check {
-        data class Available(val versionCode: Long, val apkUrl: String, val size: Long) : Check
+        /** [apkUrl] is null when only faces are new. */
+        data class Available(val versionCode: Long, val apkUrl: String?, val size: Long, val faces: List<Face> = emptyList()) : Check
         data object UpToDate : Check
         data class Failed(val reason: String) : Check
     }
 
+    /** A watch face shipped in a release: its package and where to fetch it. */
+    data class Face(val packageName: String, val url: String)
+
     fun installedVersionCode(context: Context): Long =
         context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
+
+    /** The installed version of another package, or -1 when it is not installed. */
+    fun installedVersionCode(context: Context, packageName: String): Long =
+        try { context.packageManager.getPackageInfo(packageName, 0).longVersionCode } catch (_: Exception) { -1L }
+
+    /** `face-com.example.face-v42.apk` -> `com.example.face`; null for anything else. */
+    fun facePackage(assetName: String): String? =
+        Regex("""^face-(.+)-v\d+\.apk$""").find(assetName)?.groupValues?.get(1)
 
     /** `v42` -> 42; anything without a number is no release of ours. */
     fun versionFromTag(tag: String): Long? = tag.filter { it.isDigit() }.toLongOrNull()
@@ -65,10 +79,14 @@ object SelfUpdater {
             if (code != 200) return@withContext Check.Failed("GitHub $code")
             val release = conn.inputStream.bufferedReader().use { Gson().fromJson(it, Release::class.java) }
             val remote = versionFromTag(release.tagName) ?: return@withContext Check.Failed("tag ${release.tagName}")
-            val apk = release.assets.firstOrNull { it.name.endsWith(".apk") }
+            val apk = release.assets.firstOrNull { it.name.endsWith(".apk") && facePackage(it.name) == null }
                 ?: return@withContext Check.Failed("no apk in ${release.tagName}")
-            if (remote <= installedVersionCode(context)) Check.UpToDate
-            else Check.Available(remote, apk.url, apk.size)
+            val faces = release.assets.mapNotNull { asset ->
+                facePackage(asset.name)?.takeIf { installedVersionCode(context, it) < remote }?.let { Face(it, asset.url) }
+            }
+            val appNew = remote > installedVersionCode(context)
+            if (!appNew && faces.isEmpty()) Check.UpToDate
+            else Check.Available(remote, apk.url.takeIf { appNew }, apk.size, faces)
         } catch (e: Exception) {
             Log.w(TAG, "check failed", e)
             Check.Failed(e.message ?: e.javaClass.simpleName)
@@ -76,9 +94,9 @@ object SelfUpdater {
     }
 
     /** Downloads the APK into the cache, reporting progress from 0 to 1. */
-    suspend fun download(context: Context, url: String, onProgress: (Float) -> Unit): File =
+    suspend fun download(context: Context, url: String, fileName: String = "update.apk", onProgress: (Float) -> Unit): File =
         withContext(Dispatchers.IO) {
-            val out = File(context.cacheDir, "update.apk")
+            val out = File(context.cacheDir, fileName)
             var conn = URL(url).openConnection() as HttpURLConnection
             conn.instanceFollowRedirects = true
             conn.setRequestProperty("User-Agent", "quran-watch8")
@@ -113,10 +131,10 @@ object SelfUpdater {
      * to confirm -- and, the first time, to allow installs from this app --
      * through [InstallStatusReceiver].
      */
-    suspend fun install(context: Context, apk: File) = withContext(Dispatchers.IO) {
+    suspend fun install(context: Context, apk: File, packageName: String = context.packageName) = withContext(Dispatchers.IO) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(context.packageName)
+            setAppPackageName(packageName)
             if (Build.VERSION.SDK_INT >= 31) {
                 setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
             }

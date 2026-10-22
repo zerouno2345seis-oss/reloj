@@ -1,0 +1,47 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:2:1-16:12
+INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:2:1-16:12
+INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:2:1-16:12
+INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:2:1-16:12
+	package
+		INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml
+	android:versionName
+		INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml
+	android:versionCode
+		INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:2:11-69
+uses-feature#android.hardware.type.watch
+ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:4:5-64
+	android:name
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:4:19-61
+application
+ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:6:5-15:19
+INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:6:5-15:19
+	android:extractNativeLibs
+		INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml
+	android:label
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:8:9-42
+	android:hasCode
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:7:9-32
+property#com.google.wear.watchface.format.version
+ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:9:9-11:33
+	android:value
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:11:13-30
+	android:name
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:10:13-68
+property#com.google.wear.watchface.format.publisher
+ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:12:9-14:37
+	android:value
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:14:13-34
+	android:name
+		ADDED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml:13:13-70
+uses-sdk
+INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml
+INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Users/mohamad/reloj-face1/watchface-row/src/main/AndroidManifest.xml

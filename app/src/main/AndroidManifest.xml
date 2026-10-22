@@ -178,6 +178,40 @@
         </service>
 
         <service
+            android:name=".complication.PrayerWindowComplicationService"
+            android:exported="true"
+            android:icon="@drawable/img_prayer"
+            android:label="الصلاة السابقة والقادمة"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="RANGED_VALUE" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="300" />
+        </service>
+
+        <service
+            android:name=".complication.GregorianDateComplicationService"
+            android:exported="true"
+            android:icon="@drawable/img_prayer"
+            android:label="التاريخ"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="1800" />
+        </service>
+
+        <service
             android:name=".complication.HijriDateComplicationService"
             android:exported="true"
             android:icon="@drawable/img_prayer"

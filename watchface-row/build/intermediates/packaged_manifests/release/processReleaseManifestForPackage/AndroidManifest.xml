@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.quran.watch8.watchface.row"
+    android:versionCode="145"
+    android:versionName="1.0.145" >
+
+    <uses-sdk
+        android:minSdkVersion="33"
+        android:targetSdkVersion="35" />
+
+    <uses-feature android:name="android.hardware.type.watch" />
+
+    <application
+        android:extractNativeLibs="false"
+        android:hasCode="false"
+        android:label="@string/face_name" >
+        <property
+            android:name="com.google.wear.watchface.format.version"
+            android:value="2" />
+        <property
+            android:name="com.google.wear.watchface.format.publisher"
+            android:value="reloj" />
+    </application>
+
+</manifest>

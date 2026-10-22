@@ -56,5 +56,7 @@ class PrayerClockModeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (!intent.getBooleanExtra(PrayerClockMode.EXTRA_REFRESH_ONLY, false)) PrayerClockMode.advance(context)
         requestComplicationUpdate(context, PrayerClockComplicationService::class.java)
+        requestComplicationUpdate(context, PrayerWindowComplicationService::class.java)
+        requestComplicationUpdate(context, GregorianDateComplicationService::class.java)
     }
 }

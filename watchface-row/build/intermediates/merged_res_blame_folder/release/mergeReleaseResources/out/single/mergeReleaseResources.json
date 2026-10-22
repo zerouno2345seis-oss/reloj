@@ -1,0 +1,30 @@
+[
+    {
+        "merged": "com.quran.watch8.watchface.row.watchface-row-release-4:/drawable-nodpi_bg_pattern.png.flat",
+        "source": "com.quran.watch8.watchface.row.watchface-row-main-5:/drawable-nodpi/bg_pattern.png"
+    },
+    {
+        "merged": "com.quran.watch8.watchface.row.watchface-row-release-4:/xml_watch_face_info.xml.flat",
+        "source": "com.quran.watch8.watchface.row.watchface-row-main-5:/xml/watch_face_info.xml"
+    },
+    {
+        "merged": "com.quran.watch8.watchface.row.watchface-row-release-4:/drawable-nodpi_preview.png.flat",
+        "source": "com.quran.watch8.watchface.row.watchface-row-main-5:/drawable-nodpi/preview.png"
+    },
+    {
+        "merged": "com.quran.watch8.watchface.row.watchface-row-release-4:/drawable-nodpi_bg_mosques.png.flat",
+        "source": "com.quran.watch8.watchface.row.watchface-row-main-5:/drawable-nodpi/bg_mosques.png"
+    },
+    {
+        "merged": "com.quran.watch8.watchface.row.watchface-row-release-4:/raw_watchface.xml.flat",
+        "source": "com.quran.watch8.watchface.row.watchface-row-main-5:/raw/watchface.xml"
+    },
+    {
+        "merged": "com.quran.watch8.watchface.row.watchface-row-release-4:/font_plex_semibold.ttf.flat",
+        "source": "com.quran.watch8.watchface.row.watchface-row-main-5:/font/plex_semibold.ttf"
+    },
+    {
+        "merged": "com.quran.watch8.watchface.row.watchface-row-release-4:/font_plex_bold.ttf.flat",
+        "source": "com.quran.watch8.watchface.row.watchface-row-main-5:/font/plex_bold.ttf"
+    }
+]

@@ -46,11 +46,25 @@ fun UpdateChip(modifier: Modifier = Modifier) {
                     }
                 } else {
                     try {
-                        val apk = SelfUpdater.download(context, update.apkUrl) { p ->
-                            status = "جارٍ التنزيل ${(p * 100).toInt()}٪"
+                        // Faces first: installing the app restarts it, which
+                        // would cut short anything still to come.
+                        for ((i, face) in update.faces.withIndex()) {
+                            val file = SelfUpdater.download(context, face.url, "face-$i.apk") { p ->
+                                status = "تنزيل الواجهة ${(p * 100).toInt()}٪"
+                            }
+                            status = "أكّد تثبيت الواجهة على الشاشة"
+                            SelfUpdater.install(context, file, face.packageName)
                         }
-                        status = "أكّد التثبيت على الشاشة"
-                        SelfUpdater.install(context, apk)
+                        val appUrl = update.apkUrl
+                        if (appUrl != null) {
+                            val apk = SelfUpdater.download(context, appUrl) { p ->
+                                status = "جارٍ التنزيل ${(p * 100).toInt()}٪"
+                            }
+                            status = "أكّد التثبيت على الشاشة"
+                            SelfUpdater.install(context, apk)
+                        } else {
+                            status = "ثُبّتت الواجهة"
+                        }
                     } catch (e: Exception) {
                         status = "تعذّر التنزيل: ${e.message ?: ""}"
                     }
