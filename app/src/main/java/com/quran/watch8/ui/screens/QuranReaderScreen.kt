@@ -25,10 +25,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,12 +67,13 @@ private object PassageCache {
  *
  * The font stays at the reader's size; a screen fills by holding more whole
  * pauses, not by growing the letters. Above the text, faintly, the last words
- * of the screen before; below it, the surah and verse. The bezel moves one
- * screen per detent; a swipe up or down does the same.
+ * of the screen before. The bezel moves one screen per detent; a swipe up or
+ * down does the same. The surah and verse are not printed on every screen --
+ * that band went to the text -- but a double tap shows them.
  *
  *  - Tap: show or hide the surah buttons.
- *  - Double tap on a verse: a badge with the surah and verse.
- *  - Long press on a verse: font size and bookmark.
+ *  - Double tap on a verse: a small badge with the surah and verse, 2 s.
+ *  - Long press on a verse: three bare icons, − bookmark +.
  */
 @Composable
 fun QuranReaderScreen(
@@ -107,13 +110,14 @@ fun QuranReaderScreen(
 
     var showControls by remember { mutableStateOf(false) }
     var selectedAyahForAction by remember { mutableStateOf<Ayah?>(null) }
-    var actionToastText by remember { mutableStateOf<String?>(null) }
+    // Bumped on every tap in the long-press menu, so it stays while in use.
+    var menuTouches by remember { mutableIntStateOf(0) }
     var doubleTapInfoText by remember { mutableStateOf<String?>(null) }
+    val haptics = LocalHapticFeedback.current
 
-    LaunchedEffect(actionToastText) {
-        if (actionToastText != null) {
-            delay(1600L)
-            actionToastText = null
+    LaunchedEffect(selectedAyahForAction, menuTouches) {
+        if (selectedAyahForAction != null) {
+            delay(2500L)
             selectedAyahForAction = null
         }
     }
@@ -146,8 +150,10 @@ fun QuranReaderScreen(
                 // The glass ends a little inside the panel's circle, and the
                 // position indicator runs along the rim.
                 marginPx = with(density) { 10.dp.roundToPx() } + (diameterPx * 0.04f).roundToInt(),
-                capPx = (diameterPx * 0.15f).roundToInt(),
-                minLineWidthPx = (diameterPx * 0.4f).roundToInt(),
+                // Only the top cap is used now (the bridge words); the bottom
+                // one held the surah and verse, which a double tap shows instead.
+                capPx = (diameterPx * 0.09f).roundToInt(),
+                minLineWidthPx = (diameterPx * 0.34f).roundToInt(),
                 paint = TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     this.typeface = typeface
                     textSize = fontPx
@@ -281,11 +287,10 @@ fun QuranReaderScreen(
                                     },
                                     onDoubleTap = { pos ->
                                         val ayah = ayahAt(pos)
-                                        if (ayah != null) doubleTapInfoText = "$surahName (${ayah.verse})"
+                                        if (ayah != null) doubleTapInfoText = "$surahName ${ReaderTypography.arabicDigits(ayah.verse)}"
                                     },
                                     onLongPress = { pos ->
                                         selectedAyahForAction = ayahAt(pos)
-                                        actionToastText = null
                                     }
                                 )
                             }
@@ -305,30 +310,17 @@ fun QuranReaderScreen(
                         Text(
                             text = bridge,
                             fontFamily = ReaderTypography.QuranFont,
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             color = quranTextColor.copy(alpha = 0.4f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .padding(top = 14.dp)
-                                .fillMaxWidth(0.5f)
+                                .padding(top = 8.dp)
+                                .fillMaxWidth(0.42f)
                         )
                     }
-
-                    // Bottom cap: where this screen is.
-                    val firstVerse = ayahs.getOrNull(screen.firstAyah)?.verse
-                    Text(
-                        text = if (firstVerse != null) "$surahName • ${ReaderTypography.arabicDigits(firstVerse)}" else surahName,
-                        fontSize = 10.sp,
-                        color = Color.Gray,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 14.dp)
-                    )
                 }
             }
 
@@ -339,136 +331,61 @@ fun QuranReaderScreen(
                 )
             }
 
-            // ── Floating Double-Tap Quick Info Overlay (Auto-Hides) ───────────
+            // ── Double tap: surah and verse, small, for two seconds ───────────
             AnimatedVisibility(
                 visible = doubleTapInfoText != null,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut(),
+                enter = fadeIn(),
+                exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 22.dp)
+                    .padding(top = 10.dp)
             ) {
-                Box(
+                Text(
+                    text = doubleTapInfoText.orEmpty(),
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xF00F766E))
-                        .border(1.2.dp, Color(0xFFFDE047), RoundedCornerShape(16.dp))
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "📖 ${doubleTapInfoText.orEmpty()}",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xCC1E293B))
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                )
             }
 
-            // ── Interactive Long-Press Context Menu (3 Icons: +, -, 🔖) ────────
-            AnimatedVisibility(
-                visible = selectedAyahForAction != null,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut(),
-                modifier = Modifier.align(Alignment.Center)
-            ) {
-                if (selectedAyahForAction != null) {
-                    val ayah = selectedAyahForAction!!
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.88f))
-                            .clickable { selectedAyahForAction = null },
-                        contentAlignment = Alignment.Center
+            // ── Long press: − bookmark +, nothing else ─────────────────────────
+            // No card, title or size read-out: the page itself shows the new
+            // size. A tap anywhere else closes it; so does 2.5 s untouched.
+            if (selectedAyahForAction != null) {
+                val ayah = selectedAyahForAction!!
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(ayah) { detectTapGestures { selectedAyahForAction = null } },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .fillMaxWidth(0.88f)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color(0xFF1E293B))
-                                .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(16.dp))
-                                .clickable(enabled = false) {}
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = "الآية (${ayah.verse}) من ${surahInfo?.nameAr ?: ""}",
+                        ReaderIconButton(onClick = {
+                            menuTouches++
+                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f))
+                        }) { Text("−", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                        ReaderIconButton(size = 50, onClick = {
+                            viewModel.addBookmark(surahNumber, ayah.verse, ayah.text)
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            selectedAyahForAction = null
+                        }) {
+                            WatchIcons.Bookmark(
+                                modifier = Modifier.size(26.dp),
                                 color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
+                                starColor = Color(0xFFFDE047)
                             )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                // 1. Decrease Font Size
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF334155))
-                                        .clickable {
-                                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f))
-                                            actionToastText = "حجم الخط: ${(fontSize - 2f).toInt()} sp"
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("−", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-
-                                // 2. Add Bookmark
-                                Box(
-                                    modifier = Modifier
-                                        .size(42.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF0F766E))
-                                        .clickable {
-                                            viewModel.addBookmark(surahNumber, ayah.verse, ayah.text)
-                                            actionToastText = "تمت إضافة إشارة مرجعية ✓"
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    WatchIcons.Bookmark(
-                                        modifier = Modifier.size(24.dp),
-                                        color = Color.White,
-                                        starColor = Color(0xFFFDE047)
-                                    )
-                                }
-
-                                // 3. Increase Font Size
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF334155))
-                                        .clickable {
-                                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
-                                            actionToastText = "حجم الخط: ${(fontSize + 2f).toInt()} sp"
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("+", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            if (actionToastText != null) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = actionToastText!!,
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFFDE047),
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
                         }
+                        ReaderIconButton(onClick = {
+                            menuTouches++
+                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
+                        }) { Text("+", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
                     }
                 }
             }
@@ -515,4 +432,17 @@ private fun ReaderNavButton(label: String, enabled: Boolean, onClick: () -> Unit
             textAlign = TextAlign.Center
         )
     }
+}
+
+/** A round icon with just enough shade to read over the verse behind it. */
+@Composable
+private fun ReaderIconButton(size: Int = 42, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(size.dp)
+            .clip(CircleShape)
+            .background(Color(0xB3000000))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { content() }
 }

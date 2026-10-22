@@ -37,8 +37,12 @@ object ReaderTypography {
      */
     val QuranFont: FontFamily = FontFamily(Font(R.font.amiri_quran))
 
-    /** Amiri's marks sit high above and below the line; tighter spacing clips them. */
-    const val LINE_HEIGHT_FACTOR = 1.85f
+    /**
+     * Amiri's marks sit high above and below the line. 1.85 left visible gaps
+     * between lines on the watch; 1.65 still keeps the marks of neighbouring
+     * lines apart.
+     */
+    const val LINE_HEIGHT_FACTOR = 1.65f
 
     fun arabicDigits(n: Int): String = n.toString().map { '\u0660' + (it - '0') }.joinToString("")
 
