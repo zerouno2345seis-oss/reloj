@@ -1,8 +1,8 @@
 package com.quran.watch8.ui.screens
 
-import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,15 +31,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.Ayah
 import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.ui.components.ReaderTypography
-import com.quran.watch8.ui.components.RoundPageLayout
+import com.quran.watch8.ui.components.RoundPassages
 import com.quran.watch8.ui.components.WatchIcons
-import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -50,12 +50,23 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/** Screens already cut, so reopening a surah at the same size is instant. */
+private object PassageCache {
+    private val entries = object : LinkedHashMap<String, List<RoundPassages.Screen>>(4, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<RoundPassages.Screen>>?) = size > 3
+    }
+    @Synchronized fun get(key: String) = entries[key]
+    @Synchronized fun put(key: String, screens: List<RoundPassages.Screen>) { entries[key] = screens }
+}
+
 /**
- * The Quran reader, as pages shaped to the round screen.
+ * The Quran reader: one passage per screen, cut at the Quran's own pauses and
+ * shaped to the round glass (see [RoundPassages]).
  *
- * Each page's lines are as wide as the circle at their height (see
- * [RoundPageLayout]), so the text fills the glass without losing words at the
- * rim. The bezel turns one page per detent; a swipe up or down does the same.
+ * The font stays at the reader's size; a screen fills by holding more whole
+ * pauses, not by growing the letters. Above the text, faintly, the last words
+ * of the screen before; below it, the surah and verse. The bezel moves one
+ * screen per detent; a swipe up or down does the same.
  *
  *  - Tap: show or hide the surah buttons.
  *  - Double tap on a verse: a badge with the surah and verse.
@@ -124,117 +135,85 @@ fun QuranReaderScreen(
     ) {
         val diameterPx = minOf(constraints.maxWidth, constraints.maxHeight)
 
-        // ── Page geometry and text ───────────────────────────────────────────
+        // ── Geometry ─────────────────────────────────────────────────────────
         val typeface = remember(fontFamilyName) { ReaderTypography.typeface(context, fontFamilyName) }
         val numberTypeface = remember { ReaderTypography.quranTypeface(context) }
         val fontPx = with(density) { fontSize.sp.toPx() }
-        val lineHeightPx = (fontPx * ReaderTypography.LINE_HEIGHT_FACTOR).roundToInt()
-        val pageLayout = remember(diameterPx, fontPx, typeface, quranTextColor) {
-            RoundPageLayout(
+        val passages = remember(diameterPx, fontPx, typeface, quranTextColor, ayahNumberColor) {
+            RoundPassages(
                 diameterPx = diameterPx,
-                lineHeightPx = lineHeightPx,
+                lineHeightPx = (fontPx * ReaderTypography.LINE_HEIGHT_FACTOR).roundToInt(),
                 // The glass ends a little inside the panel's circle, and the
-                // position indicator runs along the rim: at 3 dp the widest
-                // middle lines lost their first and last letters on the watch.
+                // position indicator runs along the rim.
                 marginPx = with(density) { 10.dp.roundToPx() } + (diameterPx * 0.04f).roundToInt(),
-                minLineWidthPx = (diameterPx * 0.42f).roundToInt(),
-                textPaint = TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                capPx = (diameterPx * 0.15f).roundToInt(),
+                minLineWidthPx = (diameterPx * 0.4f).roundToInt(),
+                paint = TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     this.typeface = typeface
                     textSize = fontPx
                     color = quranTextColor.toArgb()
-                }
-            )
-        }
-        val surahText = remember(ayahs, pageLayout, ayahNumberColor) {
-            RoundPageLayout.surahText(
-                surahName = surahName,
-                withBasmala = withBasmala,
-                ayahs = ayahs,
-                lineHeightPx = lineHeightPx,
-                nameColor = AccentGold.toArgb(),
+                },
                 numberColor = ayahNumberColor.toArgb(),
                 numberTypeface = numberTypeface
             )
         }
-        val text = surahText.first
-        val ayahStarts = surahText.second
+        val cacheKey = "$surahNumber|$fontPx|$diameterPx|$fontFamilyName|${quranTextColor.toArgb()}|${ayahNumberColor.toArgb()}"
 
-        // Index of the verse holding a character of the text (-1 before verse 1).
-        fun ayahIndexAt(offset: Int): Int {
-            var lo = 0
-            var hi = ayahStarts.size - 1
-            var found = -1
-            while (lo <= hi) {
-                val mid = (lo + hi) ushr 1
-                if (ayahStarts[mid] <= offset) { found = mid; lo = mid + 1 } else hi = mid - 1
-            }
-            return found
+        // ── Cutting, off the main thread, screen by screen ───────────────────
+        // The first screens show at once; a long surah finishes behind them.
+        val screens = remember(passages, ayahs) {
+            mutableStateListOf<RoundPassages.Screen>().apply { PassageCache.get(cacheKey)?.let { addAll(it) } }
         }
-
-        // ── Pagination, off the main thread, page by page ────────────────────
-        // The first pages show at once; a long surah finishes behind them.
-        val pageStarts = remember(text, pageLayout) { mutableStateListOf<Int>() }
-        var paginated by remember(text, pageLayout) { mutableStateOf(false) }
-        LaunchedEffect(text, pageLayout) {
-            if (ayahs.isEmpty()) return@LaunchedEffect
+        var cut by remember(passages, ayahs) { mutableStateOf(PassageCache.get(cacheKey) != null) }
+        LaunchedEffect(passages, ayahs) {
+            if (cut || ayahs.isEmpty()) return@LaunchedEffect
             withContext(Dispatchers.Default) {
-                val batch = ArrayList<Int>()
-                for (start in pageLayout.pageStarts(text)) {
-                    batch += start
-                    if (batch.size >= 6) {
+                val all = ArrayList<RoundPassages.Screen>()
+                val batch = ArrayList<RoundPassages.Screen>()
+                for (screen in passages.screens(RoundPassages.pauseUnits(ayahs, withBasmala))) {
+                    all += screen
+                    batch += screen
+                    if (batch.size >= 4) {
                         val chunk = batch.toList()
                         batch.clear()
-                        withContext(Dispatchers.Main) { pageStarts.addAll(chunk) }
+                        withContext(Dispatchers.Main) { screens.addAll(chunk) }
                     }
                 }
+                PassageCache.put(cacheKey, all)
                 withContext(Dispatchers.Main) {
-                    pageStarts.addAll(batch)
-                    paginated = true
+                    screens.addAll(batch)
+                    cut = true
                 }
             }
         }
-        // A page is shown once its end is known.
-        val pageCount = if (paginated) pageStarts.size else maxOf(0, pageStarts.size - 1)
-        fun pageEnd(page: Int): Int = pageStarts.getOrNull(page + 1) ?: text.length
+        val screenCount = screens.size
+        val pagerState = rememberPagerState(pageCount = { screenCount })
 
-        val pagerState = rememberPagerState(pageCount = { pageCount })
-
-        // The verse the page should open on: the one asked for, then wherever
-        // reading has got to, so a font change keeps the reader's place.
+        // The verse to open on: the one asked for, then wherever reading has
+        // got to, so a font change keeps the reader's place.
         var anchorAyah by remember(surahNumber) { mutableIntStateOf(if (startAyah > 0) startAyah else 0) }
-        var positioned by remember(text, pageLayout) { mutableStateOf(false) }
-        LaunchedEffect(text, pageLayout, pageStarts.size, paginated) {
+        var positioned by remember(passages, ayahs) { mutableStateOf(false) }
+        LaunchedEffect(passages, ayahs, screenCount, cut) {
             if (positioned || ayahs.isEmpty()) return@LaunchedEffect
-            val idx = ayahs.indexOfFirst { it.verse == anchorAyah }
-            val target = if (anchorAyah <= 0 || idx < 0) 0 else ayahStarts[idx]
-            val known = if (paginated) Int.MAX_VALUE else pageStarts.lastOrNull() ?: 0
-            if (target >= known) return@LaunchedEffect // not cut that far yet
-            var page = pageStarts.indexOfLast { it <= target }.coerceAtLeast(0)
-            page = page.coerceAtMost(maxOf(0, pageCount - 1))
-            pagerState.scrollToPage(page)
+            val target = ayahs.indexOfFirst { it.verse == anchorAyah }
+            val page = if (anchorAyah <= 0 || target < 0) 0 else screens.indexOfFirst { it.holdsAyah(target) }
+            if (page < 0) {
+                if (!cut) return@LaunchedEffect // not cut that far yet
+            } else {
+                pagerState.scrollToPage(page)
+            }
             positioned = true
         }
 
-        // The verse a page stands for: the first one beginning on it, or the
-        // one running onto it from the page before.
-        fun ayahForPage(page: Int): Ayah? {
-            val start = pageStarts.getOrNull(page) ?: return null
-            val end = pageEnd(page)
-            val first = ayahIndexAt(start)
-            val next = first + 1
-            val idx = if (next < ayahStarts.size && ayahStarts[next] < end && (first < 0 || ayahStarts[first] < start)) next
-                      else first.coerceAtLeast(0)
-            return ayahs.getOrNull(idx)
-        }
-
-        // Remember where reading stopped, once the page has settled.
-        LaunchedEffect(pagerState, positioned, text) {
+        // Remember where reading stopped, once the screen has settled.
+        LaunchedEffect(pagerState, positioned, screens) {
             if (!positioned) return@LaunchedEffect
             snapshotFlow { pagerState.settledPage }
                 .distinctUntilChanged()
                 .collectLatest { page ->
-                    delay(600L) // one database write per pause, not per page turned
-                    val ayah = ayahForPage(page) ?: return@collectLatest
+                    delay(600L) // one database write per pause, not per screen
+                    val ayah = ayahs.getOrNull(screens.getOrNull(page)?.firstAyah ?: return@collectLatest)
+                        ?: return@collectLatest
                     anchorAyah = ayah.verse
                     viewModel.saveReadingPosition(
                         surah       = surahNumber,
@@ -246,10 +225,10 @@ fun QuranReaderScreen(
                 }
         }
 
-        // ── Bezel: one page per detent ────────────────────────────────────────
+        // ── Bezel: one screen per detent ──────────────────────────────────────
         // A detent arrives as one event of about scaledVerticalScrollFactor
-        // pixels; half of that turns the page, and what is left of the event
-        // is dropped so a single detent never turns two.
+        // pixels; half of that moves on, and what is left of the event is
+        // dropped so a single detent never moves two.
         val focusRequester = remember { FocusRequester() }
         val detentPx = remember {
             android.view.ViewConfiguration.get(context).scaledVerticalScrollFactor
@@ -259,10 +238,8 @@ fun QuranReaderScreen(
 
         Scaffold(
             positionIndicator = {
-                if (pageCount > 1) {
-                    PositionIndicator(
-                        value = { pagerState.currentPage / (pageCount - 1f) }
-                    )
+                if (screenCount > 1) {
+                    PositionIndicator(value = { pagerState.currentPage / (screenCount - 1f) })
                 }
             }
         ) {
@@ -274,55 +251,84 @@ fun QuranReaderScreen(
                     .fillMaxSize()
                     .onRotaryScrollEvent { event ->
                         rotaryAcc += event.verticalScrollPixels
-                        if (abs(rotaryAcc) >= detentPx / 2f && pageCount > 0) {
+                        if (abs(rotaryAcc) >= detentPx / 2f && screenCount > 0) {
                             val step = if (rotaryAcc > 0) 1 else -1
                             rotaryAcc = 0f
                             val from = if (pagerState.isScrollInProgress) pagerState.targetPage else pagerState.currentPage
-                            val to = (from + step).coerceIn(0, pageCount - 1)
-                            if (to != from) scope.launch { pagerState.animateScrollToPage(to) }
+                            val to = (from + step).coerceIn(0, screenCount - 1)
+                            if (to != from) scope.launch { pagerState.animateScrollToPage(to, animationSpec = tween(180)) }
                         }
                         true
                     }
                     .focusRequester(focusRequester)
                     .focusable()
             ) { page ->
-                val start = pageStarts.getOrNull(page) ?: 0
-                val end = pageEnd(page)
-                val layout: StaticLayout = remember(text, pageLayout, start, end) {
-                    pageLayout.build(text, start, end)
-                }
+                val screen = screens.getOrNull(page) ?: return@VerticalPager
                 fun ayahAt(pos: Offset): Ayah? {
-                    val y = (pos.y - pageLayout.firstLineTop).toInt()
-                    val line = layout.getLineForVertical(y)
+                    val layout = screen.fit.layout
+                    val line = layout.getLineForVertical((pos.y - screen.fit.top).toInt())
                     val offset = layout.getOffsetForHorizontal(line, pos.x)
-                    return ayahs.getOrNull(ayahIndexAt(offset))
+                    return ayahs.getOrNull(screen.ayahAt(offset))
                 }
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(layout) {
-                            detectTapGestures(
-                                onTap = {
-                                    if (selectedAyahForAction == null) showControls = !showControls
-                                },
-                                onDoubleTap = { pos ->
-                                    val ayah = ayahAt(pos) ?: ayahForPage(page)
-                                    if (ayah != null) doubleTapInfoText = "$surahName (${ayah.verse})"
-                                },
-                                onLongPress = { pos ->
-                                    selectedAyahForAction = ayahAt(pos) ?: ayahForPage(page)
-                                    actionToastText = null
-                                }
-                            )
+                Box(Modifier.fillMaxSize()) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(screen) {
+                                detectTapGestures(
+                                    onTap = {
+                                        if (selectedAyahForAction == null) showControls = !showControls
+                                    },
+                                    onDoubleTap = { pos ->
+                                        val ayah = ayahAt(pos)
+                                        if (ayah != null) doubleTapInfoText = "$surahName (${ayah.verse})"
+                                    },
+                                    onLongPress = { pos ->
+                                        selectedAyahForAction = ayahAt(pos)
+                                        actionToastText = null
+                                    }
+                                )
+                            }
+                    ) {
+                        drawIntoCanvas { canvas ->
+                            val native = canvas.nativeCanvas
+                            native.save()
+                            native.translate(0f, screen.fit.top.toFloat())
+                            screen.fit.layout.draw(native)
+                            native.restore()
                         }
-                ) {
-                    drawIntoCanvas { canvas ->
-                        val native = canvas.nativeCanvas
-                        native.save()
-                        native.translate(0f, pageLayout.firstLineTop.toFloat())
-                        layout.draw(native)
-                        native.restore()
                     }
+
+                    // Top cap: the last words of the screen before, as a bridge.
+                    val bridge = screens.getOrNull(page - 1)?.tail
+                    if (bridge != null) {
+                        Text(
+                            text = bridge,
+                            fontFamily = ReaderTypography.QuranFont,
+                            fontSize = 11.sp,
+                            color = quranTextColor.copy(alpha = 0.4f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 14.dp)
+                                .fillMaxWidth(0.5f)
+                        )
+                    }
+
+                    // Bottom cap: where this screen is.
+                    val firstVerse = ayahs.getOrNull(screen.firstAyah)?.verse
+                    Text(
+                        text = if (firstVerse != null) "$surahName • ${ReaderTypography.arabicDigits(firstVerse)}" else surahName,
+                        fontSize = 10.sp,
+                        color = Color.Gray,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 14.dp)
+                    )
                 }
             }
 
