@@ -274,11 +274,8 @@ fun QuranReaderScreen(
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
         Scaffold(
-            positionIndicator = {
-                if (screenCount > 1) {
-                    PositionIndicator(value = { pagerState.currentPage / (screenCount - 1f) })
-                }
-            }
+            // No position arc: zaher asked for nothing around the text.
+            positionIndicator = {}
         ) {
           Box(Modifier.fillMaxSize()) {
             VerticalPager(
