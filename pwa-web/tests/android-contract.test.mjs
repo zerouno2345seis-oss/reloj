@@ -236,6 +236,16 @@ test('watch faces are WFF, validated before build, and name only real services',
     const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
     assert.ok(ids.length >= 1 && ids.length <= 8, `${dir} has ${ids.length} slots`);
     assert.equal(new Set(ids).size, ids.length);
+    // Samsung's runtime clips what a slot draws to the slot's bounding shape,
+    // so everything a complication draws has to lie inside it.
+    for (const slot of face.matchAll(/<ComplicationSlot[^>]*>[\s\S]*?<\/ComplicationSlot>/g)) {
+      const b = slot[0].match(/<Bounding(?:Box|Oval) x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/).slice(1).map(Number);
+      for (const part of slot[0].matchAll(/<Part(?:Text|Draw|Image) x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
+        const [x, y, w, h] = part.slice(1).map(Number);
+        assert.ok(x >= b[0] - 1 && y >= b[1] - 1 && x + w <= b[0] + b[2] + 1 && y + h <= b[1] + b[3] + 1,
+          `${dir}: ${part[0]} outside its slot's bounds ${b}`);
+      }
+    }
     // A Template whose text has no placeholder renders as "Error" on the watch.
     for (const m of face.matchAll(/<Template>([^<]*)</g)) assert.match(m[1], /%[sd]/, `${dir}: template "${m[1]}"`);
     // Every font the face names is bundled with it.
