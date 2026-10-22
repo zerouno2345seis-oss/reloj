@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="face_name">القرآن الكريم</string>
+    <string name="style_label">النمط</string>
+    <string name="style_ring">الحلقة</string>
+    <string name="style_hands">العقارب</string>
+    <string name="style_mihrab">المحراب</string>
+</resources>

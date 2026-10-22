@@ -30,6 +30,7 @@ import com.quran.watch8.util.HijriDate
 import com.quran.watch8.util.PrayerTimesHelper
 import kotlinx.coroutines.flow.firstOrNull
 import java.time.Instant
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /*
@@ -60,6 +61,17 @@ fun requestComplicationUpdate(context: Context, service: Class<*>) {
         .requestUpdateAll()
 }
 
+/** Today's times for the saved place and method. */
+private suspend fun Context.todaysPrayers(): PrayerTimesHelper.DayPrayers? {
+    val prefs = (applicationContext as QuranWatchApplication).prefsRepository
+    return PrayerTimesHelper.calculate(
+        latitude = prefs.selectedLat.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.latitude,
+        longitude = prefs.selectedLng.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.longitude,
+        methodName = prefs.calculationMethod.firstOrNull() ?: PrayerTimesHelper.DEFAULT_METHOD,
+        locationName = prefs.selectedLocationName.firstOrNull() ?: ""
+    )
+}
+
 /** The next prayer: its name and a countdown the face keeps ticking itself. */
 class NextPrayerComplicationService : SuspendingComplicationDataSourceService() {
 
@@ -67,14 +79,7 @@ class NextPrayerComplicationService : SuspendingComplicationDataSourceService() 
         build(type, "العصر", "٤:١٥", Instant.now().plusSeconds(4_800), 0.6f)
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
-        val prefs = (applicationContext as QuranWatchApplication).prefsRepository
-        val prayers = PrayerTimesHelper.calculate(
-            latitude = prefs.selectedLat.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.latitude,
-            longitude = prefs.selectedLng.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.longitude,
-            methodName = prefs.calculationMethod.firstOrNull() ?: PrayerTimesHelper.DEFAULT_METHOD,
-            locationName = prefs.selectedLocationName.firstOrNull() ?: ""
-        )
-        val status = PrayerTimesHelper.status(prayers) ?: return null
+        val status = todaysPrayers()?.let { PrayerTimesHelper.status(it) } ?: return null
         val total = status.minutesElapsed + status.minutesRemaining
         val progress = if (total > 0) status.minutesElapsed / total.toFloat() else 0f
         return build(request.complicationType, status.next.nameAr, status.next.formatted, status.next.time, progress)
@@ -96,9 +101,35 @@ class NextPrayerComplicationService : SuspendingComplicationDataSourceService() 
                     .setTitle(countdown).setTapAction(tap).build()
             ComplicationType.RANGED_VALUE ->
                 RangedValueComplicationData.Builder(progress, 0f, 1f, description)
-                    .setText(text(name)).setTitle(countdown).setTapAction(tap).build()
+                    .setText(text("$name $at")).setTitle(countdown).setTapAction(tap).build()
             else -> null
         }
+    }
+}
+
+/**
+ * The next prayer as one number, for our own watch face, which has no other
+ * way to know a prayer's time: (index in Fajr..Isha) * 1440 + its minute of
+ * the day on the watch's clock. The face takes `value % 1440` to draw the arc
+ * up to it on the dial, and `floor(value / 1440)` to light its name.
+ */
+class NextPrayerTimeComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? =
+        build(type, 3, 16 * 60 + 19, "العصر 16:19")
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val prayers = todaysPrayers() ?: return null
+        val next = PrayerTimesHelper.status(prayers)?.next ?: return null
+        val index = PrayerTimesHelper.cycle(prayers).indexOfFirst { it.nameEn == next.nameEn }.coerceAtLeast(0)
+        val local = next.time.atZone(ZoneId.systemDefault())
+        return build(request.complicationType, index, local.hour * 60 + local.minute, "${next.nameAr} ${next.formatted}")
+    }
+
+    private fun build(type: ComplicationType, index: Int, minuteOfDay: Int, label: String): ComplicationData? {
+        if (type != ComplicationType.RANGED_VALUE) return null
+        return RangedValueComplicationData.Builder((index * 1440 + minuteOfDay).toFloat(), 0f, 5f * 1440, text(label))
+            .setText(text(label)).setTapAction(openRoute("prayer")).build()
     }
 }
 
