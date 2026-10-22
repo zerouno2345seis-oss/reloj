@@ -22,9 +22,10 @@ import kotlin.math.sqrt
  *
  * A surah is split into pause units -- each verse, and within a long verse
  * each stretch ending at a waqf sign (ۖ ۗ ۘ ۙ ۚ ۛ). A screen holds as many
- * whole units as fit at the reader's font size, so it always starts where a
- * reciter would start and nothing from the next screen leaks onto it. Only a
- * unit too long for a whole screen is cut, between words, ending in "…".
+ * whole units as fit at the reader's font size, so it starts where a
+ * reciter would start whenever it can. When the next unit does not fit whole, the screen is
+ * filled with as many of its words as fit, ending in "…", and the next screen
+ * goes on from there, so no screen is left half empty.
  *
  * Each line is as wide as the circle at its height (StaticLayout per-line
  * indents), and the block is centred where the circle is widest.
@@ -256,10 +257,25 @@ class RoundPassages(
                 val f = fit(t.first) ?: break
                 pieces = candidate; placed = f; text = t; j++
             }
+            // The next stretch does not fit whole: fill the rest of the screen
+            // with as many of its words as fit, and go on from there. A screen
+            // left half empty to keep a stretch together read as wasted space.
+            var resumeAt = 0
+            if (j < units.size) {
+                var lo = 1
+                var hi = units[j].words.size - 1
+                while (lo <= hi) {
+                    val mid = (lo + hi) / 2
+                    val candidate = pieces + Piece(units[j], 0, mid)
+                    val t = compose(candidate, base.size)
+                    val f = fit(t.first)
+                    if (f != null) { pieces = candidate; placed = f; text = t; resumeAt = mid; lo = mid + 1 } else hi = mid - 1
+                }
+            }
             yield(screenOf(pieces, base.size, placed, text))
             carry = carryOf(pieces.drop(base.size))
             i = j
-            from = 0
+            from = resumeAt
         }
     }
 
