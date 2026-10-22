@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 rootProject.name = "QuranWatch8"
 include(":app")
 include(":watchface")
+include(":watchface-hands")
+include(":watchface-mihrab")

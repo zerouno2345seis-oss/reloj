@@ -212,26 +212,29 @@ test('reader carries a quarter screen over and runs on into the next surah', asy
   assert.match(reader, /onOpenSurah\(surahNumber \+ 1\)/);
 });
 
-// Our own watch face is a code-free WFF package whose three styles draw the
-// app's complications; every provider it names must exist in the app.
-test('watch face is WFF, validated before build, and names only real complication services', async () => {
-  const faceManifest = await readFile(new URL('watchface/src/main/AndroidManifest.xml', root), 'utf8');
-  const face = await readFile(new URL('watchface/src/main/res/raw/watchface.xml', root), 'utf8');
-  assert.match(faceManifest, /android:hasCode="false"/);
-  assert.match(faceManifest, /com\.google\.wear\.watchface\.format\.version/);
-  const faceGradle = await readFile(new URL('watchface/build.gradle.kts', root), 'utf8');
-  assert.match(faceGradle, /validate-watchface\.sh/);
-  // Complication slots belong directly under Scene; inside a ListOption they
-  // fail the schema, and that face sent the watch into a reboot loop.
-  assert.doesNotMatch(face, /<ListOption[^/]*>[\s\S]*<ComplicationSlot/);
-  const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
-  assert.ok(providers.length >= 5);
-  for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));
-  // Samsung's runtime throws (and drops the face) when a slot's fallback
-  // type is not one of its supported types.
-  for (const m of face.matchAll(/<ComplicationSlot[^>]*supportedTypes="([^"]+)"[^>]*>\s*<DefaultProviderPolicy[^>]*defaultSystemProviderType="(\w+)"/g)) {
-    assert.ok(m[1].split(' ').includes(m[2]), `fallback ${m[2]} not in ${m[1]}`);
+// Our own watch faces are code-free WFF packages, one per style, because WFF
+// allows at most eight complication slots in a face. Each is checked against
+// the official schema before it builds (an invalid face sent the watch into a
+// reboot loop), and every provider it names must exist in the app.
+test('watch faces are WFF, validated before build, and name only real services', async () => {
+  for (const dir of ['watchface', 'watchface-hands', 'watchface-mihrab']) {
+    const faceManifest = await readFile(new URL(`${dir}/src/main/AndroidManifest.xml`, root), 'utf8');
+    const face = await readFile(new URL(`${dir}/src/main/res/raw/watchface.xml`, root), 'utf8');
+    const faceGradle = await readFile(new URL(`${dir}/build.gradle.kts`, root), 'utf8');
+    assert.match(faceManifest, /android:hasCode="false"/);
+    assert.match(faceManifest, /com\.google\.wear\.watchface\.format\.version/);
+    assert.match(faceGradle, /validate-watchface\.sh/);
+    assert.doesNotMatch(face, /<ListConfiguration/);
+    const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
+    assert.ok(providers.length >= 4);
+    for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));
+    // Samsung's runtime throws, and keeps falling back to its own face, when
+    // a slot's fallback type is not one of its supported types.
+    for (const m of face.matchAll(/<ComplicationSlot[^>]*supportedTypes="([^"]+)"[^>]*>\s*(?:<Variant[^>]*\/>\s*)?<DefaultProviderPolicy[^>]*defaultSystemProviderType="(\w+)"/g)) {
+      assert.ok(m[1].split(' ').includes(m[2]), `${dir}: fallback ${m[2]} not in ${m[1]}`);
+    }
+    const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
+    assert.ok(ids.length >= 1 && ids.length <= 8, `${dir} has ${ids.length} slots`);
+    assert.equal(new Set(ids).size, ids.length);
   }
-  const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
-  assert.equal(new Set(ids).size, ids.length);
 });
