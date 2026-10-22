@@ -43,6 +43,7 @@ import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.RoundPassages
 import com.quran.watch8.ui.components.WatchIcons
+import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -151,9 +152,9 @@ fun QuranReaderScreen(
                 // The glass ends a little inside the panel's circle, and the
                 // position indicator runs along the rim.
                 marginPx = with(density) { 10.dp.roundToPx() } + (diameterPx * 0.04f).roundToInt(),
-                // Only the top cap is used now (the bridge words); the bottom
-                // one held the surah and verse, which a double tap shows instead.
-                capPx = (diameterPx * 0.09f).roundToInt(),
+                // Nothing is drawn above or below the text any more (a double
+                // tap shows the surah and verse), so only a sliver is kept.
+                capPx = (diameterPx * 0.04f).roundToInt(),
                 minLineWidthPx = (diameterPx * 0.34f).roundToInt(),
                 paint = TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     this.typeface = typeface
@@ -194,7 +195,20 @@ fun QuranReaderScreen(
             }
         }
         val screenCount = screens.size
-        val pagerState = rememberPagerState(pageCount = { screenCount })
+        // Past the last screen: a divider with the next surah's name and the
+        // basmala; resting on it opens that surah, so reading runs on.
+        val nextSurah = SurahMetadata.getSurah(surahNumber + 1).takeIf { cut && surahNumber < 114 }
+        val pageCount = screenCount + if (nextSurah != null) 1 else 0
+        val pagerState = rememberPagerState(pageCount = { pageCount })
+        LaunchedEffect(pagerState, nextSurah, screenCount) {
+            if (nextSurah == null) return@LaunchedEffect
+            snapshotFlow { pagerState.settledPage }.collectLatest { page ->
+                if (page == screenCount) {
+                    delay(700L)
+                    onOpenSurah(surahNumber + 1)
+                }
+            }
+        }
 
         // The verse to open on: the one asked for, then wherever reading has
         // got to, so a font change keeps the reader's place.
@@ -271,11 +285,11 @@ fun QuranReaderScreen(
                     .fillMaxSize()
                     .onRotaryScrollEvent { event ->
                         rotaryAcc += event.verticalScrollPixels
-                        if (abs(rotaryAcc) >= detentPx / 2f && screenCount > 0) {
+                        if (abs(rotaryAcc) >= detentPx / 2f && pageCount > 0) {
                             val step = if (rotaryAcc > 0) 1 else -1
                             rotaryAcc = 0f
                             val from = if (pagerState.isScrollInProgress) pagerState.targetPage else pagerState.currentPage
-                            val to = (from + step).coerceIn(0, screenCount - 1)
+                            val to = (from + step).coerceIn(0, pageCount - 1)
                             if (to != from) scope.launch { pagerState.animateScrollToPage(to, animationSpec = tween(180)) }
                         }
                         true
@@ -283,6 +297,10 @@ fun QuranReaderScreen(
                     .focusRequester(focusRequester)
                     .focusable()
             ) { page ->
+                if (page == screenCount && nextSurah != null) {
+                    SurahDivider(nextSurah.nameAr, basmala = surahNumber + 1 != 9, color = quranTextColor)
+                    return@VerticalPager
+                }
                 val screen = screens.getOrNull(page) ?: return@VerticalPager
                 fun ayahAt(pos: Offset): Ayah? {
                     val layout = screen.fit.layout
@@ -318,23 +336,6 @@ fun QuranReaderScreen(
                         }
                     }
 
-                    // Top cap: the last words of the screen before, as a bridge.
-                    val bridge = screens.getOrNull(page - 1)?.tail
-                    if (bridge != null) {
-                        Text(
-                            text = bridge,
-                            fontFamily = ReaderTypography.QuranFont,
-                            fontSize = 10.sp,
-                            color = quranTextColor.copy(alpha = 0.4f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 8.dp)
-                                .fillMaxWidth(0.42f)
-                        )
-                    }
                 }
             }
 
@@ -428,6 +429,27 @@ fun QuranReaderScreen(
 }
 
 private const val READING_AWAKE_MS = 3 * 60_000L
+
+@Composable
+private fun SurahDivider(name: String, basmala: Boolean, color: Color) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("سورة $name", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = AccentGold, textAlign = TextAlign.Center)
+        if (basmala) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ",
+                fontFamily = ReaderTypography.QuranFont,
+                fontSize = 18.sp,
+                color = color,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
 
 @Composable
 private fun ReaderNavButton(label: String, enabled: Boolean, onClick: () -> Unit) {

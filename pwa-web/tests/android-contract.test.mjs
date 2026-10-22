@@ -197,3 +197,14 @@ test('the app serves complications whose taps open the matching screen', async (
   assert.match(mainActivity, /pendingRoute = intent\.getStringExtra\("targetRoute"\)/);
   assert.match(viewModel, /requestComplicationUpdate\(/);
 });
+
+// Reading glides: each screen opens with the last quarter of the one before,
+// dimmed, and the end of a surah runs on into the next through a divider.
+test('reader carries a quarter screen over and runs on into the next surah', async () => {
+  const passages = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/RoundPassages.kt', root), 'utf8');
+  assert.match(passages, /CARRY_SHARE = 0\.25f/);
+  assert.match(passages, /fun carryOf\(/);
+  assert.doesNotMatch(reader, /\.tail\b/);
+  assert.match(reader, /SurahDivider\(/);
+  assert.match(reader, /onOpenSurah\(surahNumber \+ 1\)/);
+});

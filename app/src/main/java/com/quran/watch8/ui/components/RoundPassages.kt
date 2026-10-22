@@ -27,9 +27,12 @@ import kotlin.math.sqrt
  * unit too long for a whole screen is cut, between words, ending in "…".
  *
  * Each line is as wide as the circle at its height (StaticLayout per-line
- * indents), and the block is centred where the circle is widest. The thin caps
- * above and below the text are left to the caller for the bridge words and the
- * surah and verse.
+ * indents), and the block is centred where the circle is widest.
+ *
+ * Reading glides rather than flips: each screen opens with about the last
+ * quarter of the one before, dimmed, so the eye picks up where it left off.
+ * The carried text is whole pause units where they fit, otherwise the last
+ * words of the unit that ended the screen.
  *
  * Every screen is laid out from its own text, never as a slice of a longer
  * run, so shaping never sees a cut word.
@@ -128,21 +131,23 @@ class RoundPassages(
         /** Where each verse's text starts on this screen, with its index. */
         val pieceStarts: IntArray,
         val pieceAyahs: IntArray,
-        /** The last words, shown faintly above the next screen. */
-        val tail: String,
+        /** Pieces before this index are carried over from the screen before. */
+        private val firstNew: Int,
     ) {
-        /** The verse this screen stands for: the first one on it. */
-        val firstAyah: Int get() = pieceAyahs.firstOrNull { it >= 0 } ?: 0
+        /** The verse this screen stands for: the first new one on it. */
+        val firstAyah: Int get() =
+            pieceAyahs.drop(firstNew).firstOrNull { it >= 0 } ?: pieceAyahs.firstOrNull { it >= 0 } ?: 0
         fun ayahAt(offset: Int): Int {
             var found = -1
             for (i in pieceStarts.indices) if (pieceStarts[i] <= offset) found = i
             return if (found < 0) firstAyah else pieceAyahs[found]
         }
-        fun holdsAyah(index: Int): Boolean = pieceAyahs.contains(index)
+        fun holdsAyah(index: Int): Boolean = pieceAyahs.drop(firstNew).contains(index)
     }
 
-    private fun compose(pieces: List<Piece>): Triple<CharSequence, IntArray, IntArray> {
+    private fun compose(pieces: List<Piece>, carried: Int = 0): Triple<CharSequence, IntArray, IntArray> {
         val sb = SpannableStringBuilder()
+        var carriedEnd = 0
         val starts = IntArray(pieces.size)
         val ayahs = IntArray(pieces.size)
         pieces.forEachIndexed { i, p ->
@@ -150,7 +155,11 @@ class RoundPassages(
             starts[i] = sb.length
             ayahs[i] = p.unit.ayahIndex
             sb.append(p.unit.words.subList(p.from, p.to).joinToString(" "))
-            if (p.continues) {
+            val next = pieces.getOrNull(i + 1)
+            val resumedNext = next != null && next.unit === p.unit && next.from == p.to
+            if (resumedNext) {
+                // The same stretch goes on right after: no "…" between.
+            } else if (p.continues) {
                 sb.append(" …")
             } else if (p.unit.endsAyah) {
                 // No-break space: the number stays on its verse's last line.
@@ -160,26 +169,59 @@ class RoundPassages(
                 sb.setSpan(ForegroundColorSpan(numberColor), markStart, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 sb.setSpan(TypefaceSpan(numberTypeface), markStart, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
+            if (i == carried - 1) carriedEnd = sb.length
+        }
+        if (carriedEnd > 0) {
+            // Set last, so it also dims the carried verse numbers.
+            sb.setSpan(ForegroundColorSpan(dimColor), 0, carriedEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         // Every line exactly one band tall, so the indents line up with the circle.
         sb.setSpan(LineHeightSpan.Standard(lineHeightPx), 0, sb.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
         return Triple(sb, starts, ayahs)
     }
 
-    private fun screenOf(pieces: List<Piece>, fit: Fit, text: Triple<CharSequence, IntArray, IntArray>): Screen {
-        val last = pieces.last()
-        val tail = last.unit.words.subList(max(last.from, last.to - 2), last.to).joinToString(" ")
-        return Screen(text.first, fit, text.second, text.third, tail)
+    private val dimColor = (paint.color and 0x00FFFFFF) or (0x70 shl 24)
+
+    private fun screenOf(pieces: List<Piece>, carried: Int, fit: Fit, text: Triple<CharSequence, IntArray, IntArray>) =
+        Screen(text.first, fit, text.second, text.third, carried)
+
+    private fun width(p: Piece) = Layout.getDesiredWidth(p.unit.words.subList(p.from, p.to).joinToString(" "), paint)
+
+    /** About a quarter of a screen from the end of [pieces], to open the next one with. */
+    private fun carryOf(pieces: List<Piece>): List<Piece> {
+        val budget = capacity(maxLines) * CARRY_SHARE
+        val out = ArrayDeque<Piece>()
+        var used = 0f
+        for (p in pieces.asReversed()) {
+            val w = width(p)
+            if (used + w <= budget) { out.addFirst(p); used += w; continue }
+            if (out.isEmpty()) {
+                // The last stretch alone is too long: its last words only.
+                var from = p.to - 1
+                while (from > p.from && used + width(Piece(p.unit, from - 1, p.to)) <= budget) from--
+                if (used + width(Piece(p.unit, from, p.to)) <= budget) out.addFirst(Piece(p.unit, from, p.to))
+            }
+            break
+        }
+        return out.toList()
     }
 
     /** The surah's screens, cut one by one so the first can show at once. */
     fun screens(units: List<PauseUnit>): Sequence<Screen> = sequence {
         var i = 0
         var from = 0
+        var carry = emptyList<Piece>()
         while (i < units.size) {
             val head = Piece(units[i], from, units[i].words.size)
-            val headText = compose(listOf(head))
-            val headFit = fit(headText.first)
+            // Open with the carried quarter if the next stretch still fits with it.
+            var base = carry
+            var headText = compose(base + head, base.size)
+            var headFit = fit(headText.first)
+            if (headFit == null && base.isNotEmpty()) {
+                base = emptyList()
+                headText = compose(listOf(head))
+                headFit = fit(headText.first)
+            }
             if (headFit == null) {
                 // One unit longer than a screen: as many words as fit, then "…".
                 var lo = 1
@@ -198,28 +240,33 @@ class RoundPassages(
                     val t = compose(pieces)
                     best = Triple(pieces, Fit(build(t.first, maxLines), top(maxLines)), t)
                 }
-                yield(screenOf(best.first, best.second, best.third))
+                yield(screenOf(best.first, 0, best.second, best.third))
+                carry = carryOf(best.first)
                 from = best.first.last().to
                 if (from >= units[i].words.size) { i++; from = 0 }
                 continue
             }
-            var pieces = listOf(head)
+            var pieces = base + head
             var placed: Fit = headFit
             var text = headText
             var j = i + 1
             while (j < units.size) {
                 val candidate = pieces + Piece(units[j], 0, units[j].words.size)
-                val t = compose(candidate)
+                val t = compose(candidate, base.size)
                 val f = fit(t.first) ?: break
                 pieces = candidate; placed = f; text = t; j++
             }
-            yield(screenOf(pieces, placed, text))
+            yield(screenOf(pieces, base.size, placed, text))
+            carry = carryOf(pieces.drop(base.size))
             i = j
             from = 0
         }
     }
 
     companion object {
+        /** Share of a screen carried over to open the next. */
+        private const val CARRY_SHARE = 0.25f
+
         private fun isWaqf(c: Char) = c in 'ۖ'..'ۛ'
 
         /**
