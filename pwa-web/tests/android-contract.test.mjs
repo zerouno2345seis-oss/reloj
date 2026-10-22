@@ -266,3 +266,20 @@ test('reader typography has one definition, previewed in settings', async () => 
 test('swiping right on the watch face opens the Quran', () => {
   assert.match(watchFaceHome, /totalDragX > 30f[\s\S]{0,400}onNavigate\("quran"\)/);
 });
+
+// Updates reach the watch from GitHub releases, not over wireless debugging.
+test('the watch can update itself from this repository\'s releases', async () => {
+  const [updater, manifest, gradle, publish] = await Promise.all([
+    readFile(new URL('app/src/main/java/com/quran/watch8/util/SelfUpdater.kt', root), 'utf8'),
+    readFile(new URL('app/src/main/AndroidManifest.xml', root), 'utf8'),
+    readFile(new URL('app/build.gradle.kts', root), 'utf8'),
+    readFile(new URL('scripts/publish-watch-release.sh', root), 'utf8'),
+  ]);
+  assert.match(updater, /api\.github\.com\/repos\/zerouno2345seis-oss\/reloj\/releases\/latest/);
+  assert.match(manifest, /android\.permission\.REQUEST_INSTALL_PACKAGES/);
+  assert.match(manifest, /\.util\.InstallStatusReceiver"\s+android:exported="false"/);
+  assert.match(settings, /UpdateChip\(/);
+  // The release tag carries the versionCode the updater compares against.
+  assert.match(gradle, /versionCode = gitCommitCount/);
+  assert.match(publish, /gh release create "v\$\{count\}"/);
+});

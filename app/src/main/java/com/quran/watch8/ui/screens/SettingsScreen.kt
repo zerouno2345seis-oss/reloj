@@ -24,6 +24,7 @@ import com.quran.watch8.data.model.PresetItem
 import com.quran.watch8.data.model.PresetManager
 import com.quran.watch8.ui.components.rememberRotaryScrollModifier
 import com.quran.watch8.ui.components.ReaderTypography
+import com.quran.watch8.ui.components.UpdateChip
 import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahGreen
@@ -77,6 +78,10 @@ fun SettingsScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = WatchSafeInsets.listContentPadding
         ) {
+            item {
+                UpdateChip(modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction))
+            }
+
             item {
                 Text(
                     text = "القوالب الجاهزة",

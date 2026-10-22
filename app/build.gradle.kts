@@ -5,6 +5,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val gitCommitCount: Int = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.get().trim().toIntOrNull() ?: 1
+
 android {
     namespace = "com.quran.watch8"
     compileSdk = 35
@@ -13,8 +18,10 @@ android {
         applicationId = "com.quran.watch8"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // Rises with every commit, so each build published as a GitHub
+        // release (tag v<versionCode>) is newer than the one on the watch.
+        versionCode = gitCommitCount
+        versionName = "1.0.$gitCommitCount"
     }
 
     buildTypes {
