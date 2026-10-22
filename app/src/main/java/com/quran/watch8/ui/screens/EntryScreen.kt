@@ -107,18 +107,20 @@ fun EntryScreen(
             // Everything has to sit inside the circle: the first version ran
             // taller than the glass and pushed "continue" and the buttons off
             // the bottom on the SM-L500. Weekday and place moved to the table.
-            modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(hijri, fontSize = 11.sp, color = AccentGold, maxLines = 1)
             Text(
                 text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                fontSize = 40.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Light,
                 color = Color.White,
                 maxLines = 1
             )
+            // Under the time, where the circle is wide enough for the whole
+            // date; above it the gold ring covered the day's last digit.
+            Text(hijri, fontSize = 11.sp, color = AccentGold, maxLines = 1)
 
             Spacer(Modifier.height(2.dp))
             // The next prayer; a tap opens the whole day.
@@ -127,13 +129,10 @@ fun EntryScreen(
                 modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { onNavigate("prayer") }
                     .padding(horizontal = 8.dp, vertical = 2.dp)
             ) {
+                // One line: two lines for the prayer pushed the buttons off the glass.
                 Text(
-                    text = status?.let { "${it.next.nameAr} ${it.next.formatted}" } ?: "مواقيت الصلاة",
-                    fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1
-                )
-                Text(
-                    text = status?.let { "بعد ${it.remainingText}" } ?: "",
-                    fontSize = 10.sp, color = AccentGold, maxLines = 1
+                    text = status?.let { "${it.next.nameAr} ${it.next.formatted} · بعد ${it.remainingText}" } ?: "مواقيت الصلاة",
+                    fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1
                 )
             }
 
