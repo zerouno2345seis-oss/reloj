@@ -10,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -282,6 +284,11 @@ fun QuranReaderScreen(
             VerticalPager(
                 state = pagerState,
                 beyondViewportPageCount = 1,
+                // A quick flick moves one screen, never a run of them.
+                flingBehavior = PagerDefaults.flingBehavior(
+                    state = pagerState,
+                    pagerSnapDistance = PagerSnapDistance.atMost(1)
+                ),
                 modifier = Modifier
                     .fillMaxSize()
                     .onRotaryScrollEvent { event ->
