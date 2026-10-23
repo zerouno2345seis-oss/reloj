@@ -62,13 +62,14 @@ METERS = {"battery", "steps", "khatma"}
 ICONS = {"bookmarks": "icon_bookmark", "mushaf": "icon_quran"}
 FONT_DIR = os.path.join(kit.ROOT, "design/fonts")
 # The editor names Google families; each is bundled (all SIL OFL, licences in design/fonts).
-# None is the face's own IBM Plex Sans Arabic. Variable fonts draw at their regular weight.
+# None is the face's own IBM Plex Sans Arabic. The variable ones (Cairo, Reem Kufi, El Messiri,
+# Changa, Noto Kufi Arabic) are bundled as bold static instances: a variable font may not draw on the watch.
 FONTS = {
     "ibm plex sans arabic": None, "plex": None,
-    "tajawal": "tajawal_bold", "cairo": "cairo", "reem kufi": "reem_kufi", "almarai": "almarai_bold",
-    "el messiri": "el_messiri", "aref ruqaa": "aref_ruqaa_bold", "ruqaa": "aref_ruqaa_bold",
-    "lateef": "lateef_bold", "scheherazade new": "scheherazade_bold", "changa": "changa",
-    "amiri": "amiri_bold", "noto kufi arabic": "noto_kufi",
+    "tajawal": "tajawal_bold", "cairo": "cairo_bold", "reem kufi": "reem_kufi_bold", "almarai": "almarai_bold",
+    "el messiri": "el_messiri_bold", "aref ruqaa": "aref_ruqaa_bold", "ruqaa": "aref_ruqaa_bold",
+    "lateef": "lateef_bold", "scheherazade new": "scheherazade_bold", "changa": "changa_bold",
+    "amiri": "amiri_bold", "noto kufi arabic": "noto_kufi_bold",
     "lalezar": "lalezar", "rakkas": "rakkas", "harmattan": "harmattan_bold",
 }
 
@@ -227,12 +228,15 @@ class Face:
         image = {"photo": "bg_photo", "mosques": "bg_mosques", "pattern": "bg_pattern", "user": "bg_user"}.get(bg)
         g = self.s.get("backgroundGradient", {})
         grad = gradient_xml(g)
-        layers = ""
-        if image and not (grad and not g.get("overImage", True)):
-            alpha = round(255 * float(self.s.get("backgroundImageOpacity", 1))) if bg == "user" else 255
-            layers += f'<PartImage x="0" y="0" width="450" height="450" alpha="{alpha}"><Image resource="{image}"/></PartImage>'
-        if grad:
-            layers += f'<PartDraw x="0" y="0" width="450" height="450"><Rectangle x="0" y="0" width="450" height="450"><Fill color="#FFFFFFFF">{grad}</Fill></Rectangle></PartDraw>'
+        alpha = round(255 * float(self.s.get("backgroundImageOpacity", 1))) if bg == "user" else 255
+        picture = f'<PartImage x="0" y="0" width="450" height="450" alpha="{alpha}"><Image resource="{image}"/></PartImage>' if image else ""
+        tint = (f'<PartDraw x="0" y="0" width="450" height="450"><Rectangle x="0" y="0" width="450" height="450">'
+                f'<Fill color="#FFFFFFFF">{grad}</Fill></Rectangle></PartDraw>') if grad else ""
+        # As the editor shows it: the gradient is the ground and the picture lies on it at its
+        # opacity. Only a gradient with see-through stops can tint the picture from above
+        # (an opaque one there hid the picture completely on the watch).
+        see_through = any(st.get("alpha", 1) < 1 for st in g.get("stops", []))
+        layers = picture + tint if (g.get("overImage") and see_through) else tint + picture
         if layers:
             self.parts.append(active("background", layers))
 
