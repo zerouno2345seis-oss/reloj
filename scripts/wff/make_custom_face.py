@@ -24,6 +24,12 @@ o'clock and name a segment's centre. Every key is optional:
                       content: none, date, battery, steps, heart, surah, next, temp, khatma,
                       bookmarks, mushaf
   elements            date, pill, time, prayer, edges: {"show", "y" (centre), "scale"}
+  backgroundImage     a picture from the computer: the data URL itself, {"dataUrl": ...} or
+                      {"file": "images/x.jpg"} (next to the design), with "dim": 0-1 to darken it;
+                      it becomes the background; backgroundImageOpacity 0-1 sets how strongly it shows
+  font / fonts        one Google family for everything, or {"time": ..., "text": ...}
+  colors.auto         true: text, accents, seconds, hands and any segment coloured "auto"
+                      take their colours from the background picture
 
 Samsung allows eight slots. The date, reading place, prayer row and data
 segments come first; when the design needs more, the extras go in this order,
@@ -54,6 +60,108 @@ PROVIDERS = {
 }
 METERS = {"battery", "steps", "khatma"}
 ICONS = {"bookmarks": "icon_bookmark", "mushaf": "icon_quran"}
+FONT_DIR = os.path.join(kit.ROOT, "design/fonts")
+# The editor names Google families; each is bundled (all SIL OFL, licences in design/fonts).
+# None is the face's own IBM Plex Sans Arabic. Variable fonts draw at their regular weight.
+FONTS = {
+    "ibm plex sans arabic": None, "plex": None,
+    "tajawal": "tajawal_bold", "cairo": "cairo", "reem kufi": "reem_kufi", "almarai": "almarai_bold",
+    "el messiri": "el_messiri", "aref ruqaa": "aref_ruqaa_bold", "ruqaa": "aref_ruqaa_bold",
+    "lateef": "lateef_bold", "scheherazade new": "scheherazade_bold", "changa": "changa",
+    "amiri": "amiri_bold", "noto kufi arabic": "noto_kufi",
+    "lalezar": "lalezar", "rakkas": "rakkas", "harmattan": "harmattan_bold",
+}
+
+
+def font_file(name):
+    if not name:
+        return None
+    key = str(name).strip().lower()
+    if key not in FONTS:
+        print(f"note: font {name!r} is not bundled; IBM Plex Sans Arabic is used")
+        return None
+    return FONTS[key]
+
+
+def user_background(spec, folder, module):
+    """The picture from the computer, cropped to the round face and darkened; returns its resource name."""
+    import base64
+    import io
+    from PIL import Image
+    img = spec.get("backgroundImage")
+    if not img:
+        return None
+    if isinstance(img, str):                       # the editor sends the data URL itself
+        img = {"dataUrl": img, "dim": 0}
+    if img.get("dataUrl"):
+        raw = base64.b64decode(img["dataUrl"].split(",", 1)[1])
+        im = Image.open(io.BytesIO(raw))
+    else:
+        im = Image.open(os.path.join(folder, img["file"]))
+    im = im.convert("RGB")
+    side = min(im.size)
+    left, top = (im.width - side) // 2, (im.height - side) // 2
+    im = im.crop((left, top, left + side, top + side)).resize((450, 450), Image.LANCZOS)
+    dim = float(img.get("dim", 0))
+    if dim > 0:
+        im = Image.blend(im, Image.new("RGB", im.size, (0, 0, 0)), min(dim, 0.95))
+    out = os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi/bg_user.webp")
+    im.save(out, "WEBP", quality=80, method=6)
+    return "bg_user", im
+
+
+def palette(im, n=6):
+    """Colours for a face from its picture: the dominant ones, the liveliest first."""
+    import colorsys
+    small = im.resize((80, 80)).quantize(colors=n).convert("RGB")
+    counts = sorted(small.getcolors(80 * 80), reverse=True)
+    out = []
+    for _, (r_, g, b) in counts:
+        h, l, sat = colorsys.rgb_to_hls(r_ / 255, g / 255, b / 255)
+        out.append((sat * min(l, 1 - l) * 4, h, l, sat))
+    out.sort(reverse=True)
+
+    def hexc(h, l, sat):
+        rr, gg, bb = colorsys.hls_to_rgb(h, l, sat)
+        return f"#{round(rr * 255):02x}{round(gg * 255):02x}{round(bb * 255):02x}"
+    lively = [hexc(h, max(0.55, min(l, 0.7)), max(sat, 0.45)) for _, h, l, sat in out]
+    return lively or ["#e8bc3e"]
+
+
+def apply_auto_colours(spec, im):
+    cols = palette(im)
+    c = spec.setdefault("colors", {})
+    accent = cols[0]
+    c.update({"accent": accent, "seconds": accent, "secondsTrack": "#2a3a34",
+              "hourHand": "#ffffff", "minuteHand": "#f1f1f1", "secondHand": accent, "numerals": "#e6e6e6",
+              "text": "#ffffff", "soft": "#dadada"})
+    i = 0
+    for seg in spec.get("segments", []):
+        if seg.get("color") == "auto":
+            seg["color"] = cols[i % len(cols)]
+            i += 1
+
+
+def use_fonts(spec, module, parts):
+    """Copies the chosen fonts into the face and points the time and the text at them."""
+    import shutil
+    f = spec.get("fonts", {})
+    one = spec.get("font")
+    time_font, text_font = font_file(f.get("time", one)), font_file(f.get("text", one))
+    font_dir = os.path.join(kit.ROOT, module, "src/main/res/font")
+    for name in os.listdir(font_dir):          # only what this face uses, beside the defaults
+        if not name.startswith("plex_"):
+            os.remove(os.path.join(font_dir, name))
+    for chosen in {time_font, text_font} - {None}:
+        shutil.copy(os.path.join(FONT_DIR, chosen + ".ttf"), os.path.join(font_dir, chosen + ".ttf"))
+    out = []
+    for p in parts:
+        is_clock = "<DigitalClock" in p
+        target = time_font if is_clock else text_font
+        if target:
+            p = p.replace('family="plex_bold"', f'family="{target}"').replace('family="plex_semibold"', f'family="{target}"')
+        out.append(p)
+    return out
 
 
 def argb(hex_color, alpha=1.0):
@@ -116,12 +224,13 @@ class Face:
     # ── background ──────────────────────────────────────────────────────────
     def background(self):
         bg = self.s.get("background", "none")
-        image = {"photo": "bg_photo", "mosques": "bg_mosques", "pattern": "bg_pattern"}.get(bg)
+        image = {"photo": "bg_photo", "mosques": "bg_mosques", "pattern": "bg_pattern", "user": "bg_user"}.get(bg)
         g = self.s.get("backgroundGradient", {})
         grad = gradient_xml(g)
         layers = ""
         if image and not (grad and not g.get("overImage", True)):
-            layers += f'<PartImage x="0" y="0" width="450" height="450"><Image resource="{image}"/></PartImage>'
+            alpha = round(255 * float(self.s.get("backgroundImageOpacity", 1))) if bg == "user" else 255
+            layers += f'<PartImage x="0" y="0" width="450" height="450" alpha="{alpha}"><Image resource="{image}"/></PartImage>'
         if grad:
             layers += f'<PartDraw x="0" y="0" width="450" height="450"><Rectangle x="0" y="0" width="450" height="450"><Fill color="#FFFFFFFF">{grad}</Fill></Rectangle></PartDraw>'
         if layers:
@@ -289,7 +398,12 @@ def element(spec, name, default_y, default_scale=1.0):
     return e.get("show", True), e.get("y", default_y) * K, e.get("scale", default_scale)
 
 
-def build(spec):
+def build(spec, module=None, folder="."):
+    if spec.get("backgroundImage") and module:
+        name, im = user_background(spec, folder, module)
+        spec["background"] = "user"
+        if spec.get("colors", {}).get("auto"):
+            apply_auto_colours(spec, im)
     f = Face(spec)
     analog = spec.get("clock", "digital") == "analog"
     show_prayer, py, ps = element(spec, "prayer", 300)
@@ -391,8 +505,12 @@ def build_file(path):
     module = module_for(spec)
     name = spec.get("faceName", "واجهتي")
     ensure_module(module, name)
-    f = build(spec)
-    kit.write(module, f"«{name}», from the face editor", "ANALOG" if spec.get("clock") == "analog" else "DIGITAL", f.parts)
+    user_bg = os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi/bg_user.webp")
+    if not spec.get("backgroundImage") and os.path.exists(user_bg):
+        os.remove(user_bg)
+    f = build(spec, module, os.path.dirname(os.path.abspath(path)))
+    kit.write(module, f"«{name}», from the face editor", "ANALOG" if spec.get("clock") == "analog" else "DIGITAL",
+              use_fonts(spec, module, f.parts))
     for n in f.notes:
         print(f"note ({module}):", n)
 
