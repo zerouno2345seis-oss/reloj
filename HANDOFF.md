@@ -7,7 +7,7 @@
 اقرأ هذا القسم أولًا؛ ما تحته تاريخ أقدم.
 
 - **الفرع المعتمد**: `claude/project-thread-sscr50` (مجلد العمل `/Users/mohamad/reloj-face1`). لا تعمل في `/Users/mohamad/reloj-main` (على `claude/hopeful-maxwell-e9liys`).
-- **آخر إصدار منشور**: `v169` — التطبيق والواجهات الأربع (`face-com.quran.watch8.watchface[.row|.hands|.mihrab]-v169.apk`): القارئ متعدد الأوضاع، الدخول المباشر إلى المصحف، البحث بالعبارة، وتصاميم زاهر من محرّر الواجهات.
+- **آخر إصدار منشور**: `v174` — التطبيق والواجهات الخمس (row، الكلاسيكية، العقارب، المحراب، و«صلاة» من المحرّر `watchface-custom`).
 - **زرّ التحديث يثبّت الواجهات**: `util/SelfUpdater.kt` يقرأ أصول الإصدار؛ ما اسمه `face-<package>-v<n>.apk` واجهةٌ تُثبَّت بـ PackageInstaller إن كانت نسختها أحدث. `scripts/publish-watch-release.sh` يفحص الواجهات (`faces=(watchface-row)`) ثم يبني ويختبر ويرفع.
 - **الواجهة**: وحدة `watchface-row`. لا تعدّل `res/raw/watchface.xml` يدويًا؛ عدّل `scripts/wff/make_row_face.py` ثم شغّله، ثم `scripts/validate-watchface.sh` (يحتاج `export JAVA_HOME=/opt/homebrew/opt/openjdk@17; export PATH="$JAVA_HOME/bin:$PATH"`).
 - **صورة المعاينة**: `scripts/wff/preview_row_face.py <face|zones|aod> out.html` ثم لقطة بـ Chrome headless؛ آخر الصور في `design-proposals/row-face/`. هي رسم تقريبي بنفس الإحداثيات، لا تشغيل حقيقي للواجهة.
