@@ -76,7 +76,7 @@ FONTS = {
 def font_file(name):
     if not name:
         return None
-    key = str(name).strip().lower()
+    key = str(name).split(",")[0].strip().strip("'\"").lower()      # "Noto Kufi Arabic, sans-serif"
     if key not in FONTS:
         print(f"note: font {name!r} is not bundled; IBM Plex Sans Arabic is used")
         return None
