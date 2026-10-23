@@ -25,6 +25,21 @@ def ticks():
     return ('<Group name="dial" x="0" y="0" width="450" height="450">' + kit.HIDE_IN_AMBIENT + "".join(out) + '</Group>')
 
 
+def numerals():
+    """The hours round the dial, inside the ticks. 3 and 9 are left to the mushaf and
+    bookmark buttons that sit there."""
+    import math
+    out = []
+    for h in range(1, 13):
+        if h in (3, 9):
+            continue
+        a = math.radians(h * 30)
+        cx, cy = 225 + 188 * math.sin(a), 225 - 188 * math.cos(a)
+        color = "#FFE8BC3E" if h == 12 else "#FFD3DAD6"
+        out.append(kit.text(round(cx - 20), round(cy - 15), 40, 30, str(h), 22, color))
+    return '<Group name="numerals" x="0" y="0" width="450" height="450">' + kit.HIDE_IN_AMBIENT + "".join(out) + '</Group>'
+
+
 def hands():
     """Hour and minute hands, short enough to stay in the clear middle."""
     def hand(name, length, width, color, angle):
@@ -43,6 +58,7 @@ def hands():
 def main():
     p = [
         ticks(),
+        numerals(),
         hands(),                       # first: the panels below are drawn over them
         kit.ambient_clock(),
         kit.temperature_arc(182, 210),
