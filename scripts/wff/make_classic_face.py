@@ -85,13 +85,13 @@ def main():
         background(),
         seconds(),
         temperature(),
-        kit.clock(y=152, size=126, when="active", height=130),   # centre y 211 on the design, ×1.15
+        kit.clock(y=158, size=114, when="active", height=118),   # centre y 211 on the design; a little under ×1.15 so the icons beside it stay clear
         kit.ambient_clock(),
         kit.ambient_ring(),
         battery(33),
         # the mushaf on the right, the bookmarks on the left, at mid height inside the ring
-        icon_button(31, 384, 215, "QuranShortcutComplicationService"),
-        icon_button(32, 32, 215, "BookmarksShortcutComplicationService"),
+        icon_button(31, 390, 215, "QuranShortcutComplicationService"),
+        icon_button(32, 26, 215, "BookmarksShortcutComplicationService"),
         kit.date_slot(34, y=34),
         kit.reading_slot(35, 80, 95, 290, 70, fill="#B81A1608", edge="#59E8BC3E"),
         kit.time_tap(36, 70, 160, 310, 112),
