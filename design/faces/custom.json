@@ -1,0 +1,37 @@
+{
+ "face": "custom",
+ "faceName": "واجهتي",
+ "background": "none",
+ "backgroundGradient": {
+  "type": "radial",
+  "overImage": true,
+  "stops": [
+   {"color": "#14513f", "alpha": 1, "pos": 0},
+   {"color": "#0a2a22", "alpha": 1, "pos": 0.6},
+   {"color": "#03100c", "alpha": 1, "pos": 1}
+  ]
+ },
+ "clock": "digital",
+ "hourNumerals": "none",
+ "minuteTicks": false,
+ "colors": {"text": "#ffffff", "soft": "#d3dad6", "accent": "#e8bc3e", "seconds": "#e8bc3e", "secondsTrack": "#1d3a31"},
+ "ring": {
+  "thickness": 28,
+  "fontSize": 17,
+  "secondsInside": true,
+  "gradient": {"type": "none"}
+ },
+ "segments": [
+  {"n": 1, "angle": 0, "spanDeg": 87, "content": "date", "color": "#d9b36a", "customizable": false},
+  {"n": 2, "angle": 90, "spanDeg": 87, "content": "battery", "color": "#3fb58a", "customizable": true},
+  {"n": 3, "angle": 180, "spanDeg": 87, "content": "surah", "color": "#d9b36a", "colorEnd": "#c07e0c", "customizable": false},
+  {"n": 4, "angle": 270, "spanDeg": 87, "content": "next", "color": "#5aa9e6", "customizable": true}
+ ],
+ "elements": {
+  "date": {"show": false},
+  "pill": {"show": true, "y": 118, "scale": 0.9},
+  "time": {"show": true, "y": 200, "scale": 1.1},
+  "prayer": {"show": true, "y": 296, "scale": 0.85},
+  "edges": {"show": false}
+ }
+}

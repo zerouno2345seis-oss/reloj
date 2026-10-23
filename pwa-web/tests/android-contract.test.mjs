@@ -213,7 +213,7 @@ test('reader offers four display styles over one line engine', async () => {
 // the official schema before it builds (an invalid face sent the watch into a
 // reboot loop), and every provider it names must exist in the app.
 test('watch faces are WFF, validated before build, and name only real services', async () => {
-  for (const dir of ['watchface', 'watchface-hands', 'watchface-mihrab']) {
+  for (const dir of ['watchface', 'watchface-hands', 'watchface-mihrab', 'watchface-custom']) {
     const faceManifest = await readFile(new URL(`${dir}/src/main/AndroidManifest.xml`, root), 'utf8');
     const face = await readFile(new URL(`${dir}/src/main/res/raw/watchface.xml`, root), 'utf8');
     const faceGradle = await readFile(new URL(`${dir}/build.gradle.kts`, root), 'utf8');

@@ -57,15 +57,15 @@ def edge_buttons(quran_id, bookmarks_id, icon_y=208):
             + slot(bookmarks_id, 0, 0, 450, 450, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, icon_y, 34), customizable="FALSE"))
 
 
-def date_slot(sid, y=29, size=30, when="always"):
+def date_slot(sid, y=29, size=30, when="always", x=150, w=150, h=36, ink=WHITE):
     """The date; a tap on it opens the settings. "always" keeps it on the always-on screen;
     "active" hides it there; "ambient" shows it only there, at the shared top place."""
-    inner = text(0, 0, 150, 36, ("%s", ["[COMPLICATION.TEXT]"]), size)
+    inner = text(0, 0, w, h, ("%s", ["[COMPLICATION.TEXT]"]), size, ink)
     if when == "ambient":
-        inner = ('<Group name="ambientDate" x="0" y="0" width="150" height="36" alpha="0">'
+        inner = (f'<Group name="ambientDate" x="0" y="0" width="{w}" height="{h}" alpha="0">'
                  f'<Variant mode="AMBIENT" target="alpha" value="255"/>{inner}</Group>')
-    return slot(sid, 150, y, 150, 36, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
-                '<BoundingBox x="0" y="0" width="150" height="36"/>',
+    return slot(sid, x, y, w, h, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
+                f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>',
                 '<Complication type="SHORT_TEXT">' + inner + '</Complication>',
                 ambient=(when == "active"))
 
@@ -79,15 +79,15 @@ def time_tap(sid, x, y, w, h):
                 customizable="FALSE")
 
 
-def reading_slot(sid, x=70, y=68, w=310, h=70):
+def reading_slot(sid, x=70, y=68, w=310, h=70, ink=WHITE, soft=SOFT):
     """Where reading stopped, and how the verse begins, straight on the face (no panel,
     a shadow under the text). Text scales with the height, but never below 12 px."""
     k = h / 70
     title, verse = max(12, round(16 * k)), max(12, round(23 * k))
     th = round(h * 24 / 70)
     body = ('<Complication type="LONG_TEXT">'
-            + text(round(12 * k), round(4 * k), w - round(24 * k), th, ("%s", ["[COMPLICATION.TITLE]"]), title, SOFT, SEMI, shadow=True)
-            + text(round(12 * k), round(27 * k), w - round(24 * k), h - round(32 * k), ("%s", ["[COMPLICATION.TEXT]"]), verse, shadow=True) + '</Complication>')
+            + text(round(12 * k), round(4 * k), w - round(24 * k), th, ("%s", ["[COMPLICATION.TITLE]"]), title, soft, SEMI, shadow=True)
+            + text(round(12 * k), round(27 * k), w - round(24 * k), h - round(32 * k), ("%s", ["[COMPLICATION.TEXT]"]), verse, ink, shadow=True) + '</Complication>')
     return slot(sid, x, y, w, h, "LONG_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
                 f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', body)
 
@@ -95,7 +95,7 @@ def reading_slot(sid, x=70, y=68, w=310, h=70):
 PRAYER_BOX = (64, 269, 323, 101)
 
 
-def prayer_row(sid, box=PRAYER_BOX, when="always"):
+def prayer_row(sid, box=PRAYER_BOX, when="always", ink=WHITE, soft=SOFT):
     """Passed (right) | the next prayer and its time (middle) | left (left), as on the row
     face and at the same place, so the always-on screen is the same on every face.
     No panel behind it: the text sits on the face, lifted by a shadow.
@@ -115,12 +115,12 @@ def prayer_row(sid, box=PRAYER_BOX, when="always"):
     parts = (f'<PartDraw x="0" y="0" width="{w}" height="{h}">'
              f'<Line startX="{col:.0f}" startY="{sz(14)}" endX="{col:.0f}" endY="{h - sz(14)}"><Stroke color="#38AADCC8" thickness="1"/></Line>'
              f'<Line startX="{2*col:.0f}" startY="{sz(14)}" endX="{2*col:.0f}" endY="{h - sz(14)}"><Stroke color="#38AADCC8" thickness="1"/></Line></PartDraw>'
-             + text(int(2 * col), sz(14), int(col), sz(24), "مضى", sz(17), SOFT, SEMI, shadow=True)
-             + duration(passed, int(2 * col), sz(42), int(col), sz(42), sz(26), shadow=True)
-             + text(int(col), sz(10), int(col), sz(38), ("%s", ["[COMPLICATION.TEXT]"]), sz(26), shadow=True)
-             + text(int(col), sz(52), int(col), sz(32), ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), sz(29), shadow=True)
-             + text(0, sz(14), int(col), sz(24), "متبقي", sz(17), SOFT, SEMI, shadow=True)
-             + duration(left, 0, sz(42), int(col), sz(42), sz(26), shadow=True))
+             + text(int(2 * col), sz(14), int(col), sz(24), "مضى", sz(17), soft, SEMI, shadow=True)
+             + duration(passed, int(2 * col), sz(42), int(col), sz(42), sz(26), ink, shadow=True)
+             + text(int(col), sz(10), int(col), sz(38), ("%s", ["[COMPLICATION.TEXT]"]), sz(26), ink, shadow=True)
+             + text(int(col), sz(52), int(col), sz(32), ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), sz(29), ink, shadow=True)
+             + text(0, sz(14), int(col), sz(24), "متبقي", sz(17), soft, SEMI, shadow=True)
+             + duration(left, 0, sz(42), int(col), sz(42), sz(26), ink, shadow=True))
     if when == "ambient":
         parts = (f'<Group name="ambientPrayer" x="0" y="0" width="{w}" height="{h}" alpha="0">'
                  f'<Variant mode="AMBIENT" target="alpha" value="255"/>{parts}</Group>')
