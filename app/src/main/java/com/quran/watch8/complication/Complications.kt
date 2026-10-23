@@ -244,7 +244,7 @@ class GregorianDateComplicationService : SuspendingComplicationDataSourceService
 
     private fun build(type: ComplicationType, date: String): ComplicationData? =
         if (type == ComplicationType.SHORT_TEXT)
-            ShortTextComplicationData.Builder(text(date), text(date)).setTapAction(openRoute("prayer")).build()
+            ShortTextComplicationData.Builder(text(date), text(date)).setTapAction(openRoute("settings")).build()
         else null
 }
 

@@ -52,8 +52,9 @@ def edge_buttons(quran_id, bookmarks_id):
     """The mushaf on the right edge and the bookmarks on the left: see-through bands, the icon alone."""
     arc_r = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="45" endAngle="135" thickness="44"/>'
     arc_l = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="225" endAngle="315" thickness="44"/>'
-    return (slot(quran_id, 406, 93, 44, 264, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, _icon(6, 115, 34), customizable="FALSE")
-            + slot(bookmarks_id, 0, 93, 44, 264, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, 115, 34), customizable="FALSE"))
+    # A BoundingArc is read from the slot's own corner: the slots span the face.
+    return (slot(quran_id, 0, 0, 450, 450, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, _icon(412, 208, 34), customizable="FALSE")
+            + slot(bookmarks_id, 0, 0, 450, 450, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, 208, 34), customizable="FALSE"))
 
 
 def date_slot(sid, y=29, size=30):
@@ -62,11 +63,6 @@ def date_slot(sid, y=29, size=30):
                 '<BoundingBox x="0" y="0" width="150" height="36"/>',
                 '<Complication type="SHORT_TEXT">' + text(0, 0, 150, 36, ("%s", ["[COMPLICATION.TEXT]"]), size) + '</Complication>',
                 ambient=False)
-
-
-def gear_slot(sid, x=304, y=30):
-    return slot(sid, x, y, 34, 34, "SMALL_IMAGE", "SettingsShortcutComplicationService", "SMALL_IMAGE",
-                '<BoundingBox x="0" y="0" width="34" height="34"/>', _icon(4, 4, 26), customizable="FALSE")
 
 
 def time_tap(sid, x, y, w, h):
@@ -129,8 +125,9 @@ def prayer_row(sid, fill="#D104100D", edge="#47AADCC8"):
 
 
 # ── the rim arcs: battery and temperature written along the circle ──────────
-RIM = 406           # diameter of the arc's middle line
-RIM_THICK = 30
+# Inside the seconds ring (diameter 434), so nothing is drawn over it.
+RIM = 376           # diameter of the arc's middle line
+RIM_THICK = 28
 
 
 def _rim_text(start, end, body, size, color=WHITE, alpha=None, bottom=True):
@@ -157,12 +154,12 @@ def _rim_track(start, end, color):
 def battery_arc(sid, start, end, bottom=True, track="#E6102420", fill="#FF2F8F67"):
     """The battery (or whatever is chosen there) as an arc on the rim, its level filling it."""
     bound = (f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{start}" endAngle="{end}" '
-             f'thickness="{(450 - RIM) // 2 + RIM_THICK}"/>')
+             f'thickness="{(450 - RIM) // 2 + RIM_THICK // 2}"/>')
     level = ('<PartDraw x="0" y="0" width="450" height="450">'
              f'<Arc centerX="225" centerY="225" width="{RIM}" height="{RIM}" startAngle="{start}" endAngle="{start}">'
              f'<Transform target="endAngle" value="({start} + ({end} - {start}) * clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1))"/>'
              f'<Stroke color="{fill}" thickness="{RIM_THICK}" cap="ROUND"/></Arc></PartDraw>')
-    label = _rim_text(start, end, ("%s", ["[COMPLICATION.TEXT]"]), 21, bottom=bottom)
+    label = _rim_text(start, end, ("%s", ["[COMPLICATION.TEXT]"]), 20, bottom=bottom)
     body = (f'<Complication type="RANGED_VALUE">{_rim_track(start, end, track)}{level}{label}</Complication>'
             f'<Complication type="SHORT_TEXT">{_rim_track(start, end, track)}{label}</Complication>')
     return slot(sid, 0, 0, 450, 450, "RANGED_VALUE SHORT_TEXT", None, "RANGED_VALUE", bound, body, system="WATCH_BATTERY", customizable="FALSE")
@@ -172,8 +169,8 @@ def temperature_arc(start, end, bottom=True, track="#E6102420"):
     """The watch's own weather on the rim (not a slot: no weather source can fill one)."""
     return ('<Group name="temperatureArc" x="0" y="0" width="450" height="450">' + HIDE_IN_AMBIENT
             + _rim_track(start, end, track)
-            + _rim_text(start, end, ("%s°", ["[WEATHER.TEMPERATURE]"]), 21, alpha="(255 * [WEATHER.IS_AVAILABLE])", bottom=bottom)
-            + _rim_text(start, end, "--°", 21, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))", bottom=bottom)
+            + _rim_text(start, end, ("%s°", ["[WEATHER.TEMPERATURE]"]), 20, alpha="(255 * [WEATHER.IS_AVAILABLE])", bottom=bottom)
+            + _rim_text(start, end, "--°", 20, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))", bottom=bottom)
             + '</Group>')
 
 

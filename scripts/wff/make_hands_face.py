@@ -45,10 +45,10 @@ def main():
         ticks(),
         hands(),                       # first: the panels below are drawn over them
         kit.ambient_clock(),
-        kit.temperature_arc(186, 222),
+        kit.temperature_arc(182, 210),
         kit.ambient_ring(),
         kit.edge_buttons(41, 42),
-        kit.battery_arc(43, 138, 174),
+        kit.battery_arc(43, 150, 178),
         kit.date_slot(44),
         kit.time_tap(45, 150, 150, 150, 110),
         kit.reading_slot(46),

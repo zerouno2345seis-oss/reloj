@@ -2,6 +2,7 @@
 <resources>
     <string name="face_name">القرآن الكريم · صف أفقي</string>
     <string name="bg_label">الخلفية</string>
+    <string name="bg_photo_label">مسجد بوينس آيرس</string>
     <string name="bg_mosques_label">المساجد</string>
     <string name="bg_pattern_label">نقش النجوم</string>
     <string name="bg_plain_label">أسود</string>

@@ -77,6 +77,7 @@ def main():
     p = []
     # ── background, chosen in the face's settings ──
     p.append('<ListConfiguration id="bg">'
+             '<ListOption id="photo"><PartImage x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Image resource="bg_photo"/></PartImage></ListOption>'
              '<ListOption id="mosques"><PartImage x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Image resource="bg_mosques"/></PartImage></ListOption>'
              '<ListOption id="pattern"><PartImage x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/><Image resource="bg_pattern"/></PartImage></ListOption>'
              '<ListOption id="plain"><PartDraw x="0" y="0" width="450" height="450"><Rectangle x="0" y="0" width="450" height="450"><Fill color="#FF000000"/></Rectangle></PartDraw></ListOption>'
@@ -92,21 +93,20 @@ def main():
              '<Transform target="angle" value="([SECOND] * 6)"/><Variant mode="AMBIENT" target="alpha" value="0"/>'
              '<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="217" y="0" width="16" height="16"><Fill color="#667DF0C0"/></Ellipse>'
              '<Ellipse x="221" y="4" width="8" height="8"><Fill color="#FFF2FFF9"/></Ellipse></PartDraw></Group>')
-    # ── the bottom chord; the round screen trims the rectangle ──
-    p.append('<PartDraw x="0" y="380" width="450" height="70"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<Rectangle x="0" y="0" width="450" height="70"><Fill color="#E0041010"/></Rectangle>'
-             '<Line startX="225" startY="6" endX="225" endY="52"><Stroke color="#38AADCC8" thickness="1.5"/></Line></PartDraw>')
+    # ── under the prayer row, inside the seconds ring: a thin divider between the two values ──
+    p.append('<PartDraw x="0" y="374" width="450" height="40"><Variant mode="AMBIENT" target="alpha" value="0"/>'
+             '<Line startX="225" startY="8" endX="225" endY="32"><Stroke color="#38AADCC8" thickness="1.5"/></Line></PartDraw>')
 
     # ── the time ──
     p.append('<DigitalClock x="0" y="142" width="450" height="114"><TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="450" height="114">'
              + font(110) + '</Font></TimeText></DigitalClock>')
 
     # ── temperature (bottom left): the watch's own weather, not a slot ──
-    p.append('<Group name="temperature" x="123" y="384" width="100" height="47"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<PartDraw x="6" y="10" width="22" height="28"><RoundRectangle x="7" y="0" width="8" height="18" cornerRadiusX="4" cornerRadiusY="4"><Stroke color="#FFE8BC3E" thickness="2"/></RoundRectangle>'
+    p.append('<Group name="temperature" x="123" y="374" width="100" height="40"><Variant mode="AMBIENT" target="alpha" value="0"/>'
+             '<PartDraw x="6" y="6" width="22" height="28"><RoundRectangle x="7" y="0" width="8" height="18" cornerRadiusX="4" cornerRadiusY="4"><Stroke color="#FFE8BC3E" thickness="2"/></RoundRectangle>'
              '<Ellipse x="3" y="15" width="16" height="12"><Stroke color="#FFE8BC3E" thickness="2"/></Ellipse></PartDraw>'
-             + text(30, 0, 70, 47, ("%s°", ["[WEATHER.TEMPERATURE]"]), 24, alpha="(255 * [WEATHER.IS_AVAILABLE])")
-             + text(30, 0, 70, 47, "--°", 24, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))")
+             + text(30, 0, 70, 40, ("%s°", ["[WEATHER.TEMPERATURE]"]), 22, alpha="(255 * [WEATHER.IS_AVAILABLE])")
+             + text(30, 0, 70, 40, "--°", 22, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))")
              + '</Group>')
 
     # ── slots ──
@@ -114,26 +114,25 @@ def main():
     arc_r = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="45" endAngle="135" thickness="44"/>'
     arc_l = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="225" endAngle="315" thickness="44"/>'
     icon = lambda x, y, s: (f'<Complication type="SMALL_IMAGE"><PartImage x="{x}" y="{y}" width="{s}" height="{s}"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>')
-    p.append(slot(1, 406, 93, 44, 264, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, icon(6, 115, 34)))
+    # A BoundingArc is read from the slot's own corner, so the edge slots span the
+    # whole face and their arcs are centred on it; the icons sit where the bands are.
+    p.append(slot(1, 0, 0, 450, 450, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, icon(412, 208, 34)))
     # 2. bookmarks, left edge
-    p.append(slot(2, 0, 93, 44, 264, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, icon(4, 115, 34)))
+    p.append(slot(2, 0, 0, 450, 450, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, icon(4, 208, 34)))
     # 3. bottom right: battery by default
     small = ('<Complication type="SHORT_TEXT">'
-             '<PartImage x="70" y="12" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
-             + text(0, 0, 70, 47, ("%s", ["[COMPLICATION.TEXT]"]), 24) + '</Complication>'
+             '<PartImage x="70" y="9" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
+             + text(0, 0, 70, 40, ("%s", ["[COMPLICATION.TEXT]"]), 22) + '</Complication>'
              '<Complication type="RANGED_VALUE">'
-             '<PartImage x="70" y="12" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
-             + text(0, 0, 70, 47, ("%s", ["[COMPLICATION.TEXT]"]), 24) + '</Complication>')
-    p.append(slot(3, 227, 384, 100, 47, "SHORT_TEXT RANGED_VALUE", None, "RANGED_VALUE",
-                  '<BoundingBox x="0" y="0" width="100" height="47"/>', small, system="WATCH_BATTERY"))
-    # 4. the date, top
+             '<PartImage x="70" y="9" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
+             + text(0, 0, 70, 40, ("%s", ["[COMPLICATION.TEXT]"]), 22) + '</Complication>')
+    p.append(slot(3, 227, 374, 100, 40, "SHORT_TEXT RANGED_VALUE", None, "RANGED_VALUE",
+                  '<BoundingBox x="0" y="0" width="100" height="40"/>', small, system="WATCH_BATTERY"))
+    # 4. the date, top; a tap on it opens the settings
     p.append(slot(4, 150, 29, 150, 36, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
                   '<BoundingBox x="0" y="0" width="150" height="36"/>',
                   '<Complication type="SHORT_TEXT">' + text(0, 0, 150, 36, ("%s", ["[COMPLICATION.TEXT]"]), 30) + '</Complication>',
                   ambient=False))
-    # 7. settings: a gear beside the date
-    p.append(slot(7, 304, 30, 34, 34, "SMALL_IMAGE", "SettingsShortcutComplicationService", "SMALL_IMAGE",
-                  '<BoundingBox x="0" y="0" width="34" height="34"/>', icon(4, 4, 26), customizable="FALSE"))
     # 8. the time itself: a tap opens the mushaf where reading stopped. Draws nothing.
     p.append(slot(8, 60, 146, 330, 106, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE",
                   '<BoundingBox x="0" y="0" width="330" height="106"/>',
@@ -179,8 +178,8 @@ def main():
            '<!-- Design 1, "one row". Generated by scripts/wff/make_row_face.py: edit that, not this. -->\n'
            '<WatchFace width="450" height="450" clipShape="CIRCLE">\n'
            '<Metadata key="CLOCK_TYPE" value="DIGITAL"/>\n<Metadata key="PREVIEW_TIME" value="16:40:24"/>\n'
-           '<UserConfigurations><ListConfiguration id="bg" displayName="bg_label" defaultValue="mosques">'
-           '<ListOption id="mosques" displayName="bg_mosques_label"/><ListOption id="pattern" displayName="bg_pattern_label"/>'
+           '<UserConfigurations><ListConfiguration id="bg" displayName="bg_label" defaultValue="photo">'
+           '<ListOption id="photo" displayName="bg_photo_label"/><ListOption id="mosques" displayName="bg_mosques_label"/><ListOption id="pattern" displayName="bg_pattern_label"/>'
            '<ListOption id="plain" displayName="bg_plain_label"/></ListConfiguration></UserConfigurations>\n'
            '<Scene backgroundColor="#FF000000">\n' + "\n".join(p) + '\n</Scene>\n</WatchFace>\n')
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
