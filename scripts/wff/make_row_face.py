@@ -73,6 +73,57 @@ def slot(sid, x, y, w, h, types, provider, ptype, bound, body, customizable="TRU
             f'isCustomizable="{customizable}">{amb}{pol}{bound}{body}</ComplicationSlot>')
 
 
+# ── the rim ring (zaher's design, 2026-10-23): four quarters, 87° each ────────
+RING_T = 32                       # 31 px on the 438 px design
+RING_MID = 225 - RING_T / 2
+RING_TEXT_D = 2 * RING_MID - 4
+INNER = 186                       # everything else stays inside this radius
+
+
+def _ring_arc(start, end, color):
+    d = 2 * RING_MID
+    return (f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" '
+            f'startAngle="{start}" endAngle="{end}"><Stroke color="{color}" thickness="{RING_T}" cap="BUTT"/></Arc></PartDraw>')
+
+
+def _ring_level(start, end, color, fraction):
+    d = 2 * RING_MID
+    return (f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" '
+            f'startAngle="{start}" endAngle="{start}"><Transform target="endAngle" value="({start} + ({end} - {start}) * clamp({fraction}, 0, 1))"/>'
+            f'<Stroke color="{color}" thickness="{RING_T}" cap="BUTT"/></Arc></PartDraw>')
+
+
+def _ring_text(start, end, body, color, alpha=None):
+    tpl, params = body if isinstance(body, tuple) else (body, [])
+    assert tpl.count("%s") == len(params), tpl
+    inner = ("<Template>" + tpl + "".join(f'<Parameter expression="{x}"/>' for x in params) + "</Template>") if params else tpl
+    centre = (start + end) / 2 % 360
+    bottom = 90 < centre < 270
+    a, b, direction = (end, start, "COUNTER_CLOCKWISE") if bottom else (start, end, "CLOCKWISE")
+    tr = f'<Transform target="alpha" value="{alpha}"/>' if alpha else ""
+    return (f'<PartText x="0" y="0" width="450" height="450">{tr}'
+            f'<TextCircular centerX="225" centerY="225" width="{RING_TEXT_D:.0f}" height="{RING_TEXT_D:.0f}" startAngle="{a}" endAngle="{b}" '
+            f'direction="{direction}" align="CENTER">' + font(19, color) + inner + '</Font></TextCircular></PartText>')
+
+
+def _quarter(centre):
+    return centre - 43.5 + (360 if centre - 43.5 < 0 else 0), centre + 43.5 + (360 if centre - 43.5 < 0 else 0)
+
+
+def _active(name, inner):
+    return f'<Group name="{name}" x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/>{inner}</Group>'
+
+
+def icon_quarter(sid, centre, color, provider, icon_x, icon_y):
+    """A quarter of the ring that is a button: solid colour, the app's icon in it."""
+    start, end = _quarter(centre)
+    body = (f'<Complication type="SMALL_IMAGE">' + _active(f"q{sid}", _ring_arc(start, end, f"#FF{color}")
+            + f'<PartImage x="{icon_x}" y="{icon_y}" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage>')
+            + '</Complication>')
+    bound = f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{start}" endAngle="{end}" thickness="{RING_T}"/>'
+    return slot(sid, 0, 0, 450, 450, "SMALL_IMAGE", provider, "SMALL_IMAGE", bound, body, customizable="FALSE", ambient=False)
+
+
 def main():
     p = []
     # ── background, chosen in the face's settings ──
@@ -83,95 +134,55 @@ def main():
              '<ListOption id="plain"><PartDraw x="0" y="0" width="450" height="450"><Rectangle x="0" y="0" width="450" height="450"><Fill color="#FF000000"/></Rectangle></PartDraw></ListOption>'
              '</ListConfiguration>')
 
-    # ── seconds ring: from 12 o'clock, clockwise, once a minute ──
-    p.append('<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<Arc centerX="225" centerY="225" width="434" height="434" startAngle="0" endAngle="360"><Stroke color="#FF123A30" thickness="3"/></Arc></PartDraw>')
-    p.append('<PartDraw x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<Arc centerX="225" centerY="225" width="434" height="434" startAngle="0" endAngle="0">'
-             '<Transform target="endAngle" value="([SECOND] * 6)"/><Stroke color="#FF43D49A" thickness="3" cap="ROUND"/></Arc></PartDraw>')
-    p.append('<Group name="secondsHead" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">'
-             '<Transform target="angle" value="([SECOND] * 6)"/><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="217" y="0" width="16" height="16"><Fill color="#667DF0C0"/></Ellipse>'
-             '<Ellipse x="221" y="4" width="8" height="8"><Fill color="#FFF2FFF9"/></Ellipse></PartDraw></Group>')
-    # ── under the prayer row, inside the seconds ring: a thin divider between the two values ──
-    p.append('<PartDraw x="0" y="374" width="450" height="40"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<Line startX="225" startY="8" endX="225" endY="32"><Stroke color="#38AADCC8" thickness="1.5"/></Line></PartDraw>')
+    # ── seconds: a thin ring just inside the rim ring ──
+    d = 2 * (INNER + 4)
+    p.append(_active("seconds",
+             f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d}" height="{d}" startAngle="0" endAngle="360"><Stroke color="#FF123A30" thickness="3"/></Arc></PartDraw>'
+             f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d}" height="{d}" startAngle="0" endAngle="0">'
+             '<Transform target="endAngle" value="([SECOND] * 6)"/><Stroke color="#FF43D49A" thickness="3" cap="ROUND"/></Arc></PartDraw>'))
 
-    # ── the time ──
-    p.append('<DigitalClock x="0" y="142" width="450" height="114"><TimeText format="hh:mm" hourFormat="24" align="CENTER" x="0" y="0" width="450" height="114">'
-             + font(110) + '</Font></TimeText></DigitalClock>')
+    # ── temperature, the right quarter: a meter from -5° to 40°, the value along the arc (the watch's own weather, not a slot) ──
+    t0, t1 = _quarter(90)
+    level = "(([WEATHER.TEMPERATURE] + 5) / 45)"
+    p.append(_active("temperature", _ring_arc(t0, t1, "#55d9b36a")
+             + _ring_level(t0, t1, "#FFd9b36a", f"({level} * [WEATHER.IS_AVAILABLE])")
+             + _ring_text(t0, t1, ("%s°", ["[WEATHER.TEMPERATURE]"]), "#FF1A1408", alpha="(255 * [WEATHER.IS_AVAILABLE])")
+             + _ring_text(t0, t1, "--°", "#FF1A1408", alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))")))
 
-    # ── temperature (bottom left): the watch's own weather, not a slot ──
-    p.append('<Group name="temperature" x="123" y="374" width="100" height="40"><Variant mode="AMBIENT" target="alpha" value="0"/>'
-             '<PartDraw x="6" y="6" width="22" height="28"><RoundRectangle x="7" y="0" width="8" height="18" cornerRadiusX="4" cornerRadiusY="4"><Stroke color="#FFE8BC3E" thickness="2"/></RoundRectangle>'
-             '<Ellipse x="3" y="15" width="16" height="12"><Stroke color="#FFE8BC3E" thickness="2"/></Ellipse></PartDraw>'
-             + text(30, 0, 70, 40, ("%s°", ["[WEATHER.TEMPERATURE]"]), 22, alpha="(255 * [WEATHER.IS_AVAILABLE])")
-             + text(30, 0, 70, 40, "--°", 22, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))")
-             + '</Group>')
+    # ── the time, larger; on the always-on screen it moves to the row face's usual place ──
+    import kit
+    p.append(kit.clock(y=140, size=132, when="active", height=136))
+    p.append(kit.ambient_clock())
 
     # ── slots ──
-    # 1. Quran, right edge: a narrow see-through band, the icon alone
-    arc_r = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="45" endAngle="135" thickness="44"/>'
-    arc_l = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="225" endAngle="315" thickness="44"/>'
-    icon = lambda x, y, s: (f'<Complication type="SMALL_IMAGE"><PartImage x="{x}" y="{y}" width="{s}" height="{s}"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>')
-    # A BoundingArc is read from the slot's own corner, so the edge slots span the
-    # whole face and their arcs are centred on it; the icons sit where the bands are.
-    p.append(slot(1, 0, 0, 450, 450, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, icon(412, 208, 34)))
-    # 2. bookmarks, left edge
-    p.append(slot(2, 0, 0, 450, 450, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, icon(4, 208, 34)))
-    # 3. bottom right: battery by default
-    small = ('<Complication type="SHORT_TEXT">'
-             '<PartImage x="70" y="9" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
-             + text(0, 0, 70, 40, ("%s", ["[COMPLICATION.TEXT]"]), 22) + '</Complication>'
-             '<Complication type="RANGED_VALUE">'
-             '<PartImage x="70" y="9" width="22" height="22"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]"/></PartImage>'
-             + text(0, 0, 70, 40, ("%s", ["[COMPLICATION.TEXT]"]), 22) + '</Complication>')
-    p.append(slot(3, 227, 374, 100, 40, "SHORT_TEXT RANGED_VALUE", None, "RANGED_VALUE",
-                  '<BoundingBox x="0" y="0" width="100" height="40"/>', small, system="WATCH_BATTERY"))
-    # 4. the date, top; a tap on it opens the settings
-    p.append(slot(4, 150, 29, 150, 36, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
-                  '<BoundingBox x="0" y="0" width="150" height="36"/>',
-                  '<Complication type="SHORT_TEXT">' + text(0, 0, 150, 36, ("%s", ["[COMPLICATION.TEXT]"]), 30) + '</Complication>',
+    # 1. bookmarks, the top quarter; 4. the mushaf, the left quarter
+    p.append(icon_quarter(1, 0, "d9b36a", "BookmarksShortcutComplicationService", 212, 3))
+    p.append(icon_quarter(2, 270, "3fb58a", "QuranShortcutComplicationService", 3, 212))
+    # 3. the battery, the bottom quarter: a meter, the level along the arc
+    b0, b1 = _quarter(180)
+    frac = "(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]))"
+    battery = (f'<Complication type="RANGED_VALUE">' + _active("battery", _ring_arc(b0, b1, "#553fb58a") + _ring_level(b0, b1, "#FF3fb58a", frac)
+               + _ring_text(b0, b1, ("%s", ["[COMPLICATION.TEXT]"]), "#FFFFFFFF")) + '</Complication>'
+               f'<Complication type="SHORT_TEXT">' + _active("batteryText", _ring_arc(b0, b1, "#FF3fb58a")
+               + _ring_text(b0, b1, ("%s", ["[COMPLICATION.TEXT]"]), "#FF1A1408")) + '</Complication>')
+    p.append(slot(3, 0, 0, 450, 450, "RANGED_VALUE SHORT_TEXT", None, "RANGED_VALUE",
+                  f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{b0}" endAngle="{b1}" thickness="{RING_T}"/>',
+                  battery, system="WATCH_BATTERY", customizable="FALSE", ambient=False))
+    # 4. the date, top; a tap on it opens the settings. It stays on the always-on screen.
+    p.append(slot(4, 165, 48, 120, 38, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
+                  '<BoundingBox x="0" y="0" width="120" height="38"/>',
+                  '<Complication type="SHORT_TEXT">' + text(0, 0, 120, 38, ("%s", ["[COMPLICATION.TEXT]"]), 31) + '</Complication>',
                   ambient=False))
-    # 8. the time itself: a tap opens the mushaf where reading stopped. Draws nothing.
-    p.append(slot(8, 60, 146, 330, 106, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE",
-                  '<BoundingBox x="0" y="0" width="330" height="106"/>',
-                  '<Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="1" height="1" alpha="0"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>',
-                  customizable="FALSE"))
     # 5. last reading position
-    reading = ('<Complication type="LONG_TEXT"><PartDraw x="0" y="0" width="310" height="70">'
-               '<RoundRectangle x="0" y="0" width="310" height="70" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#B80A201C"/><Stroke color="#59AADCC8" thickness="1"/></RoundRectangle></PartDraw>'
-               + text(12, 4, 286, 24, ("%s", ["[COMPLICATION.TITLE]"]), 16, SOFT, SEMI)
-               + text(12, 27, 286, 38, ("%s", ["[COMPLICATION.TEXT]"]), 23) + '</Complication>')
-    p.append(slot(5, 70, 68, 310, 70, "LONG_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
-                  '<BoundingBox x="0" y="0" width="310" height="70"/>', reading))
-    # 6. the prayer row: passed (right) | next and its time (middle) | left (left)
-    V = "[COMPLICATION.RANGED_VALUE_VALUE]"
-    now = "([HOUR_0_23] * 60 + [MINUTE])"
-    nxt = f"({V} % 1440)"
-    prev = f"floor({V} / 1440)"
-    passed = f"(({now} - {prev} + 1440) % 1440)"
-    left = f"(({nxt} - {now} + 1440) % 1440)"
-    col = 323 / 3
-    row = ('<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="323" height="101">'
-           '<RoundRectangle x="0" y="0" width="323" height="101" cornerRadiusX="16" cornerRadiusY="16"><Fill color="#D104100D"/><Stroke color="#47AADCC8" thickness="1"/></RoundRectangle>'
-           f'<Line startX="{col:.0f}" startY="14" endX="{col:.0f}" endY="87"><Stroke color="#38AADCC8" thickness="1"/></Line>'
-           f'<Line startX="{2*col:.0f}" startY="14" endX="{2*col:.0f}" endY="87"><Stroke color="#38AADCC8" thickness="1"/></Line></PartDraw>'
-           # right column (RTL first): passed
-           + text(int(2 * col), 14, int(col), 24, "مضى", 17, SOFT, SEMI)
-           + duration(passed, int(2 * col), 42, int(col), 42, 26)
-           # middle: the next prayer and its time
-           + text(int(col), 10, int(col), 38, ("%s", ["[COMPLICATION.TEXT]"]), 26)
-           + text(int(col), 52, int(col), 32, ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), 29)
-           # left: the time to it
-           + text(0, 14, int(col), 24, "متبقي", 17, SOFT, SEMI)
-           + duration(left, 0, 42, int(col), 42, 26)
-           + '</Complication>')
-    p.append(slot(6, 64, 269, 323, 101, "RANGED_VALUE", "PrayerWindowComplicationService", "RANGED_VALUE",
-                  '<BoundingBox x="0" y="0" width="323" height="101"/>', row, customizable="FALSE", ambient=False))
+    p.append(kit.reading_slot(5, 95, 92, 260, 63))
+    # 6. the time itself: a tap opens the mushaf where reading stopped
+    p.append(kit.time_tap(6, 60, 158, 330, 98))
+    # 7. the prayer row, a little smaller, and 8. the same row at the usual place for the always-on screen
+    p.append(kit.prayer_row(7, box=(90, 263, 270, 91), when="active"))
+    p.append(kit.prayer_row(8, when="ambient"))
 
-    # ── always-on: the time, the date and the next prayer, dim ──
-    p.append('<Group name="ambientPrayer" x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255"/>'
+    # ── always-on: the time, the date and the prayer row, as on every face; the ring as a dim line ──
+    p.append('<Group name="ambientRing" x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255"/>'
              '<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="434" height="434" startAngle="0" endAngle="360"><Stroke color="#FF2C3A35" thickness="1.5"/></Arc></PartDraw></Group>')
 
     xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
