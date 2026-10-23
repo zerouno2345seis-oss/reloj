@@ -48,13 +48,13 @@ def _icon(x, y, s):
             '<Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>')
 
 
-def edge_buttons(quran_id, bookmarks_id):
+def edge_buttons(quran_id, bookmarks_id, icon_y=208):
     """The mushaf on the right edge and the bookmarks on the left: see-through bands, the icon alone."""
     arc_r = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="45" endAngle="135" thickness="44"/>'
     arc_l = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="225" endAngle="315" thickness="44"/>'
     # A BoundingArc is read from the slot's own corner: the slots span the face.
-    return (slot(quran_id, 0, 0, 450, 450, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, _icon(412, 208, 34), customizable="FALSE")
-            + slot(bookmarks_id, 0, 0, 450, 450, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, 208, 34), customizable="FALSE"))
+    return (slot(quran_id, 0, 0, 450, 450, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, _icon(412, icon_y, 34), customizable="FALSE")
+            + slot(bookmarks_id, 0, 0, 450, 450, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, icon_y, 34), customizable="FALSE"))
 
 
 def date_slot(sid, y=29, size=30):
