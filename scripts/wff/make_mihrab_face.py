@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
 """Writes watchface-mihrab/src/main/res/raw/watchface.xml: the mihrab face.
 
-A full ring of six coloured segments round the rim, each one a slot with its
-value written along the arc (upright on the lower half); the seconds run as a
-thin line just inside it. In the middle, the mihrab arch over zaher's photo
-of the Buenos Aires mosque, the 24 h time and the prayer row, scaled to fit.
-The always-on screen is the row face's (time, date, prayer row) with the ring
-as dim outlines. Approved spec, from 12 o'clock clockwise:
+zaher's design from the face editor (2026-10-23), scaled from 438 to 450 px:
+a full ring of six coloured segments round the rim, every one customizable,
+values written along the arc (upright on the lower half), the seconds as a
+thin line just inside it. Within: the date, the 24 h time under a mihrab arch
+over the Buenos Aires mosque, the prayer row and where reading stopped, all
+at 0.85 of the row face's size, with no panels behind them. At first the
+segments show, from 12 o'clock: date (a tap opens the settings), battery,
+steps, heart rate, surah and verse (a tap opens the mushaf), next prayer.
 
-    0  date           fixed            60  battery meter  fixed
-  120  steps          customizable    180  heart rate     customizable
-  240  surah · verse  fixed           300  next prayer    customizable
-
-Eight slots: the six segments and the prayer row twice (scaled in the middle,
-and at the row face's place for the always-on screen). The surah segment is
-the way into the mushaf here, in place of a tap on the time.
+Eight slots: the six segments, the prayer row and the reading place. So the
+always-on screen keeps this face's own time and prayer-row placement (with
+the date, as everywhere), and there is no separate tap target on the time.
 """
 import kit
 from make_row_face import font, slot
 
-T = 49                       # ring thickness: 48 px on the 438 px design
+T = 41                       # ring thickness: 40 px on the 438 px design
 MID = 225 - T / 2            # radius of the ring's middle line
 GAP = 3
 TEXT_D = 2 * MID - 6         # the text's circle, a hair inside the middle line
@@ -56,7 +54,7 @@ def _text(start, end, body, color, bottom):
     a, b, direction = (end, start, "COUNTER_CLOCKWISE") if bottom else (start, end, "CLOCKWISE")
     return (f'<PartText x="0" y="0" width="450" height="450">'
             f'<TextCircular centerX="225" centerY="225" width="{TEXT_D:.0f}" height="{TEXT_D:.0f}" startAngle="{a}" endAngle="{b}" '
-            f'direction="{direction}" align="CENTER">' + font(22, color) + inner + '</Font></TextCircular></PartText>')
+            f'direction="{direction}" align="CENTER">' + font(20, color) + inner + '</Font></TextCircular></PartText>')
 
 
 def segment(sid, centre, color, types, default, provider=None, system="EMPTY", customizable="FALSE",
@@ -91,10 +89,16 @@ def background():
 def arch():
     gold = "#FFE8BC3E"
     return _layer("arch", '<PartDraw x="0" y="0" width="450" height="450">'
-                  f'<Arc centerX="225" centerY="190" width="210" height="160" startAngle="270" endAngle="450"><Stroke color="{gold}" thickness="2.5" cap="ROUND"/></Arc>'
-                  f'<Line startX="120" startY="190" endX="120" endY="252"><Stroke color="{gold}" thickness="2.5" cap="ROUND"/></Line>'
-                  f'<Line startX="330" startY="190" endX="330" endY="252"><Stroke color="{gold}" thickness="2.5" cap="ROUND"/></Line>'
+                  f'<Arc centerX="225" centerY="165" width="230" height="150" startAngle="270" endAngle="450"><Stroke color="{gold}" thickness="2.5" cap="ROUND"/></Arc>'
+                  f'<Line startX="110" startY="165" endX="110" endY="205"><Stroke color="{gold}" thickness="2.5" cap="ROUND"/></Line>'
+                  f'<Line startX="340" startY="165" endX="340" endY="205"><Stroke color="{gold}" thickness="2.5" cap="ROUND"/></Line>'
                   '</PartDraw>')
+
+
+def date_line():
+    """The date under the top segment, drawn by the face (no slot is left for it); it
+    stays on the always-on screen."""
+    return kit.text(165, 64, 120, 30, ("%s/%s", ["[DAY]", "[MONTH]"]), 26, shadow=True)
 
 
 def inner_seconds():
@@ -114,22 +118,25 @@ def ambient_outline():
 
 
 def main():
+    # Every segment can be changed by the wearer; these are what they show at first.
     p = [
         background(),
         arch(),
         inner_seconds(),
-        kit.clock(y=150, size=72, when="active", height=80),
-        kit.ambient_clock(),
+        kit.clock(y=91, size=94, height=98),            # the same on the always-on screen
+        date_line(),
         ambient_outline(),
-        segment(61, 0, "#d9b36a", "SHORT_TEXT", "SHORT_TEXT", "GregorianDateComplicationService", text_in_ambient=True),
-        segment(62, 60, "#3fb58a", "RANGED_VALUE SHORT_TEXT", "RANGED_VALUE", system="WATCH_BATTERY", meter=True),
+        segment(61, 0, "#d9b36a", "SHORT_TEXT RANGED_VALUE", "SHORT_TEXT", "GregorianDateComplicationService", customizable="TRUE"),
+        segment(62, 60, "#3fb58a", "RANGED_VALUE SHORT_TEXT", "RANGED_VALUE", system="WATCH_BATTERY", customizable="TRUE", meter=True),
         segment(63, 120, "#9b8cf0", "RANGED_VALUE SHORT_TEXT", "RANGED_VALUE", system="STEP_COUNT", customizable="TRUE", meter=True),
         segment(64, 180, "#e46a6a", "SHORT_TEXT RANGED_VALUE", "SHORT_TEXT", system="HEART_RATE", customizable="TRUE"),
-        segment(65, 240, "#d9b36a", "SHORT_TEXT", "SHORT_TEXT", "ContinueReadingComplicationService"),
+        segment(65, 240, "#d9b36a", "SHORT_TEXT RANGED_VALUE", "SHORT_TEXT", "ContinueReadingComplicationService", customizable="TRUE"),
         segment(66, 300, "#5aa9e6", "SHORT_TEXT RANGED_VALUE", "SHORT_TEXT", "NextPrayerComplicationService",
                 customizable="TRUE", body=("%s %s", ["[COMPLICATION.TITLE]", "[COMPLICATION.TEXT]"])),
-        kit.prayer_row(67, box=(100, 258, 250, 76), when="active"),
-        kit.prayer_row(68, when="ambient"),
+        # One prayer row for both screens: eight slots leave no room for a second one at the
+        # shared always-on place, so this face's always-on prayer row sits where it is here.
+        kit.prayer_row(67, box=(88, 216, 275, 86)),
+        kit.reading_slot(68, 110, 304, 230, 54),
     ]
     kit.write("watchface-mihrab", "The mihrab face", "DIGITAL", p)
 
