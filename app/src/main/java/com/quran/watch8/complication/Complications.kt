@@ -191,7 +191,7 @@ class ContinueReadingComplicationService : SuspendingComplicationDataSourceServi
             // Title: where reading stopped, in Western digits; text: the verse's
             // first words, so the face can show the place and how it begins.
             ComplicationType.LONG_TEXT -> {
-                val place = if (surahName != null) "$surahName · الآية $ayah" else "المصحف"
+                val place = if (surahName != null) "$surahName · $ayah" else "المصحف"
                 val opening = snippet.split(' ').filter { it.isNotBlank() }.take(4).joinToString(" ").ifBlank { place }
                 LongTextComplicationData.Builder(text(opening), text("متابعة القراءة: $place"))
                     .setTitle(text(place)).setMonochromaticImage(icon).setTapAction(tap).build()

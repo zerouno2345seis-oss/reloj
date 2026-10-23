@@ -21,7 +21,7 @@ if not aod:
     h.append(box(224,386,1.5,46,"","background:rgba(170,220,200,.22)"))
     h.append(txt(125,29,200,36,"22/10",30))
     h.append(box(70,68,310,70,"","background:rgba(10,32,28,.72);border:1px solid rgba(170,220,200,.35);border-radius:22px;box-sizing:border-box"))
-    h.append(txt(82,72,286,24,"البقرة · الآية 42",16,SOFT,"ps"))
+    h.append(txt(82,72,286,24,"البقرة · 42",16,SOFT,"ps"))
     h.append(txt(82,95,286,38,"وَلَا تَلْبِسُوا الْحَقَّ بِالْبَاطِلِ",23))
     h.append(txt(0,142,450,114,"16:40",110))
     # side edges: icons only
