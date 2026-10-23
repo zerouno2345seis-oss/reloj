@@ -57,12 +57,17 @@ def edge_buttons(quran_id, bookmarks_id, icon_y=208):
             + slot(bookmarks_id, 0, 0, 450, 450, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, icon_y, 34), customizable="FALSE"))
 
 
-def date_slot(sid, y=29, size=30):
-    """The date at the top; it stays on the always-on screen."""
+def date_slot(sid, y=29, size=30, when="always"):
+    """The date; a tap on it opens the settings. "always" keeps it on the always-on screen;
+    "active" hides it there; "ambient" shows it only there, at the shared top place."""
+    inner = text(0, 0, 150, 36, ("%s", ["[COMPLICATION.TEXT]"]), size)
+    if when == "ambient":
+        inner = ('<Group name="ambientDate" x="0" y="0" width="150" height="36" alpha="0">'
+                 f'<Variant mode="AMBIENT" target="alpha" value="255"/>{inner}</Group>')
     return slot(sid, 150, y, 150, 36, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
                 '<BoundingBox x="0" y="0" width="150" height="36"/>',
-                '<Complication type="SHORT_TEXT">' + text(0, 0, 150, 36, ("%s", ["[COMPLICATION.TEXT]"]), size) + '</Complication>',
-                ambient=False)
+                '<Complication type="SHORT_TEXT">' + inner + '</Complication>',
+                ambient=(when == "active"))
 
 
 def time_tap(sid, x, y, w, h):
@@ -75,12 +80,16 @@ def time_tap(sid, x, y, w, h):
 
 
 def reading_slot(sid, x=70, y=68, w=310, h=70, fill="#B80A201C", edge="#59AADCC8"):
-    """Where reading stopped, and how the verse begins."""
+    """Where reading stopped, and how the verse begins. Text scales with the height,
+    but never below 12 px."""
+    k = h / 70
+    title, verse, r = max(12, round(16 * k)), max(12, round(23 * k)), round(22 * k)
+    th = round(h * 24 / 70)
     body = ('<Complication type="LONG_TEXT">'
-            f'<PartDraw x="0" y="0" width="{w}" height="{h}"><RoundRectangle x="0" y="0" width="{w}" height="{h}" cornerRadiusX="22" cornerRadiusY="22">'
+            f'<PartDraw x="0" y="0" width="{w}" height="{h}"><RoundRectangle x="0" y="0" width="{w}" height="{h}" cornerRadiusX="{r}" cornerRadiusY="{r}">'
             f'<Fill color="{fill}"/><Stroke color="{edge}" thickness="1"/></RoundRectangle></PartDraw>'
-            + text(12, 4, w - 24, 24, ("%s", ["[COMPLICATION.TITLE]"]), 16, SOFT, SEMI)
-            + text(12, 27, w - 24, h - 32, ("%s", ["[COMPLICATION.TEXT]"]), 23) + '</Complication>')
+            + text(round(12 * k), round(4 * k), w - round(24 * k), th, ("%s", ["[COMPLICATION.TITLE]"]), title, SOFT, SEMI)
+            + text(round(12 * k), round(27 * k), w - round(24 * k), h - round(32 * k), ("%s", ["[COMPLICATION.TEXT]"]), verse) + '</Complication>')
     return slot(sid, x, y, w, h, "LONG_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
                 f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', body)
 
