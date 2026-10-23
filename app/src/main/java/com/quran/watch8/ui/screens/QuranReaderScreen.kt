@@ -115,9 +115,11 @@ private const val UTHMANI_BASMALA = "بِسۡمِ ٱللَّهِ ٱلرَّحۡ�
  *
  * Lines come from [ReaderLines]: whole words, stretched to their width.
  *
- *  - Tap: show or hide the surah buttons.
+ * The app opens here, where reading stopped; back leaves for the watch face.
+ *
+ *  - Tap: show or hide the surah buttons and the surah list.
  *  - Double tap on a verse: a small badge with the surah and verse, 2 s.
- *  - Long press on a verse: three bare icons, − bookmark +.
+ *  - Long press on a verse: four bare icons, − bookmark + settings.
  */
 @Composable
 fun QuranReaderScreen(
@@ -126,6 +128,8 @@ fun QuranReaderScreen(
     @Suppress("UNUSED_PARAMETER") listIndex: Int = -1,
     onBack: () -> Unit,
     viewModel: MainViewModel,
+    onOpenSettings: () -> Unit = {},
+    onOpenIndex: () -> Unit = {},
     onOpenSurah: (Int) -> Unit = {}
 ) {
     val fontSize by viewModel.fontSize.collectAsState()
@@ -344,7 +348,7 @@ fun QuranReaderScreen(
                 )
             }
 
-            // ── Long press: − bookmark +, nothing else ─────────────────────────
+            // ── Long press: − bookmark + and settings, nothing else ────────────
             // No card, title or size read-out: the page itself shows the new
             // size. A tap anywhere else closes it; so does 2.5 s untouched.
             if (selectedAyahForAction != null) {
@@ -378,6 +382,10 @@ fun QuranReaderScreen(
                             menuTouches++
                             viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
                         }) { Text("+", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                        ReaderIconButton(onClick = {
+                            selectedAyahForAction = null
+                            onOpenSettings()
+                        }) { Text("⚙", fontSize = 19.sp, color = Color.White) }
                     }
                 }
             }
@@ -391,13 +399,20 @@ fun QuranReaderScreen(
                 exit = fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 22.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    ReaderNavButton("التالية", enabled = surahNumber < 114) { onOpenSurah(surahNumber + 1) }
-                    ReaderNavButton("خروج", enabled = true, onClick = onBack)
-                    ReaderNavButton("السابقة", enabled = surahNumber > 1) { onOpenSurah(surahNumber - 1) }
+                    // The surah list, and through it the bookmarks.
+                    ReaderNavButton("السور", enabled = true, onClick = { showControls = false; onOpenIndex() })
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ReaderNavButton("التالية", enabled = surahNumber < 114) { onOpenSurah(surahNumber + 1) }
+                        ReaderNavButton("خروج", enabled = true, onClick = onBack)
+                        ReaderNavButton("السابقة", enabled = surahNumber > 1) { onOpenSurah(surahNumber - 1) }
+                    }
                 }
             }
           }

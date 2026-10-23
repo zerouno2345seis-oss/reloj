@@ -292,6 +292,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * [ayahNumber] is the 1-based verse number.
      * [ayahSnippet] is the first 2-3 words of the verse.
      */
+    /** Where reading stopped, read once from the database (null the first time). */
+    suspend fun loadLastReadingPosition(): ReadingPositionEntity? = db.lastReadingPosition.first()
+
     fun saveReadingPosition(
         surah: Int,
         ayahIndex: Int,

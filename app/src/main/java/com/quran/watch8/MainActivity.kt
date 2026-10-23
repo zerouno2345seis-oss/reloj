@@ -98,32 +98,29 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    LaunchedEffect(pendingRoute) {
-                        val route = pendingRoute
-                        if (!route.isNullOrBlank()) {
-                            // Straight there from the entry screen, so back
-                            // returns to it rather than to an older page.
-                            navController.popBackStack("entry", inclusive = false)
-                            navController.navigate(route)
-                            pendingRoute = null
-                        }
-                    }
+                    // Back from the first page leaves the app, to the watch face:
+                    // there is no screen of the app's own behind the reader any more.
+                    val leave: () -> Unit = { if (!navController.popBackStack()) finish() }
 
                     SwipeDismissableNavHost(
                         navController    = navController,
-                        startDestination = "entry"
+                        startDestination = "start"
                     ) {
-                        // The way in: the time, the next prayer, and the Quran.
-                        composable("entry") {
-                            EntryScreen(
-                                onNavigate = { route -> navController.navigate(route) },
-                                viewModel = viewModel
-                            )
+                        // The way in is the mushaf itself, where reading stopped
+                        // (or the surah list the first time). A page asked for by
+                        // the face or the tile opens instead.
+                        composable("start") {
+                            LaunchedEffect(Unit) {
+                                if (pendingRoute != null) return@LaunchedEffect
+                                val pos = viewModel.loadLastReadingPosition()
+                                val route = if (pos != null) "reader/${pos.surah}?startAyah=${pos.ayahNumber}" else "quran"
+                                navController.navigate(route) { popUpTo("start") { inclusive = true } }
+                            }
                         }
 
                         composable("quran") {
                             QuranScreen(
-                                onBack               = { navController.popBackStack() },
+                                onBack               = leave,
                                 onNavigateToReader   = { surah -> navController.navigate("reader/$surah") },
                                 onNavigateToBookmarks = { navController.navigate("bookmarks") },
                                 viewModel            = viewModel,
@@ -149,8 +146,10 @@ class MainActivity : ComponentActivity() {
                                 surahNumber = surah,
                                 startAyah   = startAyah,
                                 listIndex   = listIndex,
-                                onBack      = { navController.popBackStack() },
+                                onBack      = leave,
                                 viewModel   = viewModel,
+                                onOpenSettings = { navController.navigate("settings") },
+                                onOpenIndex = { navController.navigate("quran") },
                                 // Previous/next surah replaces this page rather than
                                 // stacking one reader on another for every surah read.
                                 onOpenSurah = { next ->
@@ -163,7 +162,7 @@ class MainActivity : ComponentActivity() {
 
                         composable("bookmarks") {
                             BookmarksScreen(
-                                onBack = { navController.popBackStack() },
+                                onBack = leave,
                                 onOpenAyah = { surah, ayah ->
                                     navController.navigate("reader/$surah?startAyah=$ayah")
                                 },
@@ -172,17 +171,27 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("prayer") {
-                            PrayerTimesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                            PrayerTimesScreen(onBack = leave, viewModel = viewModel)
                         }
                         composable("locations") {
                             LocationsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
                         composable("settings") {
                             SettingsScreen(
-                                onBack = { navController.popBackStack() },
+                                onBack = leave,
                                 viewModel = viewModel,
                                 onOpenLocations = { navController.navigate("locations") }
                             )
+                        }
+                    }
+
+                    // A page asked for by the face or the tile becomes the first
+                    // page, so back from it returns to the face.
+                    LaunchedEffect(pendingRoute) {
+                        val route = pendingRoute
+                        if (!route.isNullOrBlank()) {
+                            navController.navigate(route) { popUpTo(navController.graph.id) { inclusive = true } }
+                            pendingRoute = null
                         }
                     }
                 }

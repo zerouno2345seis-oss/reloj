@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../../', import.meta.url);
-const [settings, reader, preferences, mainActivity, locations, prayerHelper, appJs, watchIcons, viewModel, entry, tile, manifest, gradle] = await Promise.all([
+const [settings, reader, preferences, mainActivity, locations, prayerHelper, appJs, watchIcons, viewModel, tile, manifest, gradle] = await Promise.all([
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/SettingsScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/QuranReaderScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/data/repository/PreferencesRepository.kt', root), 'utf8'),
@@ -13,7 +13,6 @@ const [settings, reader, preferences, mainActivity, locations, prayerHelper, app
   readFile(new URL('pwa-web/app.js', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/WatchIcons.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/viewmodel/MainViewModel.kt', root), 'utf8'),
-  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/EntryScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/tile/QuranPrayerTileService.kt', root), 'utf8'),
   readFile(new URL('app/src/main/AndroidManifest.xml', root), 'utf8'),
   readFile(new URL('app/build.gradle.kts', root), 'utf8'),
@@ -156,25 +155,18 @@ test('the watch can update itself from this repository\'s releases', async () =>
   assert.match(publish, /gh release create "v\$\{count\}"/);
 });
 
-// The slim app: an ordinary app that opens on the time, the next prayer and
-// the Quran. No launcher role, no system watch face, no weather or sync.
-test('the app opens on the entry screen and no longer claims the launcher', () => {
-  assert.match(mainActivity, /startDestination\s*=\s*"entry"/);
+// The slim app opens on the mushaf where reading stopped; back from the first
+// page leaves for the watch face. No launcher role, no system watch face.
+test('the app opens on the reader and back returns to the watch face', () => {
+  assert.match(mainActivity, /startDestination\s*=\s*"start"/);
+  assert.match(mainActivity, /reader\/\$\{pos\.surah\}\?startAyah=\$\{pos\.ayahNumber\}/);
+  assert.match(mainActivity, /if \(!navController\.popBackStack\(\)\) finish\(\)/);
+  assert.match(mainActivity, /popUpTo\(navController\.graph\.id\) \{ inclusive = true \}/);
+  assert.match(reader, /onOpenSettings\(\)/);
   assert.doesNotMatch(manifest, /category\.HOME/);
   assert.doesNotMatch(manifest, /WallpaperService|WATCH_FACE/);
   assert.doesNotMatch(gradle, /androidx\.wear\.watchface:watchface:/);
   assert.doesNotMatch(codeOnly(viewModel), /weather|pushToCloud|syncWithCloud/i);
-});
-
-test('the entry screen shows the next prayer, resumes reading, and ticks only while resumed', () => {
-  assert.match(entry, /PrayerTimesHelper\.status\(/);
-  assert.match(entry, /HijriDate\.arabic\(\)/);
-  assert.match(entry, /reader\/\$\{pos\.surah\}\?startAyah=\$\{pos\.ayahNumber\}/);
-  for (const route of ['quran', 'bookmarks', 'settings', 'prayer']) {
-    assert.match(entry, new RegExp(`onNavigate\\("${route}"\\)`));
-  }
-  assert.match(entry, /RepeatOnResumed/);
-  assert.doesNotMatch(codeOnly(entry), /LaunchedEffect\([^)]*\)\s*\{\s*while \(true\)/);
 });
 
 test('the tile shows prayer times from the saved location and opens the app', () => {
