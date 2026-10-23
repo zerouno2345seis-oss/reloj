@@ -25,6 +25,7 @@ import com.quran.watch8.MainActivity
 import com.quran.watch8.QuranWatchApplication
 import com.quran.watch8.R
 import com.quran.watch8.data.model.ArgentinaLocations
+import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.util.HijriDate
 import com.quran.watch8.util.PrayerTimesHelper
@@ -267,6 +268,43 @@ class HijriDateComplicationService : SuspendingComplicationDataSourceService() {
             ComplicationType.LONG_TEXT ->
                 LongTextComplicationData.Builder(text(full), text(full)).setTapAction(tap).build()
             else -> null
+        }
+    }
+}
+
+/**
+ * How far through the mushaf reading has got: the verses before the last
+ * reading place, out of 6,236, as a meter ("الختمة 37%").
+ */
+class KhatmaProgressComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? = build(type, 37f)
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val position = (applicationContext as QuranWatchApplication)
+            .databaseRepository.lastReadingPosition.firstOrNull()
+        return build(request.complicationType, if (position == null) 0f else percentRead(position.surah, position.ayahNumber))
+    }
+
+    private fun build(type: ComplicationType, percent: Float): ComplicationData? {
+        val label = text("الختمة ${percent.toInt()}%")
+        val tap = openRoute("resume")
+        return when (type) {
+            ComplicationType.RANGED_VALUE ->
+                RangedValueComplicationData.Builder(percent, 0f, 100f, label).setText(label).setTapAction(tap).build()
+            ComplicationType.SHORT_TEXT ->
+                ShortTextComplicationData.Builder(label, label).setTapAction(tap).build()
+            else -> null
+        }
+    }
+
+    companion object {
+        const val TOTAL_AYAT = 6236
+
+        /** Verses before [ayah] of [surah], as a share of the whole mushaf. */
+        fun percentRead(surah: Int, ayah: Int): Float {
+            val before = SurahMetadata.surahs.filter { it.number < surah }.sumOf { it.versesCount } + (ayah - 1).coerceAtLeast(0)
+            return (before * 100f / TOTAL_AYAT).coerceIn(0f, 100f)
         }
     }
 }

@@ -98,10 +98,15 @@ def reading_pill(sid, x, y, w, h, fill="#E60F5A45"):
 PRAYER_BOX = (64, 269, 323, 101)
 
 
-def prayer_row(sid, fill="#D104100D", edge="#47AADCC8"):
+def prayer_row(sid, fill="#D104100D", edge="#47AADCC8", box=PRAYER_BOX, when="always"):
     """Passed (right) | the next prayer and its time (middle) | left (left), as on the row
-    face and at the same place, so the always-on screen is the same on every face."""
-    x, y, w, h = PRAYER_BOX
+    face and at the same place, so the always-on screen is the same on every face.
+
+    `box` scales the row for a tighter face; `when` is "always", "active" (hidden on
+    the always-on screen) or "ambient" (shown only there, at the row face's place)."""
+    x, y, w, h = box
+    k = h / PRAYER_BOX[3]
+    sz = lambda v: round(v * k)
     V = "[COMPLICATION.RANGED_VALUE_VALUE]"
     now = "([HOUR_0_23] * 60 + [MINUTE])"
     nxt = f"({V} % 1440)"
@@ -109,19 +114,22 @@ def prayer_row(sid, fill="#D104100D", edge="#47AADCC8"):
     passed = f"(({now} - {prev} + 1440) % 1440)"
     left = f"(({nxt} - {now} + 1440) % 1440)"
     col = w / 3
-    body = ('<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="323" height="101">'
-            f'<RoundRectangle x="0" y="0" width="323" height="101" cornerRadiusX="16" cornerRadiusY="16"><Fill color="{fill}"/><Stroke color="{edge}" thickness="1"/></RoundRectangle>'
-            f'<Line startX="{col:.0f}" startY="14" endX="{col:.0f}" endY="87"><Stroke color="#38AADCC8" thickness="1"/></Line>'
-            f'<Line startX="{2*col:.0f}" startY="14" endX="{2*col:.0f}" endY="87"><Stroke color="#38AADCC8" thickness="1"/></Line></PartDraw>'
-            + text(int(2 * col), 14, int(col), 24, "مضى", 17, SOFT, SEMI)
-            + duration(passed, int(2 * col), 42, int(col), 42, 26)
-            + text(int(col), 10, int(col), 38, ("%s", ["[COMPLICATION.TEXT]"]), 26)
-            + text(int(col), 52, int(col), 32, ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), 29)
-            + text(0, 14, int(col), 24, "متبقي", 17, SOFT, SEMI)
-            + duration(left, 0, 42, int(col), 42, 26)
-            + '</Complication>')
+    parts = (f'<PartDraw x="0" y="0" width="{w}" height="{h}">'
+             f'<RoundRectangle x="0" y="0" width="{w}" height="{h}" cornerRadiusX="{sz(16)}" cornerRadiusY="{sz(16)}"><Fill color="{fill}"/><Stroke color="{edge}" thickness="1"/></RoundRectangle>'
+             f'<Line startX="{col:.0f}" startY="{sz(14)}" endX="{col:.0f}" endY="{h - sz(14)}"><Stroke color="#38AADCC8" thickness="1"/></Line>'
+             f'<Line startX="{2*col:.0f}" startY="{sz(14)}" endX="{2*col:.0f}" endY="{h - sz(14)}"><Stroke color="#38AADCC8" thickness="1"/></Line></PartDraw>'
+             + text(int(2 * col), sz(14), int(col), sz(24), "مضى", sz(17), SOFT, SEMI)
+             + duration(passed, int(2 * col), sz(42), int(col), sz(42), sz(26))
+             + text(int(col), sz(10), int(col), sz(38), ("%s", ["[COMPLICATION.TEXT]"]), sz(26))
+             + text(int(col), sz(52), int(col), sz(32), ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), sz(29))
+             + text(0, sz(14), int(col), sz(24), "متبقي", sz(17), SOFT, SEMI)
+             + duration(left, 0, sz(42), int(col), sz(42), sz(26)))
+    if when == "ambient":
+        parts = (f'<Group name="ambientPrayer" x="0" y="0" width="{w}" height="{h}" alpha="0">'
+                 f'<Variant mode="AMBIENT" target="alpha" value="255"/>{parts}</Group>')
+    body = f'<Complication type="RANGED_VALUE">{parts}</Complication>'
     return slot(sid, x, y, w, h, "RANGED_VALUE", "PrayerWindowComplicationService", "RANGED_VALUE",
-                f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', body, customizable="FALSE", ambient=False)
+                f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', body, customizable="FALSE", ambient=(when == "active"))
 
 
 # ── the rim arcs: battery and temperature written along the circle ──────────
