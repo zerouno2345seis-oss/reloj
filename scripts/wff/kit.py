@@ -79,37 +79,26 @@ def time_tap(sid, x, y, w, h):
                 customizable="FALSE")
 
 
-def reading_slot(sid, x=70, y=68, w=310, h=70, fill="#B80A201C", edge="#59AADCC8"):
-    """Where reading stopped, and how the verse begins. Text scales with the height,
-    but never below 12 px."""
+def reading_slot(sid, x=70, y=68, w=310, h=70):
+    """Where reading stopped, and how the verse begins, straight on the face (no panel,
+    a shadow under the text). Text scales with the height, but never below 12 px."""
     k = h / 70
-    title, verse, r = max(12, round(16 * k)), max(12, round(23 * k)), round(22 * k)
+    title, verse = max(12, round(16 * k)), max(12, round(23 * k))
     th = round(h * 24 / 70)
     body = ('<Complication type="LONG_TEXT">'
-            f'<PartDraw x="0" y="0" width="{w}" height="{h}"><RoundRectangle x="0" y="0" width="{w}" height="{h}" cornerRadiusX="{r}" cornerRadiusY="{r}">'
-            f'<Fill color="{fill}"/><Stroke color="{edge}" thickness="1"/></RoundRectangle></PartDraw>'
-            + text(round(12 * k), round(4 * k), w - round(24 * k), th, ("%s", ["[COMPLICATION.TITLE]"]), title, SOFT, SEMI)
-            + text(round(12 * k), round(27 * k), w - round(24 * k), h - round(32 * k), ("%s", ["[COMPLICATION.TEXT]"]), verse) + '</Complication>')
+            + text(round(12 * k), round(4 * k), w - round(24 * k), th, ("%s", ["[COMPLICATION.TITLE]"]), title, SOFT, SEMI, shadow=True)
+            + text(round(12 * k), round(27 * k), w - round(24 * k), h - round(32 * k), ("%s", ["[COMPLICATION.TEXT]"]), verse, shadow=True) + '</Complication>')
     return slot(sid, x, y, w, h, "LONG_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
-                f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', body)
-
-
-def reading_pill(sid, x, y, w, h, fill="#E60F5A45"):
-    """A short form for tight faces: just the place."""
-    body = ('<Complication type="SHORT_TEXT">'
-            f'<PartDraw x="0" y="0" width="{w}" height="{h}"><RoundRectangle x="0" y="0" width="{w}" height="{h}" cornerRadiusX="{h // 2}" cornerRadiusY="{h // 2}">'
-            f'<Fill color="{fill}"/></RoundRectangle></PartDraw>'
-            + text(10, 0, w - 20, h, ("%s", ["[COMPLICATION.TEXT]"]), 20) + '</Complication>')
-    return slot(sid, x, y, w, h, "SHORT_TEXT", "ContinueReadingComplicationService", "SHORT_TEXT",
                 f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', body)
 
 
 PRAYER_BOX = (64, 269, 323, 101)
 
 
-def prayer_row(sid, fill="#D104100D", edge="#47AADCC8", box=PRAYER_BOX, when="always"):
+def prayer_row(sid, box=PRAYER_BOX, when="always"):
     """Passed (right) | the next prayer and its time (middle) | left (left), as on the row
     face and at the same place, so the always-on screen is the same on every face.
+    No panel behind it: the text sits on the face, lifted by a shadow.
 
     `box` scales the row for a tighter face; `when` is "always", "active" (hidden on
     the always-on screen) or "ambient" (shown only there, at the row face's place)."""
@@ -124,15 +113,14 @@ def prayer_row(sid, fill="#D104100D", edge="#47AADCC8", box=PRAYER_BOX, when="al
     left = f"(({nxt} - {now} + 1440) % 1440)"
     col = w / 3
     parts = (f'<PartDraw x="0" y="0" width="{w}" height="{h}">'
-             f'<RoundRectangle x="0" y="0" width="{w}" height="{h}" cornerRadiusX="{sz(16)}" cornerRadiusY="{sz(16)}"><Fill color="{fill}"/><Stroke color="{edge}" thickness="1"/></RoundRectangle>'
              f'<Line startX="{col:.0f}" startY="{sz(14)}" endX="{col:.0f}" endY="{h - sz(14)}"><Stroke color="#38AADCC8" thickness="1"/></Line>'
              f'<Line startX="{2*col:.0f}" startY="{sz(14)}" endX="{2*col:.0f}" endY="{h - sz(14)}"><Stroke color="#38AADCC8" thickness="1"/></Line></PartDraw>'
-             + text(int(2 * col), sz(14), int(col), sz(24), "مضى", sz(17), SOFT, SEMI)
-             + duration(passed, int(2 * col), sz(42), int(col), sz(42), sz(26))
-             + text(int(col), sz(10), int(col), sz(38), ("%s", ["[COMPLICATION.TEXT]"]), sz(26))
-             + text(int(col), sz(52), int(col), sz(32), ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), sz(29))
-             + text(0, sz(14), int(col), sz(24), "متبقي", sz(17), SOFT, SEMI)
-             + duration(left, 0, sz(42), int(col), sz(42), sz(26)))
+             + text(int(2 * col), sz(14), int(col), sz(24), "مضى", sz(17), SOFT, SEMI, shadow=True)
+             + duration(passed, int(2 * col), sz(42), int(col), sz(42), sz(26), shadow=True)
+             + text(int(col), sz(10), int(col), sz(38), ("%s", ["[COMPLICATION.TEXT]"]), sz(26), shadow=True)
+             + text(int(col), sz(52), int(col), sz(32), ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"]), sz(29), shadow=True)
+             + text(0, sz(14), int(col), sz(24), "متبقي", sz(17), SOFT, SEMI, shadow=True)
+             + duration(left, 0, sz(42), int(col), sz(42), sz(26), shadow=True))
     if when == "ambient":
         parts = (f'<Group name="ambientPrayer" x="0" y="0" width="{w}" height="{h}" alpha="0">'
                  f'<Variant mode="AMBIENT" target="alpha" value="255"/>{parts}</Group>')

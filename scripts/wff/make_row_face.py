@@ -22,11 +22,15 @@ WHITE, SOFT, GOLD, GREEN, YELLOW = "#FFFFFFFF", "#FFD3DAD6", "#FFE8BC3E", "#FF3C
 BOLD, SEMI = "plex_bold", "plex_semibold"
 
 
-def font(size, color=WHITE, family=BOLD):
-    return f'<Font family="{family}" size="{size}" color="{color}">'
+SHADOW = '<Shadow color="#E6000000" offsetX="0" offsetY="1" radius="5"/>'
 
 
-def text(x, y, w, h, body, size, color=WHITE, family=BOLD, alpha=None, ambient=None, align="CENTER"):
+def font(size, color=WHITE, family=BOLD, shadow=False):
+    """A Font opening tag; `shadow` lifts the text off a busy background (no panel behind it)."""
+    return f'<Font family="{family}" size="{size}" color="{color}">' + (SHADOW if shadow else "")
+
+
+def text(x, y, w, h, body, size, color=WHITE, family=BOLD, alpha=None, ambient=None, align="CENTER", shadow=False):
     """A PartText. `body` is either plain text or (template, [expressions])."""
     tr = f'<Transform target="alpha" value="{alpha}"/>' if alpha else ""
     var = f'<Variant mode="AMBIENT" target="alpha" value="{ambient}"/>' if ambient is not None else ""
@@ -37,7 +41,7 @@ def text(x, y, w, h, body, size, color=WHITE, family=BOLD, alpha=None, ambient=N
     else:
         inner = body
     return (f'<PartText x="{x}" y="{y}" width="{w}" height="{h}">{tr}{var}'
-            f'<Text align="{align}" ellipsis="TRUE">{font(size, color, family)}{inner}</Font></Text></PartText>')
+            f'<Text align="{align}" ellipsis="TRUE">{font(size, color, family, shadow)}{inner}</Font></Text></PartText>')
 
 
 # ── the two-hour rule, as texts switched on by alpha ────────────────────────
@@ -49,7 +53,7 @@ def ge(d, a):   # 1 when d >= a
     return f"clamp({d} - {a} + 1, 0, 1)"
 
 
-def duration(d, x, y, w, h, size, color=WHITE):
+def duration(d, x, y, w, h, size, color=WHITE, shadow=False):
     """Under two hours: hours and minutes; from two hours: whole hours only.
     Written short (س for hours, د for minutes) so the numbers can be large."""
     m = f"({d} % 60)"
@@ -61,7 +65,7 @@ def duration(d, x, y, w, h, size, color=WHITE):
         (f"{ge(d, 60)} * {lt(d, 120)} * clamp({m}, 0, 1)", ("1س %sد", [m])),
         (f"{ge(d, 120)}", ("%sس", [hrs])),
     ]
-    return "".join(text(x, y, w, h, body, size, color, alpha=f"(255 * {cond})") for cond, body in cases)
+    return "".join(text(x, y, w, h, body, size, color, alpha=f"(255 * {cond})", shadow=shadow) for cond, body in cases)
 
 
 def slot(sid, x, y, w, h, types, provider, ptype, bound, body, customizable="TRUE", system="EMPTY", ambient=True):
@@ -114,12 +118,11 @@ def _active(name, inner):
     return f'<Group name="{name}" x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0"/>{inner}</Group>'
 
 
-def icon_quarter(sid, centre, color, provider, icon_x, icon_y):
-    """A quarter of the ring that is a button: solid colour, the app's icon in it."""
+def icon_quarter(sid, centre, color, provider):
+    """A quarter of the ring that is a button: solid colour. Its icon is drawn by the
+    face itself (see ring_icons): drawn by the slot, the watch clipped it to a sliver."""
     start, end = _quarter(centre)
-    body = (f'<Complication type="SMALL_IMAGE">' + _active(f"q{sid}", _ring_arc(start, end, f"#FF{color}")
-            + f'<PartImage x="{icon_x}" y="{icon_y}" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage>')
-            + '</Complication>')
+    body = f'<Complication type="SMALL_IMAGE">' + _active(f"q{sid}", _ring_arc(start, end, f"#FF{color}")) + '</Complication>'
     bound = f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{start}" endAngle="{end}" thickness="{RING_T}"/>'
     return slot(sid, 0, 0, 450, 450, "SMALL_IMAGE", provider, "SMALL_IMAGE", bound, body, customizable="FALSE", ambient=False)
 
@@ -141,11 +144,10 @@ def main():
              f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d}" height="{d}" startAngle="0" endAngle="0">'
              '<Transform target="endAngle" value="([SECOND] * 6)"/><Stroke color="#FF43D49A" thickness="3" cap="ROUND"/></Arc></PartDraw>'))
 
-    # ── temperature, the right quarter: a meter from -5° to 40°, the value along the arc (the watch's own weather, not a slot) ──
+    # ── temperature, the right quarter: solid, the value along the arc (the watch's own weather, not a slot).
+    # A level fill driven by the weather did not draw on the watch, so it is a plain band. ──
     t0, t1 = _quarter(90)
-    level = "(([WEATHER.TEMPERATURE] + 5) / 45)"
-    p.append(_active("temperature", _ring_arc(t0, t1, "#55d9b36a")
-             + _ring_level(t0, t1, "#FFd9b36a", f"({level} * [WEATHER.IS_AVAILABLE])")
+    p.append(_active("temperature", _ring_arc(t0, t1, "#FFd9b36a")
              + _ring_text(t0, t1, ("%s°", ["[WEATHER.TEMPERATURE]"]), "#FF1A1408", alpha="(255 * [WEATHER.IS_AVAILABLE])")
              + _ring_text(t0, t1, "--°", "#FF1A1408", alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))")))
 
@@ -156,8 +158,11 @@ def main():
 
     # ── slots ──
     # 1. bookmarks, the top quarter; 4. the mushaf, the left quarter
-    p.append(icon_quarter(1, 0, "d9b36a", "BookmarksShortcutComplicationService", 212, 3))
-    p.append(icon_quarter(2, 270, "3fb58a", "QuranShortcutComplicationService", 3, 212))
+    p.append(icon_quarter(1, 0, "d9b36a", "BookmarksShortcutComplicationService"))
+    p.append(icon_quarter(2, 270, "3fb58a", "QuranShortcutComplicationService"))
+    # Their icons, over the quarters
+    p.append(_active("ringIcons", '<PartImage x="207" y="0" width="36" height="36"><Image resource="icon_bookmark"/></PartImage>'
+                     '<PartImage x="0" y="207" width="36" height="36"><Image resource="icon_quran"/></PartImage>'))
     # 3. the battery, the bottom quarter: a meter, the level along the arc
     b0, b1 = _quarter(180)
     frac = "(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]))"

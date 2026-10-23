@@ -93,7 +93,7 @@ def main():
         icon_button(31, 390, 215, "QuranShortcutComplicationService"),
         icon_button(32, 26, 215, "BookmarksShortcutComplicationService"),
         kit.date_slot(34, y=34),
-        kit.reading_slot(35, 80, 95, 290, 70, fill="#B81A1608", edge="#59E8BC3E"),
+        kit.reading_slot(35, 80, 95, 290, 70),
         kit.time_tap(36, 70, 160, 310, 112),
         # The design's row (centre y 334, ×0.85) narrowed and raised a little to stay inside the seconds ring.
         kit.prayer_row(37, box=(95, 284, 260, 86), when="active"),
