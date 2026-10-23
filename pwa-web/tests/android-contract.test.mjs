@@ -235,7 +235,10 @@ test('watch faces are WFF, validated before build, and name only real services',
     // Samsung's runtime clips what a slot draws to the slot's bounding shape,
     // so everything a complication draws has to lie inside it.
     for (const slot of face.matchAll(/<ComplicationSlot[^>]*>[\s\S]*?<\/ComplicationSlot>/g)) {
-      const b = slot[0].match(/<Bounding(?:Box|Oval) x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/).slice(1).map(Number);
+      // A ring-shaped slot (BoundingArc) is checked against the slot's own square.
+      const box = slot[0].match(/<Bounding(?:Box|Oval) x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+      const own = slot[0].match(/<ComplicationSlot[^>]* width="([\d.]+)" height="([\d.]+)"/);
+      const b = box ? box.slice(1).map(Number) : [0, 0, Number(own[1]), Number(own[2])];
       for (const part of slot[0].matchAll(/<Part(?:Text|Draw|Image) x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
         const [x, y, w, h] = part.slice(1).map(Number);
         assert.ok(x >= b[0] - 1 && y >= b[1] - 1 && x + w <= b[0] + b[2] + 1 && y + h <= b[1] + b[3] + 1,
