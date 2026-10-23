@@ -12,7 +12,9 @@ export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
 export PATH="$JAVA_HOME/bin:$PATH"
 # The faces ride along as separate assets; the button installs them too. A
 # face that fails the official schema stops the whole release here.
-faces=(watchface-row watchface watchface-hands watchface-mihrab watchface-custom)
+# Every face module, the editor's ones included (watchface-c-<id>).
+faces=()
+for d in watchface*/; do [ -f "$d/build.gradle.kts" ] && faces+=("${d%/}"); done
 for face in "${faces[@]}"; do
   scripts/validate-watchface.sh "$face/src/main/res/raw/watchface.xml"
 done

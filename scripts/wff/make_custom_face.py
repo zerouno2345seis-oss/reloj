@@ -2,7 +2,12 @@
 """Writes watchface-custom/src/main/res/raw/watchface.xml from a face-editor
 export: zaher's own face («واجهتي»), designed from scratch in the editor.
 
-    python3 make_custom_face.py [design.json]     (default: design/faces/custom.json)
+    python3 make_custom_face.py [design.json]     (default: every design/faces/*.json)
+
+A design's "id" picks its face: "custom" is «واجهتي»; any other id gets a face
+of its own (a watchface-c-<id> module, made on first use), so a copy saved
+from the editor under a new id is added beside the original. "faceName" is
+the name the watch shows.
 
 The JSON is the editor's export, in its 438 px space; everything is scaled to
 the 450 px Watch Face Format square. Angles are degrees clockwise from 12
@@ -34,7 +39,6 @@ import kit
 from make_row_face import SEMI, font, slot, text
 
 K = 450 / 438
-OUT_MODULE = "watchface-custom"
 DEFAULT_JSON = os.path.join(kit.ROOT, "design/faces/custom.json")
 
 PROVIDERS = {
@@ -355,13 +359,53 @@ def build(spec):
     return f
 
 
-def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_JSON
+def module_for(spec):
+    """The face's own package: "custom" is «واجهتي»; any other id is a separate face, so a
+    copy saved from the editor is added beside the original instead of replacing it."""
+    fid = str(spec.get("id", "custom")).lower()
+    assert fid.isascii() and fid.replace("_", "").isalnum() and fid[0].isalpha(), f"id must be letters and digits: {fid}"
+    return "watchface-custom" if fid == "custom" else f"watchface-c-{fid}"
+
+
+def ensure_module(module, face_name):
+    """A new face module, copied from watchface-custom with its own package and name."""
+    import shutil
+    root = kit.ROOT
+    dst = os.path.join(root, module)
+    if module != "watchface-custom" and not os.path.exists(dst):
+        src = os.path.join(root, "watchface-custom")
+        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("build"))
+        pkg = "com.quran.watch8." + module.replace("-", ".")
+        for rel in ("build.gradle.kts", "src/main/AndroidManifest.xml"):
+            path = os.path.join(dst, rel)
+            text_ = open(path, encoding="utf-8").read().replace("com.quran.watch8.watchface.custom", pkg)
+            open(path, "w", encoding="utf-8").write(text_)
+    strings = os.path.join(dst, "src/main/res/values/strings.xml")
+    open(strings, "w", encoding="utf-8").write(
+        '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
+        f'    <string name="face_name">القرآن الكريم · {face_name}</string>\n</resources>\n')
+
+
+def build_file(path):
     spec = json.load(open(path, encoding="utf-8"))
+    module = module_for(spec)
+    name = spec.get("faceName", "واجهتي")
+    ensure_module(module, name)
     f = build(spec)
-    kit.write(OUT_MODULE, f'«{spec.get("faceName", "واجهتي")}», from the face editor', "ANALOG" if spec.get("clock") == "analog" else "DIGITAL", f.parts)
+    kit.write(module, f"«{name}», from the face editor", "ANALOG" if spec.get("clock") == "analog" else "DIGITAL", f.parts)
     for n in f.notes:
-        print("note:", n)
+        print(f"note ({module}):", n)
+
+
+def main():
+    """One file, or with no argument every design in design/faces/."""
+    if len(sys.argv) > 1:
+        build_file(sys.argv[1])
+        return
+    folder = os.path.dirname(DEFAULT_JSON)
+    for name in sorted(os.listdir(folder)):
+        if name.endswith(".json"):
+            build_file(os.path.join(folder, name))
 
 
 if __name__ == "__main__":
