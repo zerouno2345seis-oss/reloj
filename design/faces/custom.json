@@ -25,7 +25,7 @@
  "clock": "analog",
  "bothClocks": false,
  "hourNumerals": "12",
- "hourNumeralSize": 12,
+ "hourNumeralSize": 22,
  "minuteTicks": false,
  "colors": {
   "text": "#faf4ec",
