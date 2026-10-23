@@ -239,6 +239,12 @@ class Face:
         layers = picture + tint if (g.get("overImage") and see_through) else tint + picture
         if layers:
             self.parts.append(active("background", layers))
+        # On the always-on screen a picture stays, very dim on black (aodImageOpacity, 0.25 by
+        # default for a picture of one's own; 0 turns it off) so the screen spares the battery.
+        aod = float(self.s.get("aodImageOpacity", 0.25 if bg == "user" else 0))
+        if image and aod > 0:
+            self.parts.append(ambient_only("ambientPicture",
+                                           f'<PartImage x="0" y="0" width="450" height="450" alpha="{round(255 * aod)}"><Image resource="{image}"/></PartImage>'))
 
     # ── the ring ────────────────────────────────────────────────────────────
     def _stroke(self, color, color_end, start, end, width=None):
@@ -428,6 +434,10 @@ def build(spec, module=None, folder="."):
     free -= 2 if want_edges else 0
     want_tap = (show_time or analog) and free >= 1
     free -= 1 if want_tap else 0
+    # On an analog face the whole middle opens the mushaf; with the date there, the middle
+    # takes two tap areas, above and below it.
+    split_tap = analog and want_tap and show_date and free >= 1
+    free -= 1 if split_tap else 0
     want_aod_prayer = show_prayer and prayer_box != kit.PRAYER_BOX and free >= 1
     if show_edges and not want_edges:
         f.notes.append("no slots left for the edge icons")
@@ -460,7 +470,19 @@ def build(spec, module=None, folder="."):
         f.parts.append(kit.prayer_row(budget.take(), box=prayer_box, when="active" if want_aod_prayer else "always", ink=f.ink, soft=f.soft))
     if want_tap:
         if analog:
-            f.parts.append(kit.time_tap(budget.take(), 175, 175, 100, 100))
+            # Between the reading place and the prayer row, across the dial, around the date.
+            top = round(ly + 35 * ls + 4) if show_pill else 110
+            bottom = round(prayer_box[1] - 4) if show_prayer else 340
+            if want_aod_prayer:     # its always-on copy is a slot too, there all the time
+                bottom = min(bottom, kit.PRAYER_BOX[1] - 4)
+            areas = [(top, bottom)]
+            if show_date:
+                dh = round(36 * ds)
+                d0, d1 = round(dy - dh / 2) - 2, round(dy + dh / 2) + 2
+                areas = [(top, d0), (d1, bottom)] if split_tap else [(top, d0) if d0 - top >= bottom - d1 else (d1, bottom)]
+            for y0, y1 in areas:
+                if y1 - y0 >= 16:
+                    f.parts.append(kit.time_tap(budget.take(), 70, y0, 310, y1 - y0))
         else:
             size = round(110 * tsc)
             f.parts.append(kit.time_tap(budget.take(), 60, round(ty - size * 0.45), 330, round(size * 0.9)))
