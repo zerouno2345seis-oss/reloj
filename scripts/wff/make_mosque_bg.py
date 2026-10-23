@@ -44,16 +44,18 @@ def sky():
 
 def main():
     building = cutout(Image.open(SRC))
-    width = 470
+    # Smaller and higher, so nearly all of it shows inside the round glass.
+    width = 380
     building = building.resize((width, round(building.height * width / building.width)), Image.LANCZOS)
     # Darkened and a little desaturated, so the time and the prayer row read over it.
     rgb = np.asarray(building.convert("RGB")).astype(np.float32)
     grey = rgb.mean(axis=2, keepdims=True)
     rgb = (rgb * 0.7 + grey * 0.3) * 0.42
     toned = Image.fromarray(rgb.clip(0, 255).astype(np.uint8))
-    toned.putalpha(building.getchannel("A"))
+    # See-through, so the dusk shows through the stone.
+    toned.putalpha(building.getchannel("A").point(lambda v: int(v * 0.75)))
     face = sky()
-    face.alpha_composite(toned, ((S - width) // 2, S - toned.height + 6))
+    face.alpha_composite(toned, ((S - width) // 2, S - toned.height - 38))
     face.convert("RGB").save(OUT, "WEBP", quality=82, method=6)
     print(f"wrote {OUT} ({os.path.getsize(OUT) // 1024} KB)")
 
