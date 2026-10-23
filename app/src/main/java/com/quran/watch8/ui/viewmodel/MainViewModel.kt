@@ -295,6 +295,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Where reading stopped, read once from the database (null the first time). */
     suspend fun loadLastReadingPosition(): ReadingPositionEntity? = db.lastReadingPosition.first()
 
+    /** The reader where reading stopped, or the surah list the first time. */
+    suspend fun resumeRoute(): String =
+        loadLastReadingPosition()?.let { "reader/${it.surah}?startAyah=${it.ayahNumber}" } ?: "quran"
+
     fun saveReadingPosition(
         surah: Int,
         ayahIndex: Int,

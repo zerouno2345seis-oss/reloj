@@ -112,9 +112,7 @@ class MainActivity : ComponentActivity() {
                         composable("start") {
                             LaunchedEffect(Unit) {
                                 if (pendingRoute != null) return@LaunchedEffect
-                                val pos = viewModel.loadLastReadingPosition()
-                                val route = if (pos != null) "reader/${pos.surah}?startAyah=${pos.ayahNumber}" else "quran"
-                                navController.navigate(route) { popUpTo("start") { inclusive = true } }
+                                navController.navigate(viewModel.resumeRoute()) { popUpTo("start") { inclusive = true } }
                             }
                         }
 
@@ -188,7 +186,8 @@ class MainActivity : ComponentActivity() {
                     // A page asked for by the face or the tile becomes the first
                     // page, so back from it returns to the face.
                     LaunchedEffect(pendingRoute) {
-                        val route = pendingRoute
+                        // "resume" (the face's mushaf icon and its time): where reading stopped.
+                        val route = pendingRoute?.let { if (it == "resume") viewModel.resumeRoute() else it }
                         if (!route.isNullOrBlank()) {
                             navController.navigate(route) { popUpTo(navController.graph.id) { inclusive = true } }
                             pendingRoute = null

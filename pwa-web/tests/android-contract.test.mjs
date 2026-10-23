@@ -159,7 +159,8 @@ test('the watch can update itself from this repository\'s releases', async () =>
 // page leaves for the watch face. No launcher role, no system watch face.
 test('the app opens on the reader and back returns to the watch face', () => {
   assert.match(mainActivity, /startDestination\s*=\s*"start"/);
-  assert.match(mainActivity, /reader\/\$\{pos\.surah\}\?startAyah=\$\{pos\.ayahNumber\}/);
+  assert.match(viewModel, /reader\/\$\{it\.surah\}\?startAyah=\$\{it\.ayahNumber\}/);
+  assert.match(mainActivity, /viewModel\.resumeRoute\(\)/);
   assert.match(mainActivity, /if \(!navController\.popBackStack\(\)\) finish\(\)/);
   assert.match(mainActivity, /popUpTo\(navController\.graph\.id\) \{ inclusive = true \}/);
   assert.match(reader, /onOpenSettings\(\)/);

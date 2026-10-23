@@ -127,10 +127,18 @@ def main():
     p.append(slot(3, 227, 384, 100, 47, "SHORT_TEXT RANGED_VALUE", None, "RANGED_VALUE",
                   '<BoundingBox x="0" y="0" width="100" height="47"/>', small, system="WATCH_BATTERY"))
     # 4. the date, top
-    p.append(slot(4, 125, 29, 200, 36, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
-                  '<BoundingBox x="0" y="0" width="200" height="36"/>',
-                  '<Complication type="SHORT_TEXT">' + text(0, 0, 200, 36, ("%s", ["[COMPLICATION.TEXT]"]), 30) + '</Complication>',
+    p.append(slot(4, 150, 29, 150, 36, "SHORT_TEXT", "GregorianDateComplicationService", "SHORT_TEXT",
+                  '<BoundingBox x="0" y="0" width="150" height="36"/>',
+                  '<Complication type="SHORT_TEXT">' + text(0, 0, 150, 36, ("%s", ["[COMPLICATION.TEXT]"]), 30) + '</Complication>',
                   ambient=False))
+    # 7. settings: a gear beside the date
+    p.append(slot(7, 304, 30, 34, 34, "SMALL_IMAGE", "SettingsShortcutComplicationService", "SMALL_IMAGE",
+                  '<BoundingBox x="0" y="0" width="34" height="34"/>', icon(4, 4, 26), customizable="FALSE"))
+    # 8. the time itself: a tap opens the mushaf where reading stopped. Draws nothing.
+    p.append(slot(8, 60, 146, 330, 106, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE",
+                  '<BoundingBox x="0" y="0" width="330" height="106"/>',
+                  '<Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="1" height="1" alpha="0"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>',
+                  customizable="FALSE"))
     # 5. last reading position
     reading = ('<Complication type="LONG_TEXT"><PartDraw x="0" y="0" width="310" height="70">'
                '<RoundRectangle x="0" y="0" width="310" height="70" cornerRadiusX="22" cornerRadiusY="22"><Fill color="#B80A201C"/><Stroke color="#59AADCC8" thickness="1"/></RoundRectangle></PartDraw>'

@@ -114,4 +114,6 @@
 <Group name="minute" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Transform target="angle" value="([MINUTE] * 6 + [SECOND] * 0.1)"/>
 <PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="250" endX="225" endY="40"><Stroke color="#FFFFFFFF" thickness="6" cap="ROUND"/></Line></PartDraw></Group>
 <PartDraw x="0" y="0" width="450" height="450"><Ellipse x="214" y="214" width="22" height="22"><Fill color="#FFC9A227"/></Ellipse><Ellipse x="221" y="221" width="8" height="8"><Fill color="#FF000000"/></Ellipse></PartDraw>
+<!-- The time itself: a tap opens the mushaf where reading stopped. Draws nothing. -->
+<ComplicationSlot slotId="16" x="125" y="125" width="200" height="150" supportedTypes="SMALL_IMAGE" isCustomizable="FALSE"><Variant mode="AMBIENT" target="alpha" value="0"/><DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.QuranShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/><BoundingBox x="0" y="0" width="200" height="150"/><Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="1" height="1" alpha="0"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication></ComplicationSlot>
 </Scene></WatchFace>

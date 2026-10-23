@@ -50,4 +50,6 @@
 <Complication type="SHORT_TEXT"><PartDraw x="0" y="0" width="56" height="56"><Ellipse x="0" y="0" width="56" height="56"><Fill color="#FF0F766E"/><Stroke color="#FFC9A227" thickness="2"/></Ellipse></PartDraw><PartText x="0" y="0" width="56" height="56"><Text align="CENTER" ellipsis="TRUE"><Font family="plex_semibold" size="16" weight="NORMAL" color="#FFFFFFFF"><Template>%s<Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text></PartText></Complication>
 <Variant mode="AMBIENT" target="alpha" value="0"/>
 </ComplicationSlot>
+<!-- The time itself: a tap opens the mushaf where reading stopped. Draws nothing. -->
+<ComplicationSlot slotId="26" x="95" y="150" width="260" height="96" supportedTypes="SMALL_IMAGE" isCustomizable="FALSE"><Variant mode="AMBIENT" target="alpha" value="0"/><DefaultProviderPolicy defaultSystemProvider="EMPTY" defaultSystemProviderType="SMALL_IMAGE" primaryProvider="com.quran.watch8/com.quran.watch8.complication.QuranShortcutComplicationService" primaryProviderType="SMALL_IMAGE"/><BoundingBox x="0" y="0" width="260" height="96"/><Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="1" height="1" alpha="0"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication></ComplicationSlot>
 </Scene></WatchFace>

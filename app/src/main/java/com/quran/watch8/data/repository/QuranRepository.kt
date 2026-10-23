@@ -27,6 +27,60 @@ class QuranRepository(private val context: Context) {
 
         fun joinOpenTanween(text: String): String = text.replace(OPEN_TANWEEN_SPACE, "$1")
 
+        private val SPACES = Regex("\\s+")
+
+        // Compiled once: building these per call recompiled them for each of the
+        // 6,236 ayahs on every search keystroke.
+        private val MARKS = Regex("[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08F0-\u08F2]")
+        private val ALEF_VARIANTS = Regex("[أإآ\u0671]")
+        private val HAMZA_SEATS = Regex("[ؤئ]")
+
+        /**
+         * Strips all Arabic diacritics (harakat, tanwin, shadda, sukun, tatweel, Quranic marks),
+         * normalises alef variants (أ إ آ ٱ) → ا, alef maqsura ى → ي, teh marbuta ة → ه.
+         * This makes search work correctly on Uthmani Hafs text which carries full tashkeel.
+         */
+        fun normalizeArabic(text: String): String = text
+            // All standard harakat + Quranic extended marks (U+0610–U+061A, U+064B–U+065F, U+0670, U+06D6–U+06ED, open tanween U+08F0–U+08F2)
+            .replace(MARKS, "")
+            // Alef variants → bare alef
+            .replace(ALEF_VARIANTS, "ا")
+            // Alef maqsura → ya
+            .replace("ى", "ي")
+            // Teh marbuta → ha
+            .replace("ة", "ه")
+            // Hamza on waw or ya → bare hamza, as dictation and quick typing write it
+            .replace(HAMZA_SEATS, "ء")
+            // Tatweel / kashida
+            .replace("ـ", "")
+            // Pause signs stood between spaces; one space is left where they were
+            .replace(SPACES, " ")
+            .trim()
+
+        /**
+         * Indexes of [texts] (already normalised) that match [query] (normalised),
+         * best first: the phrase as written, the phrase with spaces ignored, then
+         * every word of it anywhere in the verse.
+         */
+        fun rankMatches(texts: List<String>, query: String, limit: Int): List<Int> {
+            val words = query.split(SPACES).filter { it.length >= 2 }
+            if (query.length < 2 || words.isEmpty()) return emptyList()
+            val joined = query.replace(SPACES, "")
+            val exact = ArrayList<Int>()
+            val spaced = ArrayList<Int>()
+            val allWords = ArrayList<Int>()
+            for (i in texts.indices) {
+                val t = texts[i]
+                when {
+                    t.contains(query) -> exact += i
+                    t.replace(SPACES, "").contains(joined) -> spaced += i
+                    words.size > 1 && words.all { t.contains(it) } -> allWords += i
+                }
+                if (exact.size >= limit) break
+            }
+            return (exact + spaced + allWords).take(limit)
+        }
+
         /** The basmala as Tanzil's simple text writes it. */
         const val SIMPLE_BASMALA = "بِسْمِ اللَّهِ الرَّحْمَـٰنِ الرَّحِيمِ"
 
@@ -61,53 +115,6 @@ class QuranRepository(private val context: Context) {
     //  Arabic text normalization helpers
     // ──────────────────────────────────────────────────────────
 
-    // Compiled once: building these per call recompiled them for each of the
-    // 6,236 ayahs on every search keystroke.
-    private val MARKS = Regex("[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08F0-\u08F2]")
-    private val ALEF_VARIANTS = Regex("[أإآ\u0671]")
-    private val WHITESPACE = Regex("\\s+")
-
-    /**
-     * Strips all Arabic diacritics (harakat, tanwin, shadda, sukun, tatweel, Quranic marks),
-     * normalises alef variants (أ إ آ ٱ) → ا, alef maqsura ى → ي, teh marbuta ة → ه.
-     * This makes search work correctly on Uthmani Hafs text which carries full tashkeel.
-     */
-    private fun normalizeArabic(text: String): String = text
-        // All standard harakat + Quranic extended marks (U+0610–U+061A, U+064B–U+065F, U+0670, U+06D6–U+06ED, open tanween U+08F0–U+08F2)
-        .replace(MARKS, "")
-        // Alef variants → bare alef
-        .replace(ALEF_VARIANTS, "ا")
-        // Alef maqsura → ya
-        .replace("ى", "ي")
-        // Teh marbuta → ha
-        .replace("ة", "ه")
-        // Tatweel / kashida
-        .replace("ـ", "")
-        .trim()
-
-    /**
-     * Common Arabic connective/preposition prefixes that attach to words.
-     * Ordered longest-first to match greedily.
-     */
-    private val ARABIC_PREFIXES = listOf(
-        "وال", "فال", "بال", "كال",   // particle + definite article
-        "لل",                           // la + definite article
-        "ال",                           // definite article alone
-        "و", "ف", "ب", "ك", "ل"       // standalone particles
-    )
-
-    /**
-     * Strips the longest matching Arabic prefix so we can compare roots.
-     * Only strips if the resulting stem has at least 2 characters.
-     */
-    private fun stripArabicPrefixes(word: String): String {
-        for (prefix in ARABIC_PREFIXES) {
-            if (word.startsWith(prefix) && word.length > prefix.length + 1) {
-                return word.removePrefix(prefix)
-            }
-        }
-        return word
-    }
 
     @Volatile private var allAyahs: List<Ayah> = emptyList()
     @Volatile private var ayahsBySurah: Map<Int, List<Ayah>> = emptyMap()
@@ -176,36 +183,22 @@ class QuranRepository(private val context: Context) {
     fun getAllSurahs() = SurahMetadata.surahs
 
     /**
-     * Arabic-aware text search with three tiers:
-     *  1. Direct normalised-string contains (fastest — catches exact + diacritic mismatches).
-     *  2. Word-level match on every token of the ayah with prefix stripping
-     *     (root-like: query "رحم" finds "الرحمن", "رحيم", "يرحم" …).
-     *  3. Partial-word match: any word in the text whose stripped form starts with the query.
+     * Search by phrase, typed or spoken. It reads the simple text, which writes
+     * the words as people type them ("يا أيها الذين آمنوا"); the Uthmani text
+     * joins and spells some of them differently ("يَٰٓأَيُّهَا", "ءَامَنُوٓاْ"), so
+     * a phrase of more than one word used to find nothing there.
      *
-     * Both query and text are normalised before comparison.
+     * Best matches first: the exact phrase, then the phrase ignoring spaces,
+     * then verses holding every word of it in any order.
      */
-    fun searchText(query: String, limit: Int = 40): List<Ayah> {
+    suspend fun searchText(query: String, limit: Int = 40): List<Ayah> {
         if (query.isBlank()) return emptyList()
-        val normalizedQuery = normalizeArabic(query.trim())
-        if (normalizedQuery.length < 2) return emptyList()
-
+        loadSimple()
         val ayahs = allAyahs
-        val texts = normalizedTexts ?: ayahs.map { normalizeArabic(it.text) }.also { normalizedTexts = it }
-        return ayahs.indices.asSequence().filter { i ->
-            val normalizedText = texts[i]
-
-            // Tier 1: exact phrase match after normalization
-            if (normalizedText.contains(normalizedQuery)) return@filter true
-
-            // Tier 2 & 3: per-word root-like match
-            normalizedText.split(WHITESPACE).any { word ->
-                val stripped = stripArabicPrefixes(word)
-                // The normalised query appears anywhere inside the stripped word
-                stripped.contains(normalizedQuery) ||
-                // Or inside the original (normalised) word
-                word.contains(normalizedQuery)
-            }
-        }.map { ayahs[it] }.take(limit).toList()
+        val texts = normalizedTexts ?: ayahs.map { a ->
+            normalizeArabic(simpleBySurah[a.chapter]?.getOrNull(a.verse - 1) ?: a.text)
+        }.also { normalizedTexts = it }
+        return rankMatches(texts, normalizeArabic(query.trim()), limit).map { ayahs[it] }
     }
 
     /**

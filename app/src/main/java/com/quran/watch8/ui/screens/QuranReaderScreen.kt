@@ -359,6 +359,10 @@ fun QuranReaderScreen(
                         .pointerInput(ayah) { detectTapGestures { selectedAyahForAction = null } },
                     contentAlignment = Alignment.Center
                 ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -382,10 +386,12 @@ fun QuranReaderScreen(
                             menuTouches++
                             viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
                         }) { Text("+", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
-                        ReaderIconButton(onClick = {
-                            selectedAyahForAction = null
-                            onOpenSettings()
-                        }) { Text("⚙", fontSize = 19.sp, color = Color.White) }
+                    }
+                    // Settings, centred under the bookmark.
+                    ReaderIconButton(onClick = {
+                        selectedAyahForAction = null
+                        onOpenSettings()
+                    }) { Text("⚙", fontSize = 19.sp, color = Color.White) }
                     }
                 }
             }

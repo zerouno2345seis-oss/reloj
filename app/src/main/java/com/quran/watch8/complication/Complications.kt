@@ -299,5 +299,7 @@ abstract class ShortcutComplicationService(
     }
 }
 
-class QuranShortcutComplicationService : ShortcutComplicationService("quran", "المصحف", R.drawable.img_quran)
+// "resume": the mushaf where reading stopped, not the surah list.
+class QuranShortcutComplicationService : ShortcutComplicationService("resume", "المصحف", R.drawable.img_quran)
+class SettingsShortcutComplicationService : ShortcutComplicationService("settings", "الإعدادات", R.drawable.img_settings)
 class BookmarksShortcutComplicationService : ShortcutComplicationService("bookmarks", "الإشارات", R.drawable.img_bookmark)
