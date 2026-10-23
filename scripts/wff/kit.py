@@ -52,8 +52,8 @@ def edge_buttons(quran_id, bookmarks_id):
     """The mushaf on the right edge and the bookmarks on the left: see-through bands, the icon alone."""
     arc_r = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="45" endAngle="135" thickness="44"/>'
     arc_l = '<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="225" endAngle="315" thickness="44"/>'
-    return (slot(quran_id, 406, 93, 44, 264, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, _icon(6, 115, 34))
-            + slot(bookmarks_id, 0, 93, 44, 264, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, 115, 34)))
+    return (slot(quran_id, 406, 93, 44, 264, "SMALL_IMAGE", "QuranShortcutComplicationService", "SMALL_IMAGE", arc_r, _icon(6, 115, 34), customizable="FALSE")
+            + slot(bookmarks_id, 0, 93, 44, 264, "SMALL_IMAGE", "BookmarksShortcutComplicationService", "SMALL_IMAGE", arc_l, _icon(4, 115, 34), customizable="FALSE"))
 
 
 def date_slot(sid, y=29, size=30):
@@ -165,7 +165,7 @@ def battery_arc(sid, start, end, bottom=True, track="#E6102420", fill="#FF2F8F67
     label = _rim_text(start, end, ("%s", ["[COMPLICATION.TEXT]"]), 21, bottom=bottom)
     body = (f'<Complication type="RANGED_VALUE">{_rim_track(start, end, track)}{level}{label}</Complication>'
             f'<Complication type="SHORT_TEXT">{_rim_track(start, end, track)}{label}</Complication>')
-    return slot(sid, 0, 0, 450, 450, "RANGED_VALUE SHORT_TEXT", None, "RANGED_VALUE", bound, body, system="WATCH_BATTERY")
+    return slot(sid, 0, 0, 450, 450, "RANGED_VALUE SHORT_TEXT", None, "RANGED_VALUE", bound, body, system="WATCH_BATTERY", customizable="FALSE")
 
 
 def temperature_arc(start, end, bottom=True, track="#E6102420"):
@@ -175,6 +175,12 @@ def temperature_arc(start, end, bottom=True, track="#E6102420"):
             + _rim_text(start, end, ("%s°", ["[WEATHER.TEMPERATURE]"]), 21, alpha="(255 * [WEATHER.IS_AVAILABLE])", bottom=bottom)
             + _rim_text(start, end, "--°", 21, SOFT, alpha="(255 * (1 - [WEATHER.IS_AVAILABLE]))", bottom=bottom)
             + '</Group>')
+
+
+# The watch keeps what was once chosen for a face's slots, even across new
+# slot ids (a prayer name came back on the battery arc), so the edge buttons
+# and the battery arc are locked to what they show. Slot ids: classic 31-38,
+# hands 41-47, mihrab 51-57; the row face 1-8.
 
 
 def write(module, title, clock_type, parts, preview="16:40:24"):

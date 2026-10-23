@@ -13,25 +13,25 @@ ARCH = "#FFE8BC3E"
 def arch():
     """A pointed-top niche: two uprights and a half ellipse over them."""
     return ('<PartDraw x="0" y="0" width="450" height="450">' + kit.HIDE_IN_AMBIENT +
-            f'<Arc centerX="225" centerY="168" width="250" height="196" startAngle="270" endAngle="450"><Stroke color="{ARCH}" thickness="2.5" cap="ROUND"/></Arc>'
-            f'<Line startX="100" startY="168" endX="100" endY="262"><Stroke color="{ARCH}" thickness="2.5" cap="ROUND"/></Line>'
-            f'<Line startX="350" startY="168" endX="350" endY="262"><Stroke color="{ARCH}" thickness="2.5" cap="ROUND"/></Line>'
+            f'<Arc centerX="225" centerY="168" width="276" height="196" startAngle="270" endAngle="450"><Stroke color="{ARCH}" thickness="2.5" cap="ROUND"/></Arc>'
+            f'<Line startX="87" startY="168" endX="87" endY="262"><Stroke color="{ARCH}" thickness="2.5" cap="ROUND"/></Line>'
+            f'<Line startX="363" startY="168" endX="363" endY="262"><Stroke color="{ARCH}" thickness="2.5" cap="ROUND"/></Line>'
             '</PartDraw>')
 
 
 def main():
     p = [
         arch(),
-        kit.clock(y=150, size=100, when="active", height=104),
+        kit.clock(y=152, size=92, when="active", height=100),
         kit.ambient_clock(),
         kit.temperature_arc(298, 334, bottom=False),
         kit.ambient_ring(),
-        kit.edge_buttons(21, 22),
-        kit.battery_arc(23, 26, 62, bottom=False),
-        kit.date_slot(24),
-        kit.time_tap(25, 104, 150, 242, 104),
-        kit.reading_pill(26, 135, 376, 180, 40),
-        kit.prayer_row(27),
+        kit.edge_buttons(51, 52),
+        kit.battery_arc(53, 26, 62, bottom=False),
+        kit.date_slot(54),
+        kit.time_tap(55, 92, 150, 266, 104),
+        kit.reading_pill(56, 135, 376, 180, 40),
+        kit.prayer_row(57),
     ]
     kit.write("watchface-mihrab", "The mihrab face", "DIGITAL", p)
 

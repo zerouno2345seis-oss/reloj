@@ -47,12 +47,12 @@ def main():
         kit.ambient_clock(),
         kit.temperature_arc(186, 222),
         kit.ambient_ring(),
-        kit.edge_buttons(11, 12),
-        kit.battery_arc(13, 138, 174),
-        kit.date_slot(14),
-        kit.time_tap(15, 150, 150, 150, 110),
-        kit.reading_slot(16),
-        kit.prayer_row(17),
+        kit.edge_buttons(41, 42),
+        kit.battery_arc(43, 138, 174),
+        kit.date_slot(44),
+        kit.time_tap(45, 150, 150, 150, 110),
+        kit.reading_slot(46),
+        kit.prayer_row(47),
     ]
     kit.write("watchface-hands", "The face with hands", "ANALOG", p, preview="10:08:32")
 
