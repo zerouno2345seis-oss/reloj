@@ -64,6 +64,8 @@ def segment(sid, centre, color, types, default, provider=None, system="EMPTY", c
     """One segment of the ring: its centre ±30°, less the gap. A meter shows a dim track
     with its level in full colour and white text; a text segment is solid with dark text."""
     start, end = centre - 30 + GAP / 2, centre + 30 - GAP / 2
+    if start < 0:  # the top segment: 331.5 to 388.5, not a negative angle
+        start, end = start + 360, end + 360
     bottom = 90 < centre % 360 < 270
     c = color.lstrip("#")
     out = []
@@ -106,7 +108,7 @@ def inner_seconds():
 def ambient_outline():
     """On the always-on screen the ring is only dim outlines."""
     arcs = "".join(f'<Arc centerX="225" centerY="225" width="{2 * MID:.0f}" height="{2 * MID:.0f}" '
-                   f'startAngle="{c - 30 + GAP / 2}" endAngle="{c + 30 - GAP / 2}"><Stroke color="#FF2C3A35" thickness="1.5"/></Arc>'
+                   f'startAngle="{c + 330 + GAP / 2}" endAngle="{c + 390 - GAP / 2}"><Stroke color="#FF2C3A35" thickness="1.5"/></Arc>'
                    for c in range(0, 360, 60))
     return _layer("ambientRing", f'<PartDraw x="0" y="0" width="450" height="450">{arcs}</PartDraw>', when="ambient")
 
