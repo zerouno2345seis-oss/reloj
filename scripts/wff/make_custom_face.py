@@ -99,20 +99,24 @@ def user_background(spec, folder, module):
         im = Image.open(io.BytesIO(raw))
     else:
         im = Image.open(os.path.join(folder, img["file"]))
-    im = im.convert("RGB")
+    # Keep the picture's own transparency (a cut-out from the editor): flattened to RGB,
+    # its clear parts came out as grey blocks on the watch.
+    im = im.convert("RGBA")
     side = min(im.size)
     left, top = (im.width - side) // 2, (im.height - side) // 2
     im = im.crop((left, top, left + side, top + side)).resize((450, 450), Image.LANCZOS)
     dim = float(img.get("dim", 0))
     if dim > 0:
-        im = Image.blend(im, Image.new("RGB", im.size, (0, 0, 0)), min(dim, 0.95))
+        rgb = Image.blend(im.convert("RGB"), Image.new("RGB", im.size, (0, 0, 0)), min(dim, 0.95))
+        rgb.putalpha(im.getchannel("A"))
+        im = rgb
     # Zoomed about the centre and moved as in the editor (backgroundImageScale 1-3,
     # backgroundImageOffsetX/Y in its 438 px space). Where the picture no longer reaches,
     # it is transparent and the gradient below shows.
     scale = max(1.0, float(spec.get("backgroundImageScale", 1)))
     ox, oy = float(spec.get("backgroundImageOffsetX", 0)) * K, float(spec.get("backgroundImageOffsetY", 0)) * K
     if scale != 1 or ox or oy:
-        big = im.resize((round(450 * scale), round(450 * scale)), Image.LANCZOS).convert("RGBA")
+        big = im.resize((round(450 * scale), round(450 * scale)), Image.LANCZOS)
         canvas = Image.new("RGBA", (450, 450), (0, 0, 0, 0))
         canvas.paste(big, (round(225 - big.width / 2 + ox), round(225 - big.height / 2 + oy)))
         im = canvas
@@ -124,7 +128,7 @@ def user_background(spec, folder, module):
 def palette(im, n=6):
     """Colours for a face from its picture: the dominant ones, the liveliest first."""
     import colorsys
-    small = im.resize((80, 80)).quantize(colors=n).convert("RGB")
+    small = im.convert("RGB").resize((80, 80)).quantize(colors=n).convert("RGB")
     counts = sorted(small.getcolors(80 * 80), reverse=True)
     out = []
     for _, (r_, g, b) in counts:
@@ -377,7 +381,9 @@ class Face:
         if which != "none":
             hours = (12, 3, 6, 9) if which == "4" else range(1, 13)
             size = round(self.s.get("hourNumeralSize", 18) * K)
-            r = inner_r - 3 - (24 if self.s.get("minuteTicks") else 6) - size
+            # Close to the rim: the figure's outer edge a few pixels inside the seconds line
+            # (or the ticks), measured on the figure's half height.
+            r = inner_r - 3 - (20 if self.s.get("minuteTicks") else 4) - size * 0.55
             nums = argb(c.get("numerals", "#D3DAD6"))
             texts = []
             for h in hours:
