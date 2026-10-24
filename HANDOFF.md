@@ -135,4 +135,4 @@ A/B على `SM_L500` عبر `/data/local/tmp/batt.sh` (قراءتا `/proc/<pid>
 - [2026-09-01] **ربط KV والتحقق منه في الإنتاج، وإصلاح استنزاف البطارية**: `storage:"vercel-kv"` يعمل في الإنتاج (جسر `api/sync.js` جذري + `.vercelignore`)؛ `QuranWatchFaceRenderer` من 16ms إلى 1000ms مع نبضة تكيّفية، وإزالة `FLAG_KEEP_SCREEN_ON`. مُتحقَّق على `SM_L500`.
 - [2026-09-01] **إطلاق استوديو الطبقة الأولى + درج التطبيقات + إدارة الإشارات**: أول نسخة من محرر الويب (9 نماذج + محاكي حي)، درج التطبيقات، والإشارات المرجعية والقوالب — أساس كل ما بُني عليه لاحقًا.
 
-- 2026-10-24: «صلاة» — numerals near the rim (radius inner_r-7-0.55·size, size 30), pill 0.85@105, date 0.9@262, prayer 0.9@322, picture opacity 0.45 offsetX 0, RGBA kept. Installed on the watch (left on «صلاة»), commit 3b0345b, not published (last release v174).
+- 2026-10-24: «صلاة» — numerals near the rim (radius inner_r-7-0.55·size, size 30), pill 0.85@105, date 0.9@262, prayer 0.9@322, picture opacity 0.45 offsetX 0, RGBA kept. Installed on the watch (left on «صلاة»), commit 3b0345b, published as v182.
