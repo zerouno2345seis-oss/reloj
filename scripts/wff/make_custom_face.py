@@ -106,6 +106,16 @@ def user_background(spec, folder, module):
     dim = float(img.get("dim", 0))
     if dim > 0:
         im = Image.blend(im, Image.new("RGB", im.size, (0, 0, 0)), min(dim, 0.95))
+    # Zoomed about the centre and moved as in the editor (backgroundImageScale 1-3,
+    # backgroundImageOffsetX/Y in its 438 px space). Where the picture no longer reaches,
+    # it is transparent and the gradient below shows.
+    scale = max(1.0, float(spec.get("backgroundImageScale", 1)))
+    ox, oy = float(spec.get("backgroundImageOffsetX", 0)) * K, float(spec.get("backgroundImageOffsetY", 0)) * K
+    if scale != 1 or ox or oy:
+        big = im.resize((round(450 * scale), round(450 * scale)), Image.LANCZOS).convert("RGBA")
+        canvas = Image.new("RGBA", (450, 450), (0, 0, 0, 0))
+        canvas.paste(big, (round(225 - big.width / 2 + ox), round(225 - big.height / 2 + oy)))
+        im = canvas
     out = os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi/bg_user.webp")
     im.save(out, "WEBP", quality=80, method=6)
     return "bg_user", im
@@ -342,7 +352,9 @@ class Face:
 
     # ── seconds, dial, hands ──────────────────────────────────────────────────
     def seconds(self):
-        r = (225 - self.T - 5) if self.seconds_inside else 217
+        # secondsOnEdge: a 3 px line at the very rim, over the background and any ring.
+        on_edge = self.s.get("secondsOnEdge", False)
+        r = 223.5 if on_edge else ((225 - self.T - 5) if self.seconds_inside else 217)
         d = 2 * r
         self.parts.append(active("seconds",
                                  f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" startAngle="0" endAngle="360"><Stroke color="{self.sec_track}" thickness="3"/></Arc></PartDraw>'
@@ -365,7 +377,7 @@ class Face:
         if which != "none":
             hours = (12, 3, 6, 9) if which == "4" else range(1, 13)
             size = round(self.s.get("hourNumeralSize", 18) * K)
-            r = inner_r - 3 - (24 if self.s.get("minuteTicks") else 6) - size / 2
+            r = inner_r - 3 - (24 if self.s.get("minuteTicks") else 6) - size
             nums = argb(c.get("numerals", "#D3DAD6"))
             texts = []
             for h in hours:
