@@ -436,6 +436,10 @@ def build(spec, module=None, folder="."):
     free -= 1 if want_tap else 0
     # On an analog face the whole middle opens the mushaf; with the date there, the middle
     # takes two tap areas, above and below it.
+    # The always-on screen shows the date at the shared top place; a date placed elsewhere
+    # (in the middle, say) gets a copy there, or it would sit on the always-on time.
+    aod_date = show_date and abs(dy - 47) > 12 and free >= 1
+    free -= 1 if aod_date else 0
     split_tap = analog and want_tap and show_date and free >= 1
     free -= 1 if split_tap else 0
     want_aod_prayer = show_prayer and prayer_box != kit.PRAYER_BOX and free >= 1
@@ -462,7 +466,10 @@ def build(spec, module=None, folder="."):
 
     if show_date:
         w, h = round(150 * ds), round(36 * ds)
-        f.parts.append(kit.date_slot(budget.take(), y=round(dy - h / 2), size=round(30 * ds), x=round(225 - w / 2), w=w, h=h, ink=f.ink))
+        f.parts.append(kit.date_slot(budget.take(), y=round(dy - h / 2), size=round(30 * ds), x=round(225 - w / 2), w=w, h=h, ink=f.ink,
+                                     when="active" if aod_date else "always"))
+        if aod_date:
+            f.parts.append(kit.date_slot(budget.take(), when="ambient"))
     if show_pill:
         w, h = round(310 * ls), round(70 * ls)
         f.parts.append(kit.reading_slot(budget.take(), round(225 - w / 2), round(ly - h / 2), w, h, ink=f.ink, soft=f.soft))
