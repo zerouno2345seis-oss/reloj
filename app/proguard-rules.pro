@@ -15,3 +15,8 @@
 -keepclassmembers class * implements android.os.Parcelable {
     public static final ** CREATOR;
 }
+
+# Parsed by Gson from the GitHub releases API (util/SelfUpdater.kt)
+-keep class com.quran.watch8.util.SelfUpdater$* { *; }
+# Room entities
+-keep class com.quran.watch8.data.db.entities.** { *; }

@@ -24,8 +24,6 @@ import com.quran.watch8.data.model.PrayerReminderConfig
 import com.quran.watch8.data.model.SavedLocation
 import com.quran.watch8.data.model.*
 import com.quran.watch8.util.PrayerTimesHelper
-import com.quran.watch8.util.WeatherSnapshot
-import com.quran.watch8.ui.screens.watchfaces.TasbihState
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,12 +59,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val customReaderTextColor = prefs.customReaderTextColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "#FFFFFF")
     val fontFamily      = prefs.fontFamily.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "default")
     val homeStyle       = prefs.homeStyle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "metro")
+    val readerMode      = prefs.readerMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "fill")
+    val lineAuto        = prefs.lineAuto.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val lineSpeed       = prefs.lineSpeed.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "medium")
+    val readingUsage    = prefs.readingUsageJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val tilesConfig     = prefs.tilesConfigJson.map { com.quran.watch8.data.model.TileConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.data.model.TileConfig())
     val tilesDisplayMode= prefs.tilesDisplayMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "icons_only")
     val watchFaceConfig = prefs.watchFaceConfigJson.map { com.quran.watch8.data.model.WatchFaceConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, com.quran.watch8.data.model.WatchFaceConfig())
-    val tasbihState: StateFlow<TasbihState> = combine(prefs.tasbihCount, prefs.tasbihTarget, prefs.tasbihDhikrIndex) { count, target, index ->
-        TasbihState(count, target, index)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, TasbihState())
     val pinnedApps      = prefs.pinnedApps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
     val drawerViewMode  = prefs.drawerViewMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "list")
     val recentApps      = prefs.recentApps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -76,7 +75,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedLocationName = prefs.selectedLocationName.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "بوينس آيرس (العاصمة)")
     val selectedLat  = prefs.selectedLat.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), -34.6037)
     val selectedLng  = prefs.selectedLng.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), -58.3816)
-    val calculationMethod = prefs.calculationMethod.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ISNA")
+    val calculationMethod = prefs.calculationMethod.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PrayerTimesHelper.DEFAULT_METHOD)
     val useGps       = prefs.useGps.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     // ─────────────────────────────── Room flows ────────────────────────────────
@@ -114,10 +113,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var todayDateFormatted by mutableStateOf("")
         private set
-    var weatherSummary by mutableStateOf("جاري تحديث الطقس...")
-        private set
-    var weatherSnapshot by mutableStateOf(WeatherSnapshot.unavailable())
-        private set
     var lastReadingAyahText by mutableStateOf("بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ")
         private set
 
@@ -136,43 +131,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch { refreshPrayerTimes() }
 
-        // Show the last good reading immediately so the tile isn't "—°" while the
-        // network call is in flight, then keep it current.
-        viewModelScope.launch {
-            com.quran.watch8.util.WeatherSnapshot.fromJson(prefs.weatherCacheJson.first())?.let {
-                if (it.isAvailable) { weatherSnapshot = it; weatherSummary = it.summary }
-            }
-            refreshWeatherIfStale()
-        }
-        // Refetch whenever the active coordinates change. There is deliberately
-        // no periodic timer: a `while (true) { delay(30min) }` here kept the
-        // process resident and fetched weather nobody was looking at. The app
-        // asks for a fresh reading when it comes to the foreground instead.
-        viewModelScope.launch {
-            combine(selectedLat, selectedLng) { a, b -> a to b }.drop(1).collectLatest { refreshWeather() }
-        }
     }
 
-    /** Fetches only if the cached reading has aged past [WEATHER_MAX_AGE_MS]. */
-    fun refreshWeatherIfStale() {
-        val snapshot = weatherSnapshot
-        val age = System.currentTimeMillis() - snapshot.fetchedAt
-        if (!snapshot.isAvailable || age >= WEATHER_MAX_AGE_MS) refreshWeather()
-    }
-
-    fun refreshWeather() {
-        viewModelScope.launch {
-            val lat = currentLocation?.latitude ?: selectedLat.value
-            val lng = currentLocation?.longitude ?: selectedLng.value
-            val fresh = com.quran.watch8.util.WeatherHelper.fetchWeatherSnapshot(lat, lng)
-            if (fresh.isAvailable) {
-                weatherSnapshot = fresh
-                weatherSummary = fresh.summary
-                prefs.setWeatherCache(fresh.toJson())
-            }
-            // On failure keep whatever we last had (a cached value beats "—°").
-        }
-    }
 
     private fun initBatteryAndDate() {
         // Battery
@@ -213,12 +173,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { prefs.saveLastPosition(surahNumber, 1) }
     }
 
+    private var searchJob: kotlinx.coroutines.Job? = null
+
+    /** Scans all 6,236 ayahs, so it runs off the main thread; a newer query cancels an older one. */
     fun searchQuran(query: String) {
-        searchResults      = quranRepo.searchText(query)
-        surahSearchResults = quranRepo.searchSurah(query)
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            val (ayahs, surahs) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                quranRepo.searchText(query) to quranRepo.searchSurah(query)
+            }
+            searchResults      = ayahs
+            surahSearchResults = surahs
+        }
+    }
+
+    /** One surah's verses, straight from the loaded text (empty until it has loaded). */
+    fun surahAyahs(surahNumber: Int): List<Ayah> = quranRepo.getSurahAyahs(surahNumber)
+
+    /** The simple text, for the fonts that stretch; loaded on first use. */
+    suspend fun surahSimple(surahNumber: Int): List<String> {
+        quranRepo.loadSimple()
+        return quranRepo.getSurahSimple(surahNumber)
     }
 
     fun clearSearch() {
+        searchJob?.cancel()
         searchResults      = emptyList()
         surahSearchResults = emptyList()
     }
@@ -234,6 +213,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setCustomReaderTextColor(color: String){ viewModelScope.launch { prefs.setCustomReaderTextColor(color) } }
     fun setFontFamily(name: String)    { viewModelScope.launch { prefs.setFontFamily(name) } }
     fun setHomeStyle(style: String)    { viewModelScope.launch { prefs.setHomeStyle(style) } }
+    fun setReaderMode(mode: String)    { viewModelScope.launch { prefs.setReaderMode(mode) } }
+    fun setLineAuto(on: Boolean)       { viewModelScope.launch { prefs.setLineAuto(on) } }
+    fun setLineSpeed(speed: String)    { viewModelScope.launch { prefs.setLineSpeed(speed) } }
+    fun addReadingTime(mode: String, font: String, seconds: Long) {
+        viewModelScope.launch {
+            prefs.updateReadingUsage { com.quran.watch8.util.ReadingUsage.add(it, mode, font, seconds, java.time.LocalDate.now()) }
+        }
+    }
     fun setTileConfig(config: com.quran.watch8.data.model.TileConfig) { viewModelScope.launch { prefs.setTilesConfigJson(config.toJson()) } }
     fun setTilesDisplayMode(mode: String) { viewModelScope.launch { prefs.setTilesDisplayMode(mode) } }
     fun setWatchFaceConfig(config: com.quran.watch8.data.model.WatchFaceConfig) { viewModelScope.launch { prefs.setWatchFaceConfigJson(config.toJson()) } }
@@ -256,26 +243,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun incrementTasbih() {
-        val updated = tasbihState.value.incremented()
-        viewModelScope.launch { prefs.setTasbihState(updated.count, updated.target, updated.dhikrIndex) }
-    }
-
-    fun resetTasbih() {
-        val current = tasbihState.value
-        viewModelScope.launch { prefs.setTasbihState(0, current.target, current.dhikrIndex) }
-    }
-
-    fun cycleTasbihTarget() {
-        val current = tasbihState.value
-        val nextTarget = when (current.target) { 33 -> 99; 99 -> 100; else -> 33 }
-        viewModelScope.launch { prefs.setTasbihState(current.count.coerceAtMost(nextTarget), nextTarget, current.dhikrIndex) }
-    }
-
-    fun cycleTasbihDhikr() {
-        val current = tasbihState.value
-        viewModelScope.launch { prefs.setTasbihState(0, current.target, (current.dhikrIndex + 1) % 6) }
-    }
     fun togglePinnedApp(pkg: String) {
         viewModelScope.launch { prefs.togglePinnedApp(pkg) }
     }
@@ -307,34 +274,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             db.addBookmark(
                 Bookmark(surah = surah, ayah = ayah, textSnippet = text.take(60))
             )
-            pushToCloud()
         }
     }
 
     fun removeBookmark(id: String) {
         viewModelScope.launch {
             db.removeBookmark(id)
-            pushToCloud()
         }
     }
 
-    /**
-     * Sends the watch's own data up to the relay.
-     *
-     * The watch only ever pulled before, so a bookmark added or deleted here
-     * was invisible to the studio, and the next pull -- built from the studio's
-     * stale list -- deleted it again. Anything that edits synced data calls
-     * this; one push at a time, latest wins.
-     */
-    private var cloudPushJob: kotlinx.coroutines.Job? = null
-
-    fun pushToCloud() {
-        cloudPushJob?.cancel()
-        cloudPushJob = viewModelScope.launch {
-            delay(800L) // coalesce a burst of edits into one upload
-            com.quran.watch8.util.LocalSyncServer.syncWithCloud(appContext, "push")
-        }
-    }
 
     // ═══════════════════════════ Reading Position (Room) ══════════
 
@@ -344,6 +292,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * [ayahNumber] is the 1-based verse number.
      * [ayahSnippet] is the first 2-3 words of the verse.
      */
+    /** Where reading stopped, read once from the database (null the first time). */
+    suspend fun loadLastReadingPosition(): ReadingPositionEntity? = db.lastReadingPosition.first()
+
+    /** The reader where reading stopped, or the surah list the first time. */
+    suspend fun resumeRoute(): String =
+        loadLastReadingPosition()?.let { "reader/${it.surah}?startAyah=${it.ayahNumber}" } ?: "quran"
+
     fun saveReadingPosition(
         surah: Int,
         ayahIndex: Int,
@@ -353,6 +308,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             db.saveReadingPosition(surah, ayahIndex, ayahNumber, surahNameAr, ayahSnippet)
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.ContinueReadingComplicationService::class.java
+            )
         }
     }
 
@@ -380,6 +338,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val useName   = name ?: selectedLocationName.first()
             val method    = calculationMethod.first()
             prayerTimes = PrayerTimesHelper.calculate(useLat, useLng, method, locationName = useName)
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.NextPrayerComplicationService::class.java
+            )
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.NextPrayerTimeComplicationService::class.java
+            )
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.PrayerClockComplicationService::class.java
+            )
             com.quran.watch8.util.PrayerAlarmScheduler.scheduleAll(appContext)
         }
     }
@@ -459,21 +426,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     type      = type
                 )
             )
-            pushToCloud()
         }
     }
 
     fun updateLocationName(id: String, newName: String) {
         viewModelScope.launch {
             db.updateLocationName(id, newName)
-            pushToCloud()
         }
     }
 
     fun removeLocation(id: String) {
         viewModelScope.launch {
             db.removeLocation(id)
-            pushToCloud()
         }
     }
 
@@ -512,8 +476,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private companion object {
-        /** Weather older than this is refetched the next time the app is opened. */
-        const val WEATHER_MAX_AGE_MS = 30 * 60_000L
-    }
 }

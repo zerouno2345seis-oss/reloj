@@ -5,6 +5,11 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val gitCommitCount: Int = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.get().trim().toIntOrNull() ?: 1
+
 android {
     namespace = "com.quran.watch8"
     compileSdk = 35
@@ -13,13 +18,22 @@ android {
         applicationId = "com.quran.watch8"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // Rises with every commit, so each build published as a GitHub
+        // release (tag v<versionCode>) is newer than the one on the watch.
+        versionCode = gitCommitCount
+        versionName = "1.0.$gitCommitCount"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 shrinks the APK (about 53 MB unshrunk); keep rules for the
+            // Gson-parsed classes are in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            // Signed with the debug key so it installs over the debug build
+            // with `adb install -r` and keeps bookmarks and settings. The
+            // debuggable build runs Compose noticeably slower on the watch.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
@@ -76,12 +90,9 @@ dependencies {
     implementation("androidx.wear.protolayout:protolayout-expression:$protoLayoutVersion")
     implementation("com.google.guava:guava:33.3.1-android")
 
-    // Wear OS Watch Face Service
-    val watchfaceVersion = "1.2.1"
-    implementation("androidx.wear.watchface:watchface:$watchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-guava:$watchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-editor:$watchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-complications-data-source:$watchfaceVersion")
+    // Complication data sources: what a watch face shows from this app.
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
+
 
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

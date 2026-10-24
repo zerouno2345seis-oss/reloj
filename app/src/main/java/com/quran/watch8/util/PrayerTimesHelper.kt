@@ -16,11 +16,15 @@ import java.util.Locale
 /**
  * Prayer times calculation using official Adhan library (high precision, offline).
  * Optimized for Argentina / Buenos Aires Province:
- * - Default method: ISNA (North America - most commonly used in Argentina)
+ * - Default method: Muslim World League (Fajr 18°, Isha 17°), the one IslamicFinder
+ *   uses for Buenos Aires; zaher wants the times to match IslamicFinder always.
  * - Timezone: America/Argentina/Buenos_Aires (UTC-3)
  * - Madhab: Shafi (common) or Hanafi
  */
 object PrayerTimesHelper {
+
+    /** IslamicFinder's method for Argentina. */
+    const val DEFAULT_METHOD = "MWL"
 
     data class PrayerInfo(
         val nameAr: String,
@@ -40,7 +44,7 @@ object PrayerTimesHelper {
         val nextPrayer: PrayerInfo?,
         val timeUntilNext: String,
         val locationName: String = "",
-        val methodName: String = "ISNA"
+        val methodName: String = DEFAULT_METHOD
     )
 
     /**
@@ -57,7 +61,7 @@ object PrayerTimesHelper {
     fun calculate(
         latitude: Double,
         longitude: Double,
-        methodName: String = "ISNA",
+        methodName: String = DEFAULT_METHOD,
         madhab: Madhab = Madhab.SHAFI,
         locationName: String = "بوينس آيرس",
         zoneId: String = "America/Argentina/Buenos_Aires"
@@ -182,17 +186,17 @@ object PrayerTimesHelper {
             "UMM_AL_QURA", "MAKKAH" -> CalculationMethod.UMM_AL_QURA
             "KARACHI" -> CalculationMethod.KARACHI
             "MWL", "MUSLIM_WORLD_LEAGUE" -> CalculationMethod.MUSLIM_WORLD_LEAGUE
-            else -> CalculationMethod.NORTH_AMERICA // Best default for Argentina
+            else -> CalculationMethod.MUSLIM_WORLD_LEAGUE
         }
     }
 
     fun methodDisplayName(name: String): String {
         return when (name.uppercase()) {
-            "ISNA", "NORTH_AMERICA" -> "ISNA (الأرجنتين)"
+            "ISNA", "NORTH_AMERICA" -> "ISNA"
             "EGYPTIAN" -> "المصرية"
             "UMM_AL_QURA" -> "أم القرى"
             "KARACHI" -> "كراتشي"
-            "MWL" -> "رابطة العالم الإسلامي"
+            "MWL", "MUSLIM_WORLD_LEAGUE" -> "رابطة العالم الإسلامي"
             else -> name
         }
     }

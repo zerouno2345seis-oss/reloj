@@ -25,7 +25,7 @@ object PrayerAlarmScheduler {
             val en = prefs.notificationsEnabled.firstOrNull() ?: true
             val la = prefs.selectedLat.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.latitude
             val ln = prefs.selectedLng.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.longitude
-            val m = prefs.calculationMethod.firstOrNull() ?: "ISNA"
+            val m = prefs.calculationMethod.firstOrNull() ?: PrayerTimesHelper.DEFAULT_METHOD
             val n = prefs.selectedLocationName.firstOrNull() ?: "بوينس آيرس"
             val rj = prefs.prayerRemindersJson.firstOrNull() ?: ""
             Tuple6(en, la, ln, m, n, rj)

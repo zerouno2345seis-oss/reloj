@@ -4,6 +4,7 @@ import androidx.wear.protolayout.ActionBuilders
 import androidx.wear.protolayout.ColorBuilders.argb
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
+import androidx.wear.protolayout.DimensionBuilders.sp
 import androidx.wear.protolayout.LayoutElementBuilders.*
 import androidx.wear.protolayout.ModifiersBuilders
 import androidx.wear.protolayout.ResourceBuilders
@@ -13,103 +14,90 @@ import androidx.wear.tiles.TileBuilders
 import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
 import com.quran.watch8.MainActivity
+import com.quran.watch8.data.model.ArgentinaLocations
+import com.quran.watch8.data.repository.PreferencesRepository
+import com.quran.watch8.util.PrayerTimesHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
+import java.time.Instant
 
 /**
- * Dedicated Wear OS Preset Modes Switcher Tile (Widget)
- * Renders quick interactive tiles for the 5 curated watch faces.
+ * The prayer tile: the next prayer and how long until it, then the day's six
+ * times. Location and method are the ones the app saved. Tapping opens the app.
+ * The system asks again once a minute so the countdown stays current.
  */
 class QuranPrayerTileService : TileService() {
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
+
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
-        val tile = buildPresetSwitcherTile()
-        return Futures.immediateFuture(tile)
+        val result = SettableFuture.create<TileBuilders.Tile>()
+        scope.launch {
+            try {
+                val prefs = PreferencesRepository(this@QuranPrayerTileService)
+                val prayers = PrayerTimesHelper.calculate(
+                    latitude = prefs.selectedLat.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.latitude,
+                    longitude = prefs.selectedLng.firstOrNull() ?: ArgentinaLocations.BUENOS_AIRES_CABA.longitude,
+                    methodName = prefs.calculationMethod.firstOrNull() ?: PrayerTimesHelper.DEFAULT_METHOD,
+                    locationName = prefs.selectedLocationName.firstOrNull() ?: "بوينس آيرس"
+                )
+                result.set(buildTile(prayers))
+            } catch (e: Exception) {
+                result.setException(e)
+            }
+        }
+        return result
     }
 
-    override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): ListenableFuture<ResourceBuilders.Resources> {
-        return Futures.immediateFuture(
-            ResourceBuilders.Resources.Builder()
-                .setVersion("1")
-                .build()
-        )
-    }
+    override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): ListenableFuture<ResourceBuilders.Resources> =
+        Futures.immediateFuture(ResourceBuilders.Resources.Builder().setVersion(RESOURCES_VERSION).build())
 
-    private fun buildPresetSwitcherTile(): TileBuilders.Tile {
+    private fun buildTile(prayers: PrayerTimesHelper.DayPrayers): TileBuilders.Tile {
+        val status = PrayerTimesHelper.status(prayers, Instant.now())
         val root = Column.Builder()
             .setWidth(expand())
             .setHeight(expand())
             .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
-                    .setBackground(
-                        ModifiersBuilders.Background.Builder()
-                            .setColor(argb(0xFF0F172A.toInt()))
-                            .build()
-                    )
+                    .setClickable(openApp())
+                    .setPadding(ModifiersBuilders.Padding.Builder().setTop(dp(22f)).build())
                     .build()
             )
 
-        // Header Title
-        val header = Text.Builder()
-            .setText("🎨 أوضاع وقوالب الساعة")
-            .setFontStyle(
-                FontStyle.Builder()
-                    .setSize(
-                        androidx.wear.protolayout.DimensionBuilders.sp(11f)
-                    )
-                    .setColor(argb(0xFFF59E0B.toInt()))
-                    .build()
+        if (status != null) {
+            root.addContent(text("${status.next.nameAr} ${status.next.formatted}", 18f, GOLD, bold = true))
+            root.addContent(text("بعد ${status.remainingText}", 13f, WHITE))
+        }
+        root.addContent(Spacer.Builder().setHeight(dp(8f)).build())
+
+        val nextName = status?.next?.nameAr
+        PrayerTimesHelper.schedule(prayers).forEach { p ->
+            val isNext = p.nameAr == nextName
+            root.addContent(
+                text("${p.nameAr}  ${p.formatted}", 12f, if (isNext) GOLD else GRAY, bold = isNext)
             )
-            .setModifiers(
-                ModifiersBuilders.Modifiers.Builder()
-                    .setPadding(
-                        ModifiersBuilders.Padding.Builder()
-                            .setTop(dp(6f))
-                            .setBottom(dp(4f))
-                            .build()
-                    )
-                    .build()
-            )
-            .build()
-        root.addContent(header)
-
-        // Top Row: 3 items (المواقيت, المصحف, الساعة)
-        val row1 = Row.Builder()
-            .setWidth(expand())
-            .setHeight(dp(62f))
-            .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
-            .addContent(buildPresetButton("preset_prayer_strip", "🕌", "المواقيت", 0xFF047857.toInt()))
-            .addContent(Spacer.Builder().setWidth(dp(4f)).build())
-            .addContent(buildPresetButton("preset_quran_focus", "📖", "المصحف", 0xFF0E7490.toInt()))
-            .addContent(Spacer.Builder().setWidth(dp(4f)).build())
-            .addContent(buildPresetButton("preset_big_clock", "⏰", "الساعة", 0xFF7C3AED.toInt()))
-            .build()
-        root.addContent(row1)
-
-        root.addContent(Spacer.Builder().setHeight(dp(4f)).build())
-
-        // Bottom Row: 2 items (الأدوات, اللوني)
-        val row2 = Row.Builder()
-            .setWidth(expand())
-            .setHeight(dp(62f))
-            .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
-            .addContent(buildPresetButton("preset_smart_tools", "📁", "الأدوات", 0xFFEA580C.toInt()))
-            .addContent(Spacer.Builder().setWidth(dp(4f)).build())
-            .addContent(buildPresetButton("preset_color_accent", "🎨", "الجمالي", 0xFFEC4899.toInt()))
-            .build()
-        root.addContent(row2)
+        }
 
         return TileBuilders.Tile.Builder()
-            .setResourcesVersion("1")
+            .setResourcesVersion(RESOURCES_VERSION)
+            .setFreshnessIntervalMillis(60_000L)
             .setTileTimeline(
                 TimelineBuilders.Timeline.Builder()
                     .addTimelineEntry(
                         TimelineBuilders.TimelineEntry.Builder()
-                            .setLayout(
-                                Layout.Builder()
-                                    .setRoot(root.build())
-                                    .build()
-                            )
+                            .setLayout(Layout.Builder().setRoot(root.build()).build())
                             .build()
                     )
                     .build()
@@ -117,82 +105,42 @@ class QuranPrayerTileService : TileService() {
             .build()
     }
 
-    private fun buildPresetButton(
-        presetId: String,
-        icon: String,
-        label: String,
-        bgColor: Int
-    ): LayoutElement {
-        val clickAction = ModifiersBuilders.Clickable.Builder()
+    private fun text(value: String, size: Float, color: Int, bold: Boolean = false): LayoutElement =
+        Text.Builder()
+            .setText(value)
+            .setFontStyle(
+                FontStyle.Builder()
+                    .setSize(sp(size))
+                    .setColor(argb(color))
+                    .setWeight(if (bold) FONT_WEIGHT_BOLD else FONT_WEIGHT_NORMAL)
+                    .build()
+            )
+            .setModifiers(
+                ModifiersBuilders.Modifiers.Builder()
+                    .setPadding(ModifiersBuilders.Padding.Builder().setBottom(dp(1f)).build())
+                    .build()
+            )
+            .build()
+
+    private fun openApp(): ModifiersBuilders.Clickable =
+        ModifiersBuilders.Clickable.Builder()
+            .setId("open")
             .setOnClick(
                 ActionBuilders.LaunchAction.Builder()
                     .setAndroidActivity(
                         ActionBuilders.AndroidActivity.Builder()
                             .setPackageName(packageName)
                             .setClassName(MainActivity::class.java.name)
-                            .addKeyToExtraMapping(
-                                "apply_preset",
-                                ActionBuilders.AndroidStringExtra.Builder()
-                                    .setValue(presetId)
-                                    .build()
-                            )
                             .build()
                     )
                     .build()
             )
             .build()
 
-        val btnCol = Column.Builder()
-            .setWidth(expand())
-            .setHeight(expand())
-            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-            .setModifiers(
-                ModifiersBuilders.Modifiers.Builder()
-                    .setClickable(clickAction)
-                    .setBackground(
-                        ModifiersBuilders.Background.Builder()
-                            .setColor(argb(bgColor))
-                            .setCorner(
-                                ModifiersBuilders.Corner.Builder()
-                                    .setRadius(dp(10f))
-                                    .build()
-                            )
-                            .build()
-                    )
-                    .setPadding(
-                        ModifiersBuilders.Padding.Builder()
-                            .setAll(dp(3f))
-                            .build()
-                    )
-                    .build()
-            )
-            .addContent(
-                Text.Builder()
-                    .setText(icon)
-                    .setFontStyle(
-                        FontStyle.Builder()
-                            .setSize(androidx.wear.protolayout.DimensionBuilders.sp(16f))
-                            .build()
-                    )
-                    .build()
-            )
-            .addContent(
-                Text.Builder()
-                    .setText(label)
-                    .setFontStyle(
-                        FontStyle.Builder()
-                            .setSize(androidx.wear.protolayout.DimensionBuilders.sp(10f))
-                            .setColor(argb(0xFFFFFFFF.toInt()))
-                            .build()
-                    )
-                    .build()
-            )
-            .build()
-
-        return Box.Builder()
-            .setWidth(expand())
-            .setHeight(expand())
-            .addContent(btnCol)
-            .build()
+    private companion object {
+        const val RESOURCES_VERSION = "2"
+        const val GOLD = 0xFFC9A227.toInt()
+        const val WHITE = 0xFFFFFFFF.toInt()
+        const val GRAY = 0xFFB0B0B0.toInt()
     }
 }

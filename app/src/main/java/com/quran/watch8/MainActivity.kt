@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,8 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -34,7 +31,14 @@ import com.quran.watch8.ui.viewmodel.MainViewModel
 class MainActivity : ComponentActivity() {
 
     private lateinit var viewModelRef: MainViewModel
-    private var navControllerRef: androidx.navigation.NavHostController? = null
+    // A route asked for by a watch-face complication or the tile.
+    private var pendingRoute by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingRoute = intent.getStringExtra("targetRoute")
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -42,65 +46,14 @@ class MainActivity : ComponentActivity() {
         if (::viewModelRef.isInitialized) viewModelRef.onPermissionsResult(results)
     }
 
-    override fun onNewIntent(intent: android.content.Intent) {
-        super.onNewIntent(intent)
-        handlePresetIntent(intent)
-    }
-
-    /**
-     * Pull the cloud config every time the app comes to the foreground. Without
-     * this the watch only checked once per cold start, so a design synced from
-     * the web while the app was already open never arrived. One HTTPS GET on
-     * resume costs nothing while the app is closed, unlike background polling.
-     */
-    override fun onResume() {
-        super.onResume()
-        // Weather has no background timer any more; it is topped up here, and
-        // only when the cached reading has actually aged out.
-        if (::viewModelRef.isInitialized) viewModelRef.refreshWeatherIfStale()
-        lifecycleScope.launch {
-            val (ok, message) = com.quran.watch8.util.LocalSyncServer.syncWithCloud(applicationContext, "pull")
-            if (ok && message.startsWith(com.quran.watch8.util.LocalSyncServer.APPLIED_PREFIX)) {
-                Toast.makeText(
-                    this@MainActivity,
-                    message.removePrefix(com.quran.watch8.util.LocalSyncServer.APPLIED_PREFIX),
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
-        }
-    }
-
-    private fun handlePresetIntent(intent: android.content.Intent?) {
-        val presetId = intent?.getStringExtra("apply_preset")
-        if (!presetId.isNullOrBlank()) {
-            com.quran.watch8.data.model.PresetManager.applyPreset(applicationContext, presetId)
-            navControllerRef?.popBackStack("watchface", false)
-        }
-        val modelName = intent?.getStringExtra("set_watchface_model")
-        if (!modelName.isNullOrBlank() && ::viewModelRef.isInitialized) {
-            try {
-                val m = com.quran.watch8.data.model.WatchFaceModelId.valueOf(modelName)
-                viewModelRef.setWatchFaceModel(m)
-                navControllerRef?.popBackStack("watchface", false)
-            } catch (_: Exception) {}
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // No sync server to start: the LAN socket is gone and onResume below
-        // does the cloud pull that its startup path used to duplicate.
-
+        pendingRoute = intent.getStringExtra("targetRoute")
         setContent {
             QuranWatchTheme {
                 val navController = rememberSwipeDismissableNavController()
-                navControllerRef = navController
                 val viewModel: MainViewModel = viewModel()
                 viewModelRef = viewModel
-                LaunchedEffect(Unit) {
-                    handlePresetIntent(intent)
-                }
-
                 var permissionsHandled by remember { mutableStateOf(false) }
                 var showPermissionScreen by remember { mutableStateOf(false) }
 
@@ -145,53 +98,31 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    LaunchedEffect(intent) {
-                        val route = intent.getStringExtra("targetRoute")
-                        if (!route.isNullOrBlank()) {
-                            navController.navigate(route)
-                        }
-                    }
+                    // Back from the first page leaves the app, to the watch face:
+                    // there is no screen of the app's own behind the reader any more.
+                    val leave: () -> Unit = { if (!navController.popBackStack()) finish() }
 
                     SwipeDismissableNavHost(
                         navController    = navController,
-                        startDestination = "watchface"
+                        startDestination = "start"
                     ) {
-                        composable("watchface") {
-                            WatchFaceHomeScreen(
-                                onNavigate = { route -> navController.navigate(route) },
-                                onOpenAppDrawer = { navController.navigate("app_drawer") },
-                                viewModel = viewModel
-                            )
-                        }
-
-                        composable("tiles") {
-                            HomeScreen(
-                                onNavigate = { route -> navController.navigate(route) },
-                                viewModel  = viewModel
-                            )
-                        }
-
-                        composable("home") {
-                            HomeScreen(
-                                onNavigate = { route -> navController.navigate(route) },
-                                viewModel  = viewModel
-                            )
-                        }
-
-                        composable("app_drawer") {
-                            AppDrawerScreen(
-                                onBack = { navController.popBackStack() },
-                                onExitToWatchFace = { navController.popBackStack("watchface", false) },
-                                viewModel = viewModel
-                            )
+                        // The way in is the mushaf itself, where reading stopped
+                        // (or the surah list the first time). A page asked for by
+                        // the face or the tile opens instead.
+                        composable("start") {
+                            LaunchedEffect(Unit) {
+                                if (pendingRoute != null) return@LaunchedEffect
+                                navController.navigate(viewModel.resumeRoute()) { popUpTo("start") { inclusive = true } }
+                            }
                         }
 
                         composable("quran") {
                             QuranScreen(
-                                onBack               = { navController.popBackStack() },
+                                onBack               = leave,
                                 onNavigateToReader   = { surah -> navController.navigate("reader/$surah") },
                                 onNavigateToBookmarks = { navController.navigate("bookmarks") },
-                                viewModel            = viewModel
+                                viewModel            = viewModel,
+                                onNavigateToAyah     = { surah, ayah -> navController.navigate("reader/$surah?startAyah=$ayah") }
                             )
                         }
 
@@ -213,14 +144,23 @@ class MainActivity : ComponentActivity() {
                                 surahNumber = surah,
                                 startAyah   = startAyah,
                                 listIndex   = listIndex,
-                                onBack      = { navController.popBackStack() },
-                                viewModel   = viewModel
+                                onBack      = leave,
+                                viewModel   = viewModel,
+                                onOpenSettings = { navController.navigate("settings") },
+                                onOpenIndex = { navController.navigate("quran") },
+                                // Previous/next surah replaces this page rather than
+                                // stacking one reader on another for every surah read.
+                                onOpenSurah = { next ->
+                                    navController.navigate("reader/$next") {
+                                        popUpTo(back.destination.id) { inclusive = true }
+                                    }
+                                }
                             )
                         }
 
                         composable("bookmarks") {
                             BookmarksScreen(
-                                onBack = { navController.popBackStack() },
+                                onBack = leave,
                                 onOpenAyah = { surah, ayah ->
                                     navController.navigate("reader/$surah?startAyah=$ayah")
                                 },
@@ -229,19 +169,28 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("prayer") {
-                            PrayerTimesScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
-                        }
-                        composable("qibla") {
-                            QiblaCompassScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                            PrayerTimesScreen(onBack = leave, viewModel = viewModel)
                         }
                         composable("locations") {
                             LocationsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
                         }
-                        composable("presets") {
-                            PresetsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
-                        }
                         composable("settings") {
-                            SettingsScreen(onBack = { navController.popBackStack() }, viewModel = viewModel)
+                            SettingsScreen(
+                                onBack = leave,
+                                viewModel = viewModel,
+                                onOpenLocations = { navController.navigate("locations") }
+                            )
+                        }
+                    }
+
+                    // A page asked for by the face or the tile becomes the first
+                    // page, so back from it returns to the face.
+                    LaunchedEffect(pendingRoute) {
+                        // "resume" (the face's mushaf icon and its time): where reading stopped.
+                        val route = pendingRoute?.let { if (it == "resume") viewModel.resumeRoute() else it }
+                        if (!route.isNullOrBlank()) {
+                            navController.navigate(route) { popUpTo(navController.graph.id) { inclusive = true } }
+                            pendingRoute = null
                         }
                     }
                 }

@@ -3,97 +3,32 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../../', import.meta.url);
-const [home, tileConfig, settings, reader, preferences, sync, mainActivity, qibla, watchFaceCalculations, watchFaceHome, locations, prayerHelper, appJs, watchIcons, newFaces, viewModel] = await Promise.all([
-  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/HomeScreen.kt', root), 'utf8'),
-  readFile(new URL('app/src/main/java/com/quran/watch8/data/model/TileConfig.kt', root), 'utf8'),
+const [settings, reader, preferences, mainActivity, locations, prayerHelper, appJs, watchIcons, viewModel, tile, manifest, gradle] = await Promise.all([
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/SettingsScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/QuranReaderScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/data/repository/PreferencesRepository.kt', root), 'utf8'),
-  readFile(new URL('app/src/main/java/com/quran/watch8/util/LocalSyncServer.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/MainActivity.kt', root), 'utf8'),
-  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/QiblaCompassScreen.kt', root), 'utf8'),
-  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/watchfaces/WatchFaceCalculations.kt', root), 'utf8'),
-  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/WatchFaceHomeScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/LocationsScreen.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/util/PrayerTimesHelper.kt', root), 'utf8'),
   readFile(new URL('pwa-web/app.js', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/WatchIcons.kt', root), 'utf8'),
-  readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/watchfaces/NewWatchFaces.kt', root), 'utf8'),
   readFile(new URL('app/src/main/java/com/quran/watch8/ui/viewmodel/MainViewModel.kt', root), 'utf8'),
+  readFile(new URL('app/src/main/java/com/quran/watch8/tile/QuranPrayerTileService.kt', root), 'utf8'),
+  readFile(new URL('app/src/main/AndroidManifest.xml', root), 'utf8'),
+  readFile(new URL('app/build.gradle.kts', root), 'utf8'),
 ]);
 
-test('watch exposes automatic layout as an assignable and reversible tile action', () => {
-  assert.match(tileConfig, /TileActionItem\("auto_layout"/);
-  assert.match(tileConfig, /TileActionItem\("auto_layout_restore"/);
-  assert.match(home, /fun generateAutomaticLayout\s*\(/);
-  assert.match(home, /"auto_layout"\s*->/);
-  assert.match(home, /"auto_layout_restore"\s*->/);
-});
-
-test('watch reading tile starts with surah and ayah then wraps the verse', () => {
-  assert.match(home, /buildAnnotatedString/);
-  assert.match(home, /lastPos\?\.ayahSnippet/);
-  assert.match(home, /سورة الكهف/);
-  assert.match(home, /maxLines\s*=\s*3/);
-});
-
-test('watch folder launcher is circular, translucent, balanced, and editable', () => {
-  assert.match(home, /FolderLauncherOverlay/);
-  assert.match(home, /CircleShape/);
-  assert.match(home, /selectedFolderItems/);
-  assert.doesNotMatch(home, /def\.title\.take\(6\)/);
-});
-
-test('watch prayer strip is rendered as two explicit rows', () => {
-  assert.match(home, /PrayerStripTable/);
-  // A names row and a times row, with the names row dropped when the columns
-  // are too narrow to hold them.
-  assert.match(home, /pList\.forEach\s*\{\s*\(name,\s*_\)\s*->/);
-  assert.match(home, /pList\.forEach\s*\{\s*\(_,\s*time\)\s*->/);
-  assert.match(home, /showNames/);
-});
-
-test('reader settings support the expanded range, fonts, and synced custom colours', () => {
+test('reader settings support the expanded range, fonts, and synced custom colours', async () => {
   assert.match(preferences, /coerceIn\(8f,\s*48f\)/);
-  for (const font of ['amiri', 'naskh', 'tajawal', 'cairo']) assert.match(settings, new RegExp(`"${font}"`));
+  // The watch offers five reading fonts, Madinah ("default") first; settings
+  // lists them from the one table in ReaderTypography.
+  const typography = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/ReaderTypography.kt', root), 'utf8');
+  for (const font of ['default', 'amiri', 'amiri_plain', 'naskh', 'scheherazade']) assert.match(typography, new RegExp(`ReadingFont\\("${font}"`));
+  assert.match(settings, /ReaderTypography\.READING_FONTS/);
   assert.match(preferences, /customReaderBgColor/);
   assert.match(preferences, /customReaderTextColor/);
   assert.match(preferences, /customAyahColor/);
-  assert.match(sync, /customReaderBgColor/);
   assert.match(reader, /customReaderBgColor/);
-});
-
-test('mixed oval and square mode is honoured by the actual watch renderer', () => {
-  // The tile shape is driven by appearance.tileShape, and "mixed" alternates
-  // by tile index so a connected grid still gets some rhythm.
-  assert.match(home, /appearance\.tileShape/);
-  assert.match(home, /"mixed"\s*->/);
-  assert.match(home, /index\s*%\s*3/);
-});
-
-test('qibla action opens a real sensor-backed compass screen', () => {
-  assert.match(mainActivity, /composable\("qibla"\)/);
-  assert.match(qibla, /TYPE_ROTATION_VECTOR/);
-  assert.match(qibla, /qiblaBearing/);
-  assert.match(watchFaceCalculations, /KAABA_LATITUDE/);
-  assert.match(watchFaceCalculations, /KAABA_LONGITUDE/);
-});
-
-test('settings can save the current watch face as a reusable preset', () => {
-  assert.match(settings, /saveCustomPreset/);
-  assert.match(settings, /tileConfig/);
-  assert.match(settings, /حفظ الواجهة الحالية كقالب/);
-});
-
-test('watch face Quran resume includes surah, ayah number, and verse text', () => {
-  assert.match(watchFaceHome, /formatQuranReadingLine\s*\(/);
-  assert.match(watchFaceHome, /reading\?\.text/);
-  assert.match(watchFaceHome, /maxLines\s*=\s*2/);
-});
-
-test('watch-face carousel does not draw a second numbered perimeter dial', () => {
-  assert.doesNotMatch(watchFaceHome, /for\s*\(num\s+in\s+1\.\.12\)/);
-  assert.doesNotMatch(watchFaceHome, /فلكي محيطي \(أرقام\)/);
 });
 
 test('location quick actions use consistent vector icons and single-line labels', () => {
@@ -161,79 +96,21 @@ test('every WatchIcons composable is actually used', async () => {
 // Battery: a `while (true) { delay() }` inside a LaunchedEffect keeps waking the
 // CPU with the screen off, because the composition outlives onStop. Every such
 // ticker has to be lifecycle-scoped instead.
-test('no screen ticker runs outside the resumed lifecycle', () => {
-  for (const [name, source] of [['HomeScreen', home], ['WatchFaceHomeScreen', watchFaceHome]]) {
-    assert.doesNotMatch(
-      codeOnly(source),
-      /LaunchedEffect\([^)]*\)\s*\{\s*(?:[^{}]*\n)*?\s*while \(true\)/,
-      `${name} still drives a ticker from a bare LaunchedEffect`,
-    );
-    assert.match(source, /RepeatOnResumed/, `${name} should tick via RepeatOnResumed`);
-  }
-  assert.match(newFaces, /RepeatOnResumed/, 'the compass sensor must be lifecycle-scoped');
-  assert.match(qibla, /RepeatOnResumed/, 'the compass screen must be lifecycle-scoped');
-  // ~5 Hz is enough for a qibla arrow; SENSOR_DELAY_UI is ~16 Hz of fused sensor.
-  assert.doesNotMatch(codeOnly(newFaces), /SENSOR_DELAY_UI/);
-  assert.doesNotMatch(codeOnly(qibla), /SENSOR_DELAY_UI/);
-});
-
 // The LAN channel is unreachable from an HTTPS page (mixed content), so the
 // listening socket was a permanently blocked thread serving nothing.
-test('the dead LAN sync socket is gone', () => {
-  const code = codeOnly(sync);
-  assert.doesNotMatch(code, /ServerSocket|\.accept\(\)/);
-  assert.doesNotMatch(code, /FIXED_PORT/);
-  assert.doesNotMatch(codeOnly(mainActivity), /LocalSyncServer\.start/);
-  // The HTTPS relay is the surviving channel and must still be wired up.
-  assert.match(code, /CLOUD_RELAY_URL/);
-});
-
 // Weather is only worth fetching when someone can see it.
-test('weather refreshes on demand rather than from an endless timer', () => {
-  assert.doesNotMatch(codeOnly(viewModel), /while \(true\) \{ delay\(/);
-  assert.match(viewModel, /fun refreshWeatherIfStale/);
-  assert.match(codeOnly(mainActivity), /refreshWeatherIfStale/);
-});
-
 // Every screen used to re-derive "which prayer is next" on its own, and they
 // disagreed: some counted sunrise, some printed "دقيقة" where others printed
 // "د", and one fell back to a time already hours in the past.
-test('every prayer surface reads the one shared status helper', () => {
-  assert.match(prayerHelper, /fun status\(\s*prayers: DayPrayers\?/);
-  assert.match(prayerHelper, /fun cycle\(prayers: DayPrayers\)/);
-  assert.match(prayerHelper, /fun schedule\(prayers: DayPrayers\)/);
-  // timeUntilNext is formatCountdown's output, so the schedule screen and the
-  // tiles cannot print different units.
-  assert.match(prayerHelper, /val timeUntil = formatCountdown\(/);
-  assert.doesNotMatch(prayerHelper, /"\$m دقيقة"/);
-
-  for (const [name, source] of [['HomeScreen', home], ['WatchFaceHomeScreen', watchFaceHome]]) {
-    assert.match(source, /PrayerTimesHelper\.status\(/, `${name} reads the shared status`);
-    assert.doesNotMatch(
-      source,
-      /firstOrNull \{ it\.time\.isAfter\(now/,
-      `${name} no longer rescans its own prayer list`
-    );
-  }
-});
-
 // The watch only ever pulled, so a bookmark added or deleted on it was invisible
 // to the studio -- and the next pull deleted it again.
-test('the watch pushes its own bookmarks and locations back to the relay', () => {
-  assert.match(viewModel, /fun pushToCloud\(\)/);
-  assert.match(viewModel, /syncWithCloud\(appContext, "push"\)/);
-  const bookmarkEdits = viewModel.match(/fun (addBookmark|removeBookmark)[\s\S]*?\n    \}/g) || [];
-  assert.equal(bookmarkEdits.length, 2);
-  bookmarkEdits.forEach(block => assert.match(block, /pushToCloud\(\)/));
-  // An empty array is "the last one was deleted", not "no news".
-  assert.match(sync, /val bookmarksArr = root\.optJSONArray\("bookmarks"\)\n\s*if \(bookmarksArr != null\) \{/);
-  assert.match(sync, /put\("note", bm\.note/);
-});
-
 // A delete button that is only a caption inside another button does nothing.
 test('a bookmark on the watch can be opened or deleted, and shows no timestamp', async () => {
   const bookmarks = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/BookmarksScreen.kt', root), 'utf8');
-  assert.match(bookmarks, /onClick = \{ viewModel\.removeBookmark\(bookmark\.id\) \}/);
+  // A tap opens the verse; a sideways swipe uncovers the delete.
+  assert.match(bookmarks, /onOpen = \{ onOpenAyah\(bookmark\.surah, bookmark\.ayah\) \}/);
+  assert.match(bookmarks, /onDelete = \{ viewModel\.removeBookmark\(bookmark\.id\) \}/);
+  assert.match(bookmarks, /detectHorizontalDragGestures/);
   assert.doesNotMatch(bookmarks, /SimpleDateFormat|dateFormat/);
   // The timestamp still exists -- it is what "by time added" sorts on.
   assert.match(bookmarks, /sortedByDescending \{ it\.timestamp \}/);
@@ -244,16 +121,136 @@ test('reader typography has one definition, previewed in settings', async () => 
   const typography = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/ReaderTypography.kt', root), 'utf8');
   assert.match(typography, /const val SAMPLE_AYAH/);
   assert.match(typography, /fun coerceFontSize/);
-  for (const source of [reader, settings]) {
-    assert.match(source, /ReaderTypography\.fontFamily\(/);
-  }
-  assert.match(settings, /ReaderTypography\.SAMPLE_AYAH/);
+  // The reader draws its round pages with the platform, so it takes the same
+  // choice as a Typeface; settings previews it as a Compose FontFamily.
+  assert.match(reader, /ReaderTypography\.typeface\(/);
+  assert.match(settings, /ReaderTypography\.fontFamily\(/);
+  assert.match(typography, /fun typeface\([\s\S]{0,200}"sansserif", "tajawal", "cairo" -> Typeface\.SANS_SERIF[\s\S]{0,80}"serif" -> Typeface\.SERIF/);
+  assert.match(settings, /ReaderTypography\.sampleAyah\(/);
   assert.match(settings, /ReaderTypography\.coerceFontSize/);
   // No screen keeps its own copy of the font table any more.
   assert.doesNotMatch(reader, /"kufi"\s*->\s*FontFamily\.Cursive/);
+  // System fonts cannot draw the Uthmani marks in this text (U+06E1, U+08F0-2):
+  // Quranic choices must resolve to the bundled Quran font.
+  assert.match(typography, /R\.font\.amiri_quran/);
+  assert.doesNotMatch(typography, /FontFamily\.Cursive/);
+  for (const font of ['naskh', 'tajawal', 'cairo', 'sansserif', 'serif']) assert.match(typography, new RegExp(`"${font}"`));
 });
 
 // The first layer is the navigation start destination, so swipe-right was dead.
-test('swiping right on the watch face opens the Quran', () => {
-  assert.match(watchFaceHome, /totalDragX > 30f[\s\S]{0,400}onNavigate\("quran"\)/);
+// Updates reach the watch from GitHub releases, not over wireless debugging.
+test('the watch can update itself from this repository\'s releases', async () => {
+  const [updater, manifest, gradle, publish] = await Promise.all([
+    readFile(new URL('app/src/main/java/com/quran/watch8/util/SelfUpdater.kt', root), 'utf8'),
+    readFile(new URL('app/src/main/AndroidManifest.xml', root), 'utf8'),
+    readFile(new URL('app/build.gradle.kts', root), 'utf8'),
+    readFile(new URL('scripts/publish-watch-release.sh', root), 'utf8'),
+  ]);
+  assert.match(updater, /api\.github\.com\/repos\/zerouno2345seis-oss\/reloj\/releases\/latest/);
+  assert.match(manifest, /android\.permission\.REQUEST_INSTALL_PACKAGES/);
+  assert.match(manifest, /\.util\.InstallStatusReceiver"\s+android:exported="false"/);
+  assert.match(settings, /UpdateChip\(/);
+  // The release tag carries the versionCode the updater compares against.
+  assert.match(gradle, /versionCode = gitCommitCount/);
+  assert.match(publish, /gh release create "v\$\{count\}"/);
+});
+
+// The slim app opens on the mushaf where reading stopped; back from the first
+// page leaves for the watch face. No launcher role, no system watch face.
+test('the app opens on the reader and back returns to the watch face', () => {
+  assert.match(mainActivity, /startDestination\s*=\s*"start"/);
+  assert.match(viewModel, /reader\/\$\{it\.surah\}\?startAyah=\$\{it\.ayahNumber\}/);
+  assert.match(mainActivity, /viewModel\.resumeRoute\(\)/);
+  assert.match(mainActivity, /if \(!navController\.popBackStack\(\)\) finish\(\)/);
+  assert.match(mainActivity, /popUpTo\(navController\.graph\.id\) \{ inclusive = true \}/);
+  assert.match(reader, /onOpenSettings\(\)/);
+  assert.doesNotMatch(manifest, /category\.HOME/);
+  assert.doesNotMatch(manifest, /WallpaperService|WATCH_FACE/);
+  assert.doesNotMatch(gradle, /androidx\.wear\.watchface:watchface:/);
+  assert.doesNotMatch(codeOnly(viewModel), /weather|pushToCloud|syncWithCloud/i);
+});
+
+test('the tile shows prayer times from the saved location and opens the app', () => {
+  assert.match(manifest, /android:label="مواقيت الصلاة"/);
+  assert.match(tile, /PrayerTimesHelper\.calculate\(/);
+  assert.match(tile, /prefs\.selectedLat/);
+  assert.match(tile, /PrayerTimesHelper\.schedule\(/);
+  assert.doesNotMatch(tile, /apply_preset/);
+});
+
+test('the release build is shrunk by R8', () => {
+  assert.match(gradle, /release \{[\s\S]*?isMinifyEnabled = true/);
+});
+
+// A real watch face (Watch Face Format, no code) reaches the app through
+// complications; each one opens its part of the app directly.
+test('the app serves complications whose taps open the matching screen', async () => {
+  const complications = await readFile(new URL('app/src/main/java/com/quran/watch8/complication/Complications.kt', root), 'utf8');
+  for (const name of ['NextPrayer', 'ContinueReading', 'HijriDate', 'QuranShortcut', 'BookmarksShortcut']) {
+    assert.match(manifest, new RegExp(`\\.complication\\.${name}ComplicationService`));
+  }
+  assert.match(manifest, /BIND_COMPLICATION_PROVIDER/);
+  assert.match(complications, /putExtra\("targetRoute", route\)/);
+  assert.match(mainActivity, /override fun onNewIntent/);
+  assert.match(mainActivity, /pendingRoute = intent\.getStringExtra\("targetRoute"\)/);
+  assert.match(viewModel, /requestComplicationUpdate\(/);
+});
+
+// Four display styles share one line engine; the line style pauses under a finger,
+// and the end of a surah runs on into the next.
+test('reader offers four display styles over one line engine', async () => {
+  const lines = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/components/ReaderLines.kt', root), 'utf8');
+  assert.match(lines, /object Kashida/);
+  for (const mode of ['"pages"', '"river"', '"line"']) assert.match(reader, new RegExp(mode));
+  assert.match(preferences, /it\[READER_MODE\] \?: "fill"/);
+  assert.match(reader, /if \(!auto \|\| touching\) return@LaunchedEffect/);
+  assert.match(reader, /SurahDivider\(/);
+  assert.match(reader, /onOpenSurah\(surahNumber \+ 1\)/);
+});
+
+// Our own watch faces are code-free WFF packages, one per style, because WFF
+// allows at most eight complication slots in a face. Each is checked against
+// the official schema before it builds (an invalid face sent the watch into a
+// reboot loop), and every provider it names must exist in the app.
+test('watch faces are WFF, validated before build, and name only real services', async () => {
+  for (const dir of ['watchface', 'watchface-hands', 'watchface-mihrab', 'watchface-custom']) {
+    const faceManifest = await readFile(new URL(`${dir}/src/main/AndroidManifest.xml`, root), 'utf8');
+    const face = await readFile(new URL(`${dir}/src/main/res/raw/watchface.xml`, root), 'utf8');
+    const faceGradle = await readFile(new URL(`${dir}/build.gradle.kts`, root), 'utf8');
+    assert.match(faceManifest, /android:hasCode="false"/);
+    assert.match(faceManifest, /com\.google\.wear\.watchface\.format\.version/);
+    assert.match(faceGradle, /validate-watchface\.sh/);
+    assert.doesNotMatch(face, /<ListConfiguration/);
+    const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
+    assert.ok(providers.length >= 4);
+    for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));
+    // Samsung's runtime throws, and keeps falling back to its own face, when
+    // a slot's fallback type is not one of its supported types.
+    for (const m of face.matchAll(/<ComplicationSlot[^>]*supportedTypes="([^"]+)"[^>]*>\s*(?:<Variant[^>]*\/>\s*)?<DefaultProviderPolicy[^>]*defaultSystemProviderType="(\w+)"/g)) {
+      assert.ok(m[1].split(' ').includes(m[2]), `${dir}: fallback ${m[2]} not in ${m[1]}`);
+    }
+    const ids = [...face.matchAll(/slotId="(\d+)"/g)].map((m) => m[1]);
+    assert.ok(ids.length >= 1 && ids.length <= 8, `${dir} has ${ids.length} slots`);
+    assert.equal(new Set(ids).size, ids.length);
+    // Samsung's runtime clips what a slot draws to the slot's bounding shape,
+    // so everything a complication draws has to lie inside it.
+    for (const slot of face.matchAll(/<ComplicationSlot[^>]*>[\s\S]*?<\/ComplicationSlot>/g)) {
+      // A ring-shaped slot (BoundingArc) is checked against the slot's own square.
+      const box = slot[0].match(/<Bounding(?:Box|Oval) x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+      const own = slot[0].match(/<ComplicationSlot[^>]* width="([\d.]+)" height="([\d.]+)"/);
+      const b = box ? box.slice(1).map(Number) : [0, 0, Number(own[1]), Number(own[2])];
+      for (const part of slot[0].matchAll(/<Part(?:Text|Draw|Image) x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
+        const [x, y, w, h] = part.slice(1).map(Number);
+        assert.ok(x >= b[0] - 1 && y >= b[1] - 1 && x + w <= b[0] + b[2] + 1 && y + h <= b[1] + b[3] + 1,
+          `${dir}: ${part[0]} outside its slot's bounds ${b}`);
+      }
+    }
+    // A Template whose text has no placeholder renders as "Error" on the watch.
+    for (const m of face.matchAll(/<Template>([^<]*)</g)) assert.match(m[1], /%[sd]/, `${dir}: template "${m[1]}"`);
+    // Every font the face names is bundled with it.
+    for (const fam of new Set([...face.matchAll(/family="([^"]+)"/g)].map((m) => m[1]))) {
+      if (fam === 'SYNC_TO_DEVICE') continue;
+      await readFile(new URL(`${dir}/src/main/res/font/${fam}.ttf`, root));
+    }
+  }
 });
