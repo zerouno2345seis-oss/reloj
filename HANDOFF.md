@@ -136,3 +136,5 @@ A/B على `SM_L500` عبر `/data/local/tmp/batt.sh` (قراءتا `/proc/<pid>
 - [2026-09-01] **إطلاق استوديو الطبقة الأولى + درج التطبيقات + إدارة الإشارات**: أول نسخة من محرر الويب (9 نماذج + محاكي حي)، درج التطبيقات، والإشارات المرجعية والقوالب — أساس كل ما بُني عليه لاحقًا.
 
 - 2026-10-24: «صلاة» — numerals near the rim (radius inner_r-7-0.55·size, size 30), pill 0.85@105, date 0.9@262, prayer 0.9@322, picture opacity 0.45 offsetX 0, RGBA kept. Installed on the watch (left on «صلاة»), commit 3b0345b, published as v182.
+
+- 2026-10-27: zaher asked for a second (inner) ring in the editor with draggable segment lengths, colours and icons. Mock to approve first: https://claude.ai/artifact/NHpXmho9e51fM42h5RyQTj (spec key "rings": [{thickness, startAngle, segments[{spanDeg, content, color, textColor}]}]). Budget: 5 tappable or data segments across both rings (8 slots minus date, pill, prayer). Nothing changed in the editor or the faces yet.
