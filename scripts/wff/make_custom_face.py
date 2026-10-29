@@ -38,6 +38,14 @@ o'clock and name a segment's centre. Every key is optional:
                       {"file": "images/x.jpg"} (next to the design), with "dim": 0-1 to darken it;
                       it becomes the background; backgroundImageOpacity 0-1 sets how strongly it shows
   font / fonts        one Google family for everything, or {"time": ..., "text": ...}
+  hourNumeralStyle    "latin" | "arabic" (١ ٢ ٣) | "roman" (I II III, the dial's hours only).
+                      "arabic" (or digitStyle "arabic-indic") writes every figure on the face
+                      that way: the time, the date, the prayer row and the ring, always-on too
+  hourNumeralRotation "upright" | "radial"; hourNumeralWeight 400-700; hourNumeralFont a family;
+                      hourNumeralInset px further in from the rim
+  seconds             {"mode": "arc|hand|dot", "position": "edge|ring|custom", "radius", "width"};
+                      ring.secondsInside false (the studio's switch) hides them. Without this
+                      key the seconds are an arc placed by secondsOnEdge / secondsInside
   colors.auto         true: text, accents, seconds, hands and any segment coloured "auto"
                       take their colours from the background picture
 
@@ -49,6 +57,7 @@ time, the edge icons.
 import json
 import math
 import os
+import re
 import sys
 
 import kit
@@ -72,6 +81,7 @@ PROVIDERS = {
     "settings": ("SMALL_IMAGE", "SettingsShortcutComplicationService", None),
     "times6": ("RANGED_VALUE", "PrayerRingComplicationService", None),
 }
+ROMAN = ("", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII")
 SIX = ("الفجر", "الشروق", "الظهر", "العصر", "المغرب", "العشاء")
 METERS = {"battery", "steps", "khatma"}
 # The face's own copies of the app's icons (app/src/main/res/drawable/img_*.png).
@@ -183,10 +193,8 @@ def use_fonts(spec, module, parts):
     time_font, text_font = font_file(f.get("time", one)), font_file(f.get("text", one))
     font_dir = os.path.join(kit.ROOT, module, "src/main/res/font")
     for name in os.listdir(font_dir):          # only what this face uses, beside the defaults
-        if not name.startswith("plex_"):
+        if name not in ("plex_bold.ttf", "plex_semibold.ttf"):
             os.remove(os.path.join(font_dir, name))
-    for chosen in {time_font, text_font} - {None}:
-        shutil.copy(os.path.join(FONT_DIR, chosen + ".ttf"), os.path.join(font_dir, chosen + ".ttf"))
     out = []
     for p in parts:
         is_clock = "<DigitalClock" in p
@@ -194,7 +202,41 @@ def use_fonts(spec, module, parts):
         if target:
             p = p.replace('family="plex_bold"', f'family="{target}"').replace('family="plex_semibold"', f'family="{target}"')
         out.append(p)
+    # Every family the face now names (the dial's numerals may name their own), with its
+    # Arabic-Indic copy when the face writes its figures that way.
+    used = sorted({m for p in out for m in re.findall(r'family="([a-z0-9_]+)"', p)})
+    indic = digit_style(spec) == "arabic"
+    for name in used:
+        src = os.path.join(font_dir if name.startswith("plex_") else FONT_DIR, name + ".ttf")
+        if not name.startswith("plex_"):
+            shutil.copy(src, os.path.join(font_dir, name + ".ttf"))
+        if indic:
+            indic_font(src, os.path.join(font_dir, name + "_ind.ttf"))
+    if indic:
+        out = [re.sub(r'family="([a-z0-9_]+)"', r'family="\1_ind"', p) for p in out]
     return out
+
+
+def digit_style(spec):
+    """How the face writes its figures: "arabic" (Arabic-Indic) or "latin"."""
+    if spec.get("digitStyle") == "arabic-indic" or spec.get("hourNumeralStyle") == "arabic":
+        return "arabic"
+    return "latin"
+
+
+def indic_font(src, dst):
+    """A copy of a font whose 0-9 draw as ٠-٩. The text keeps its own figures, so the
+    watch's data (times, the date) and their order are unchanged; only the shapes differ.
+    Needs fontTools (pip3 install fonttools)."""
+    from fontTools.ttLib import TTFont
+    t = TTFont(src)
+    best = t.getBestCmap()
+    for table in t["cmap"].tables:
+        if table.isUnicode():
+            for i in range(10):
+                if 0x30 + i in table.cmap:
+                    table.cmap[0x30 + i] = best[0x660 + i]
+    t.save(dst)
 
 
 def argb(hex_color, alpha=1.0):
@@ -258,6 +300,7 @@ class Face:
         self.ring_gradient = gradient_xml(ring.get("gradient"))
         self.seconds_inside = ring.get("secondsInside", True)
         self.parts, self.slots, self.notes, self.icons = [], [], [], set()
+        self.second_hand = None       # drawn last, over the other hands and the time
 
     # ── background ──────────────────────────────────────────────────────────
     def background(self):
@@ -473,6 +516,10 @@ class Face:
 
     # ── seconds, dial, hands ──────────────────────────────────────────────────
     def seconds(self):
+        """Draws the seconds; returns the radius the dial's ticks and numerals keep inside."""
+        sec = self.s.get("seconds")
+        if sec:
+            return self._seconds_styled(sec)
         # secondsOnEdge: a 3 px line at the very rim, over the background and any ring.
         on_edge = self.s.get("secondsOnEdge", False)
         r = 223.5 if on_edge else ((225 - self.depth - 5) if self.seconds_inside else 217)
@@ -481,6 +528,41 @@ class Face:
                                  f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" startAngle="0" endAngle="360"><Stroke color="{self.sec_track}" thickness="3"/></Arc></PartDraw>'
                                  f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" startAngle="0" endAngle="0">'
                                  f'<Transform target="endAngle" value="([SECOND] * 6)"/><Stroke color="{self.sec}" thickness="3" cap="ROUND"/></Arc></PartDraw>'))
+        return r
+
+    def _seconds_styled(self, sec):
+        """The studio's seconds: a filling arc, a hand or a dot going round, at its radius."""
+        edge, ring_r = 223.5, 225 - self.depth - 5
+        position = sec.get("position", "edge")
+        r = edge if position == "edge" else ring_r if position == "ring" else float(sec.get("radius", 200)) * K
+        if not self.seconds_inside:          # the studio's switch is off: no seconds at all
+            return r
+        mode, w = sec.get("mode", "arc"), float(sec.get("width", 3)) * K
+        d = 2 * r
+        track = (f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" '
+                 f'startAngle="0" endAngle="360"><Stroke color="{self.sec_track}" thickness="{w:.1f}"/></Arc></PartDraw>')
+        if mode == "hand":
+            # As the studio draws it: a short tail past the centre, as long as the ring
+            # reaches when it sits in the ring, to the rim otherwise.
+            length = ring_r if position == "ring" else edge
+            self.second_hand = active("seconds",
+                                     '<Group name="secondHand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">'
+                                     '<Transform target="angle" value="[SECOND] * 6"/>'
+                                     f'<PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="{225 + 22 * K:.1f}" endX="225" endY="{225 - length:.1f}">'
+                                     f'<Stroke color="{self.sec}" thickness="{max(1.0, w * 0.7):.1f}" cap="ROUND"/></Line>'
+                                     f'<Ellipse x="221" y="221" width="8" height="8"><Fill color="{self.sec}"/></Ellipse></PartDraw></Group>')
+            return length
+        if mode == "dot":
+            dot = max(3.0, w * 1.6)
+            self.parts.append(active("seconds", track
+                                     + '<Group name="secondDot" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">'
+                                     '<Transform target="angle" value="[SECOND] * 6"/>'
+                                     f'<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="{225 - dot:.1f}" y="{225 - r - dot:.1f}" '
+                                     f'width="{2 * dot:.1f}" height="{2 * dot:.1f}"><Fill color="{self.sec}"/></Ellipse></PartDraw></Group>'))
+            return r
+        self.parts.append(active("seconds", track
+                                 + f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" startAngle="0" endAngle="0">'
+                                 f'<Transform target="endAngle" value="([SECOND] * 6)"/><Stroke color="{self.sec}" thickness="{w:.1f}" cap="BUTT"/></Arc></PartDraw>'))
         return r
 
     def dial(self, inner_r):
@@ -500,13 +582,24 @@ class Face:
             size = round(self.s.get("hourNumeralSize", 18) * K)
             # Close to the rim: the figure's outer edge a few pixels inside the seconds line
             # (or the ticks), measured on the figure's half height.
-            r = inner_r - 3 - (20 if self.s.get("minuteTicks") else 4) - size * 0.55
+            r = inner_r - 3 - (20 if self.s.get("minuteTicks") else 4) - size * 0.55 - float(self.s.get("hourNumeralInset", 0)) * K
             nums = argb(c.get("numerals", "#D3DAD6"))
+            style, radial = self.s.get("hourNumeralStyle", "latin"), self.s.get("hourNumeralRotation") == "radial"
+            # The figures are written 1-12; "arabic" draws them as ١-١٢ through the face's
+            # Arabic-Indic fonts (use_fonts). Plex comes in bold and semibold only.
+            family = font_file(self.s.get("hourNumeralFont")) if self.s.get("hourNumeralFont") else None
+            family = family or (SEMI if int(self.s.get("hourNumeralWeight", 700)) < 700 else "plex_bold")
             texts = []
             for h in hours:
                 x, y = pol(r, h * 30)
-                texts.append(text(round(x - size), round(y - size * 0.75), size * 2, round(size * 1.5), str(h), size,
-                                  self.accent if h == 12 else nums))
+                label = ROMAN[h] if style == "roman" else str(h)
+                w = size * (3 if len(label) > 2 else 2)
+                part = text(round(x - w / 2), round(y - size * 0.75), w, round(size * 1.5), label, size,
+                            self.accent if h == 12 else nums, family)
+                if radial:      # turned with the rim, the lower ones upright (as in the studio)
+                    angle = h * 30 + 180 if 4 <= h <= 8 else h * 30
+                    part = part.replace("<PartText ", f'<PartText angle="{angle % 360}" pivotX="0.5" pivotY="0.5" ', 1)
+                texts.append(part)
             self.parts.append(active("numerals", "".join(texts)))
 
     def hands(self):
@@ -519,7 +612,8 @@ class Face:
         self.parts.append(active("hands",
                                  hand("hour", 70, 9, argb(c.get("hourHand", "#FFFFFF")), "([HOUR_0_23] % 12) * 30 + [MINUTE] * 0.5")
                                  + hand("minute", 112, 6, argb(c.get("minuteHand", "#E8EEEA")), "[MINUTE] * 6 + [SECOND] * 0.1")
-                                 + (hand("second", 118, 2, argb(c.get("secondHand", "#E8BC3E")), "[SECOND] * 6") if not self.s.get("ring", {}).get("secondsInside", True) else "")
+                                 + (hand("second", 118, 2, argb(c.get("secondHand", "#E8BC3E")), "[SECOND] * 6")
+                                    if not self.s.get("ring", {}).get("secondsInside", True) and not self.s.get("seconds") else "")
                                  + f'<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="216" y="216" width="18" height="18"><Fill color="{self.accent}"/></Ellipse></PartDraw>'))
 
 
@@ -654,6 +748,8 @@ def build(spec, module=None, folder="."):
     elif show_time:
         size = round(110 * tsc)
         f.parts.append(kit.clock(y=round(ty - size * 0.52), size=size, when="active", height=round(size * 1.04), color=f.ink))
+    if f.second_hand:
+        f.parts.append(f.second_hand)
     f.parts.append(kit.ambient_clock())
 
     if show_date:
