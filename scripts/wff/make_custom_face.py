@@ -19,10 +19,16 @@ o'clock and name a segment's centre. Every key is optional:
   clock               "digital" | "analog"; hourNumerals "none|4|12", hourNumeralSize, minuteTicks
   colors              text, soft, accent, seconds, secondsTrack, hourHand, minuteHand,
                       secondHand, numerals, ticks
-  ring                {"thickness", "fontSize", "secondsInside", "gradient": {"type": "none|sweep", "stops"}}
-  segments            [{"angle", "spanDeg", "content", "color", "colorEnd", "textColor", "customizable"}]
-                      content: none, date, battery, steps, heart, surah, next, temp, khatma,
-                      bookmarks, mushaf
+  ring                {"thickness", "thickness2", "fontSize", "secondsInside",
+                       "gradient": {"type": "none|sweep", "stops"}}; thickness2 is the inner ring's
+  segments            [{"ring" (1 outer, 2 inner), "angle", "spanDeg", "content", "color", "colorEnd",
+                        "textColor", "customizable", "iconScale", "mergedWith", "pinned"}]
+                      content (the studio's list): none, battery, temp, date, hijri, steps, heart,
+                      surah, khatma, mushaf, bookmarks, next, prev, settings. Any other key is
+                      drawn as an empty part, and the build says so.
+                      iconScale multiplies an icon's size (0.5-2.2). mergedWith is the 1-based
+                      number of the part on the other ring at the same angle and length: the two
+                      are one slot, as wide as both rings. pinned only matters to the studio.
   elements            date, pill, time, prayer, edges: {"show", "y" (centre), "scale"}
   backgroundImage     a picture from the computer: the data URL itself, {"dataUrl": ...} or
                       {"file": "images/x.jpg"} (next to the design), with "dim": 0-1 to darken it;
@@ -42,7 +48,7 @@ import os
 import sys
 
 import kit
-from make_row_face import SEMI, font, slot, text
+from make_row_face import SEMI, font, ge, lt, slot, text
 
 K = 450 / 438
 DEFAULT_JSON = os.path.join(kit.ROOT, "design/faces/custom.json")
@@ -57,9 +63,15 @@ PROVIDERS = {
     "khatma": ("RANGED_VALUE", "KhatmaProgressComplicationService", None),
     "bookmarks": ("SMALL_IMAGE", "BookmarksShortcutComplicationService", None),
     "mushaf": ("SMALL_IMAGE", "QuranShortcutComplicationService", None),
+    "hijri": ("SHORT_TEXT", "HijriDateComplicationService", None),
+    "prev": ("RANGED_VALUE", "PrayerWindowComplicationService", None),
+    "settings": ("SMALL_IMAGE", "SettingsShortcutComplicationService", None),
 }
 METERS = {"battery", "steps", "khatma"}
-ICONS = {"bookmarks": "icon_bookmark", "mushaf": "icon_quran"}
+# The face's own copies of the app's icons (app/src/main/res/drawable/img_*.png).
+ICONS = {"bookmarks": "icon_bookmark", "mushaf": "icon_quran", "settings": "icon_settings"}
+ICON_SOURCES = {"icon_bookmark": "img_bookmark", "icon_quran": "img_quran", "icon_settings": "img_settings"}
+RING_GAP = 3 * K              # between the outer and the inner ring, as in the studio
 FONT_DIR = os.path.join(kit.ROOT, "design/fonts")
 # The editor names Google families; each is bundled (all SIL OFL, licences in design/fonts).
 # None is the face's own IBM Plex Sans Arabic. The variable ones (Cairo, Reem Kufi, El Messiri,
@@ -232,9 +244,14 @@ class Face:
         self.T = ring.get("thickness", 0) * K
         self.font_px = round(ring.get("fontSize", 18) * K)
         self.mid = 225 - self.T / 2
+        # The inner ring sits inside the outer one, a small gap between them.
+        has2 = any(g.get("ring", 1) == 2 for g in spec.get("segments", []))
+        self.T2 = ((ring.get("thickness2") or 24) * K) if has2 else 0
+        self.mid2 = 225 - self.T - RING_GAP - self.T2 / 2
+        self.depth = self.T + (RING_GAP + self.T2 if has2 else 0)     # how far in the rings reach
         self.ring_gradient = gradient_xml(ring.get("gradient"))
         self.seconds_inside = ring.get("secondsInside", True)
-        self.parts, self.slots, self.notes = [], [], []
+        self.parts, self.slots, self.notes, self.icons = [], [], [], set()
 
     # ── background ──────────────────────────────────────────────────────────
     def background(self):
@@ -261,82 +278,126 @@ class Face:
                                            f'<PartImage x="0" y="0" width="450" height="450" alpha="{round(255 * aod)}"><Image resource="{image}"/></PartImage>'))
 
     # ── the ring ────────────────────────────────────────────────────────────
-    def _stroke(self, color, color_end, start, end, width=None):
+    def _stroke(self, color, color_end, start, end, width=None, mid=None):
         width = width if width is not None else self.T
+        mid = mid if mid is not None else self.mid
         inner = ""
         if self.ring_gradient and not color_end:
             inner = self.ring_gradient
         elif color_end:
-            (x0, y0), (x1, y1) = pol(self.mid, start), pol(self.mid, end)
+            (x0, y0), (x1, y1) = pol(mid, start), pol(mid, end)
             inner = (f'<LinearGradient startX="{x0:.0f}" startY="{y0:.0f}" endX="{x1:.0f}" endY="{y1:.0f}" '
                      f'colors="{argb(color)} {argb(color_end)}" positions="0 1"/>')
         return f'<Stroke color="{argb(color)}" thickness="{width:.1f}" cap="BUTT">{inner}</Stroke>'
 
-    def _arc(self, start, end, color, color_end=None, alpha=1.0):
-        d = 2 * self.mid
+    def _arc(self, start, end, color, color_end=None, alpha=1.0, mid=None, width=None):
+        mid = mid if mid is not None else self.mid
+        d = 2 * mid
         col = argb(color, alpha) if not color.startswith("#") or len(color.lstrip("#")) != 8 else color
         return (f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" '
-                f'startAngle="{start:.2f}" endAngle="{end:.2f}">{self._stroke(col, color_end, start, end)}</Arc></PartDraw>')
+                f'startAngle="{start:.2f}" endAngle="{end:.2f}">{self._stroke(col, color_end, start, end, width, mid)}</Arc></PartDraw>')
 
-    def _level(self, start, end, color):
-        d = 2 * self.mid
-        v = ("([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / "
+    LEVEL = ("([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / "
              "([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])")
-        return (f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" '
-                f'startAngle="{start:.2f}" endAngle="{start:.2f}"><Transform target="endAngle" value="({start:.2f} + ({end - start:.2f}) * clamp({v}, 0, 1))"/>'
-                f'<Stroke color="{argb(color)}" thickness="{self.T:.1f}" cap="BUTT"/></Arc></PartDraw>')
 
-    def _text_on_arc(self, start, end, body, color, alpha=None):
+    def _level(self, start, end, color, mid=None, width=None, fraction=LEVEL):
+        mid = mid if mid is not None else self.mid
+        width = width if width is not None else self.T
+        d = 2 * mid
+        return (f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" '
+                f'startAngle="{start:.2f}" endAngle="{start:.2f}"><Transform target="endAngle" value="({start:.2f} + ({end - start:.2f}) * clamp({fraction}, 0, 1))"/>'
+                f'<Stroke color="{argb(color)}" thickness="{width:.1f}" cap="BUTT"/></Arc></PartDraw>')
+
+    def _text_on_arc(self, start, end, body, color, alpha=None, mid=None):
         tpl, params = body if isinstance(body, tuple) else (body, [])
         inner = ("<Template>" + tpl + "".join(f'<Parameter expression="{p}"/>' for p in params) + "</Template>") if params else tpl
         bottom = 90 < ((start + end) / 2) % 360 < 270
         a, b, direction = (end, start, "COUNTER_CLOCKWISE") if bottom else (start, end, "CLOCKWISE")
-        d = 2 * self.mid - 4
+        d = 2 * (mid if mid is not None else self.mid) - 4
         tr = f'<Transform target="alpha" value="{alpha}"/>' if alpha else ""
         return (f'<PartText x="0" y="0" width="450" height="450">{tr}<TextCircular centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" '
                 f'startAngle="{a:.2f}" endAngle="{b:.2f}" direction="{direction}" align="CENTER">'
                 + font(self.font_px, argb(color)) + inner + '</Font></TextCircular></PartText>')
 
+    def geometry(self, seg):
+        """A part's middle radius and thickness: on the outer ring, or on the inner one."""
+        return (self.mid2, self.T2) if seg.get("ring", 1) == 2 and self.T2 > 0 else (self.mid, self.T)
+
     def ring(self, budget):
         segs = self.s.get("segments", [])
         if not segs or self.T <= 0:
             return
+        units, notes = ring_units(segs)
+        self.notes += notes
         outline = ""
-        for i, seg in enumerate(segs):
-            half = seg.get("spanDeg", 360 / len(segs) - 3) / 2
-            start, end = seg.get("angle", 0) - half, seg.get("angle", 0) + half
-            if start < 0:
-                start, end = start + 360, end + 360
-            content = seg.get("content", "none")
-            color, color_end = seg.get("color", "#7fc3b0"), seg.get("colorEnd")
-            ink = seg.get("textColor", "#FFFFFF" if content in METERS else "#1A1408")
-            d = 2 * self.mid
-            outline += (f'<Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" startAngle="{start:.2f}" endAngle="{end:.2f}">'
-                        f'<Stroke color="#FF2C3A35" thickness="1.5"/></Arc>')
+        for i, idxs in enumerate(units):
+            lead = segs[idxs[0]]
+            start, end = seg_span(lead, len(segs))
+            content = lead.get("content", "none")
+            if content not in PROVIDERS and content not in ("none", "temp"):
+                self.notes.append(f"segment {idxs[0] + 1}: content {content!r} has no source; drawn empty")
+                content = "none"
+            ink = lead.get("textColor") or ("#FFFFFF" if content in METERS | {"prev"} else "#1A1408")
+            geo = [(self.geometry(segs[k]), segs[k]) for k in idxs]
+            # Merged parts write their text once, between the two rings, as the studio does.
+            tmid = sum(m for (m, _), _ in geo) / len(geo)
+            r_out = max(m + w / 2 for (m, w), _ in geo)
+            r_in = min(m - w / 2 for (m, w), _ in geo)
+
+            def draw(alpha=1.0, plain=False):
+                return "".join(self._arc(start, end, g.get("color", "#7fc3b0"), None if plain else g.get("colorEnd"), alpha, m, w)
+                               for (m, w), g in geo)
+
+            def level(fraction=Face.LEVEL):
+                return "".join(self._level(start, end, g.get("color", "#7fc3b0"), m, w, fraction) for (m, w), g in geo)
+
+            for (m, _), _ in geo:
+                outline += (f'<Arc centerX="225" centerY="225" width="{2 * m:.0f}" height="{2 * m:.0f}" startAngle="{start:.2f}" endAngle="{end:.2f}">'
+                            f'<Stroke color="#FF2C3A35" thickness="1.5"/></Arc>')
             if content == "none":
-                self.parts.append(active(f"seg{i}", self._arc(start, end, color, color_end, alpha=0.85)))
+                self.parts.append(active(f"seg{i}", draw(alpha=0.85)))
                 continue
             if content == "temp":
-                self.parts.append(active(f"seg{i}", self._arc(start, end, color, color_end)
-                                         + self._text_on_arc(start, end, ("%s°", ["[WEATHER.TEMPERATURE]"]), ink, "(255 * [WEATHER.IS_AVAILABLE])")
-                                         + self._text_on_arc(start, end, "--°", ink, "(255 * (1 - [WEATHER.IS_AVAILABLE]))")))
+                self.parts.append(active(f"seg{i}", draw()
+                                         + self._text_on_arc(start, end, ("%s°", ["[WEATHER.TEMPERATURE]"]), ink, "(255 * [WEATHER.IS_AVAILABLE])", tmid)
+                                         + self._text_on_arc(start, end, "--°", ink, "(255 * (1 - [WEATHER.IS_AVAILABLE]))", tmid)))
                 continue
             if budget.left() < 1:
-                self.notes.append(f"segment {i + 1} ({content}) dropped: no slot left")
-                self.parts.append(active(f"seg{i}", self._arc(start, end, color, color_end, alpha=0.85)))
+                self.notes.append(f"segment {idxs[0] + 1} ({content}) dropped: no slot left")
+                self.parts.append(active(f"seg{i}", draw(alpha=0.85)))
                 continue
             default, provider, system = PROVIDERS[content]
             sid = budget.take()
-            bound = (f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{start:.2f}" '
-                     f'endAngle="{end:.2f}" thickness="{self.T:.1f}"/>')
+            bound = (f'<BoundingArc centerX="225" centerY="225" width="{2 * r_out:.0f}" height="{2 * r_out:.0f}" startAngle="{start:.2f}" '
+                     f'endAngle="{end:.2f}" thickness="{r_out - r_in:.1f}"/>')
             if content in ICONS:
                 # The icon is drawn by the face: drawn by the slot, the watch clipped it.
-                body = f'<Complication type="SMALL_IMAGE">{active(f"seg{i}", self._arc(start, end, color, color_end))}</Complication>'
+                body = f'<Complication type="SMALL_IMAGE">{active(f"seg{i}", draw())}</Complication>'
                 types = "SMALL_IMAGE"
-                cx, cy = pol(self.mid, seg.get("angle", 0))
-                size = max(24, min(36, self.T * 1.1))
+                cx, cy = pol(tmid, lead.get("angle", 0))
+                size = max(24, min(36, (r_out - r_in) * 1.1)) * float(lead.get("iconScale") or 1)
+                self.icons.add(ICONS[content])
                 self.parts.append(active(f"segIcon{i}", f'<PartImage x="{cx - size / 2:.0f}" y="{cy - size / 2:.0f}" width="{size:.0f}" height="{size:.0f}">'
                                                          f'<Image resource="{ICONS[content]}"/></PartImage>'))
+            elif content == "prev":
+                # The app sends the previous and the next prayer as one number (previous minute
+                # * 1440 + next minute); the face works out the time passed from its own clock,
+                # and fills the part as the prayer's time goes by.
+                V = "[COMPLICATION.RANGED_VALUE_VALUE]"
+                now, before, after = "([HOUR_0_23] * 60 + [MINUTE])", f"floor({V} / 1440)", f"({V} % 1440)"
+                passed = f"(({now} - {before} + 1440) % 1440)"
+                window = f"(({after} - {before} + 1440) % 1440)"
+                fraction = f"({passed} / ({window} + 1440 * (1 - clamp({window}, 0, 1))))"
+                m = f"({passed} % 60)"
+                labels = [
+                    (lt(passed, 60), ("مضى %sد", [passed])),
+                    (f"{ge(passed, 60)} * {lt(passed, 120)} * (1 - clamp({m}, 0, 1))", "مضى 1س"),
+                    (f"{ge(passed, 60)} * {lt(passed, 120)} * clamp({m}, 0, 1)", ("مضى 1س %sد", [m])),
+                    (ge(passed, 120), ("مضى %sس", [f"floor({passed} / 60)"])),
+                ]
+                texts = "".join(self._text_on_arc(start, end, lbl, ink, f"(255 * {cond})", tmid) for cond, lbl in labels)
+                types = "RANGED_VALUE"
+                body = f'<Complication type="RANGED_VALUE">{active(f"seg{i}", draw(alpha=0.33, plain=True) + level(fraction) + texts)}</Complication>'
             else:
                 label = ("%s %s", ["[COMPLICATION.TITLE]", "[COMPLICATION.TEXT]"]) if content == "next" else ("%s", ["[COMPLICATION.TEXT]"])
                 other = "SHORT_TEXT" if default == "RANGED_VALUE" else "RANGED_VALUE"
@@ -344,12 +405,12 @@ class Face:
                 bodies = []
                 for t in (default, other):
                     if content in METERS and t == "RANGED_VALUE":
-                        draw = self._arc(start, end, color, None, alpha=0.33) + self._level(start, end, color)
+                        drawn = draw(alpha=0.33, plain=True) + level()
                     else:
-                        draw = self._arc(start, end, color, color_end)
-                    bodies.append(f'<Complication type="{t}">{active(f"seg{i}{t}", draw + self._text_on_arc(start, end, label, ink))}</Complication>')
+                        drawn = draw()
+                    bodies.append(f'<Complication type="{t}">{active(f"seg{i}{t}", drawn + self._text_on_arc(start, end, label, ink, mid=tmid))}</Complication>')
                 body = "".join(bodies)
-            customizable = "TRUE" if seg.get("customizable") else "FALSE"
+            customizable = "TRUE" if lead.get("customizable") else "FALSE"
             self.parts.append(slot(sid, 0, 0, 450, 450, types, provider, default, bound, body,
                                    customizable=customizable, system=system or "EMPTY", ambient=False))
         self.parts.append(ambient_only("ringOutline", f'<PartDraw x="0" y="0" width="450" height="450">{outline}</PartDraw>'))
@@ -358,7 +419,7 @@ class Face:
     def seconds(self):
         # secondsOnEdge: a 3 px line at the very rim, over the background and any ring.
         on_edge = self.s.get("secondsOnEdge", False)
-        r = 223.5 if on_edge else ((225 - self.T - 5) if self.seconds_inside else 217)
+        r = 223.5 if on_edge else ((225 - self.depth - 5) if self.seconds_inside else 217)
         d = 2 * r
         self.parts.append(active("seconds",
                                  f'<PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="{d:.0f}" height="{d:.0f}" startAngle="0" endAngle="360"><Stroke color="{self.sec_track}" thickness="3"/></Arc></PartDraw>'
@@ -406,6 +467,46 @@ class Face:
                                  + f'<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="216" y="216" width="18" height="18"><Fill color="{self.accent}"/></Ellipse></PartDraw>'))
 
 
+def seg_span(seg, count):
+    """A part's start and end angle (start in 0-360)."""
+    half = seg.get("spanDeg", 360 / count - 3) / 2
+    start, end = seg.get("angle", 0) - half, seg.get("angle", 0) + half
+    if start < 0:
+        start, end = start + 360, end + 360
+    return start, end
+
+
+def ring_units(segs):
+    """The ring's parts grouped as slots: one part each, or two merged parts (one on each
+    ring, same angle and length) as one. The outer part leads. Returns (units, notes)."""
+    units, done, notes = [], set(), []
+    for i, g in enumerate(segs):
+        if i in done:
+            continue
+        j = (g.get("mergedWith") or 0) - 1
+        o = segs[j] if 0 <= j < len(segs) and j != i and j not in done else None
+        same = o is not None and (
+            o.get("ring", 1) != g.get("ring", 1)
+            and abs(o.get("spanDeg", 0) - g.get("spanDeg", 0)) <= 0.5
+            and abs((o.get("angle", 0) - g.get("angle", 0) + 180) % 360 - 180) <= 0.5)
+        if same:
+            pair = [i, j] if g.get("ring", 1) == 1 else [j, i]
+            units.append(pair)
+            done.update(pair)
+            continue
+        if g.get("mergedWith"):
+            notes.append(f"segment {i + 1}: not merged (its partner is not the same size on the other ring)")
+        units.append([i])
+        done.add(i)
+    return units, notes
+
+
+def ring_slot_count(spec):
+    """How many slots the ring takes: merged parts count once; empty and temperature parts none."""
+    units, _ = ring_units(spec.get("segments", []))
+    return sum(1 for u in units if spec["segments"][u[0]].get("content", "none") in PROVIDERS)
+
+
 class Budget:
     """Hands out slot ids; Samsung allows eight slots on a face."""
     def __init__(self, first_id=71, limit=8):
@@ -419,6 +520,16 @@ class Budget:
         self.used += 1
         self.next += 1
         return self.next - 1
+
+
+def copy_icons(names, module):
+    """The icons the ring draws, copied from the app into the face where missing."""
+    import shutil
+    folder = os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi")
+    for name in names:
+        dst = os.path.join(folder, name + ".png")
+        if not os.path.exists(dst):
+            shutil.copy(os.path.join(kit.ROOT, "app/src/main/res/drawable", ICON_SOURCES[name] + ".png"), dst)
 
 
 def element(spec, name, default_y, default_scale=1.0):
@@ -444,7 +555,7 @@ def build(spec, module=None, folder="."):
 
     # Plan the eight slots: the date, reading place, prayer row and data segments come first;
     # then the edge icons, the tap on the time and the always-on copy of the prayer row.
-    ring_slots = sum(1 for g in spec.get("segments", []) if g.get("content", "none") not in ("none", "temp")) if f.T > 0 else 0
+    ring_slots = ring_slot_count(spec) if f.T > 0 else 0
     ring_slots = min(ring_slots, 8 - int(show_date) - int(show_pill) - int(show_prayer))
     base = int(show_date) + int(show_pill) + int(show_prayer) + ring_slots
     free = 8 - base
@@ -473,6 +584,8 @@ def build(spec, module=None, folder="."):
     budget.limit = 8 - (int(show_date) + int(show_pill) + int(show_prayer))   # those come first
     f.ring(budget)
     budget.limit = 8
+    if module:
+        copy_icons(f.icons, module)
     inner_r = f.seconds()
     if analog:
         f.dial(inner_r)
