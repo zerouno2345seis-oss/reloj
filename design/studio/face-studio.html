@@ -263,6 +263,13 @@ const FACES={
       {c:"heart",a:180,s:57,col:"#e46a6a",cz:true},{c:"surah",a:240,s:57,col:"#d9b36a"},{c:"next",a:300,s:57,col:"#5aa9e6",cz:true}],
     els:{date:{show:false,y:60,scale:1},pill:{show:false,y:110,scale:.85},time:E(196,.85),prayer:E(286,.85),edges:{show:false,y:219,scale:1}}}
 };
+// «الأوقات الستة»: الحلقة الداخلية للأوقات الستة، والخارجية للاختصارات والمعلومات، والساعة رقمية في الوسط
+FACES.six={ver:1,name:"الأوقات الستة",bg:"plain",clock:"digital",thick:30,thick2:26,fsize:13,secs:true,
+  sty:{gA:"#12302b",gB:"#030807",gT:"radial",tCol:"#f6efe2",soft:"#bfcfc8",acc:"#d9b36a",sCol:"#d9a948",trk:"#ffffff",secMode:"arc",secPos:"ring",secW:2,fnt:"Noto Kufi Arabic, sans-serif",rOp:1},
+  segs:[{c:"hijri",a:0,s:80,col:"#d9b36a"},{c:"battery",a:70,s:44,col:"#3fb58a"},{c:"mushaf",a:115,s:30,col:"#3fb58a",isz:110},
+    {c:"surah",a:180,s:84,col:"#d9b36a"},{c:"bookmarks",a:245,s:30,col:"#d9b36a",isz:110},{c:"date",a:290,s:44,col:"#3fb58a"},
+    {c:"times6",a:0,s:60,col:"#d9a948",fc:"#203a34",tc:"#1a1408",rg:2}],
+  els:{date:{show:false,y:60,scale:1},pill:{show:false,y:120,scale:.85},time:E(196,1.05),prayer:{show:false,y:300,scale:.85},edges:{show:false,y:219,scale:1}}};
 FACES.custom={ver:2,name:"صلاة",bg:"custom",img:MOSQUE,clock:"analog",nums:"12",numSize:22,ticks:false,thick:10,fsize:11,secs:true,
   sty:{gA:"#1e1811",gB:"#080605",gT:"radial",gAng:180,gOver:false,imgOp:.65,tCol:"#faf4ec",soft:"#e1d1bd",acc:"#ffa857",sCol:"#ffbd77",hCol:"#ffffff",mCol:"#ffa857",trk:"#ffffff",nCol:"#faf4ec",kCol:"#faf4ec",fnt:"Noto Kufi Arabic, sans-serif",rOp:1,rSw:false},
   segs:Array.from({length:12},(_,i)=>({c:"none",a:i*30,s:27,col:i%2?"#ffbd77":"#ffa857",cz:i===1||i===3,ce:i===2?"#c07e0c":undefined})),
