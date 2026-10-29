@@ -37,7 +37,7 @@ class ReaderLines(
         val ayahs: IntArray,
         /** Space between neighbouring words after stretching. */
         val gap: Float,
-        /** Drawn width: the full width given, or less for a surah's last line. */
+        /** Drawn width: the full width given, or less for a surah's last line and the basmala. */
         val width: Float,
         /** Verses whose first word is on this line. */
         val begins: IntArray,
@@ -139,7 +139,10 @@ class ReaderLines(
             val row = ArrayList<Word>()
             val begins = ArrayList<Int>()
             var used = 0f
+            var basmala = false
             while (i < words.size) {
+                // The basmala keeps a line of its own: the first verse starts below it.
+                if (row.isNotEmpty() && row.last().ayahIndex < 0 && words[i].ayahIndex >= 0) { basmala = true; break }
                 // A verse mark goes with the word before it, never alone at a line's start.
                 var j = i + 1
                 var group = width(words[i])
@@ -154,7 +157,8 @@ class ReaderLines(
                 used += add
                 i = j
             }
-            lines += justify(row, w, last = i >= words.size, begins.toIntArray())
+            // The basmala is not stretched: it sits in the middle at its own width.
+            lines += justify(row, w, last = basmala || i >= words.size, begins.toIntArray())
         }
         return lines to i
     }

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
+import com.quran.watch8.ui.components.LinePace
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.UpdateChip
 import com.quran.watch8.ui.components.WatchSafeInsets
@@ -65,7 +66,9 @@ fun SettingsScreen(
     val method by viewModel.calculationMethod.collectAsState()
     val readerMode by viewModel.readerMode.collectAsState()
     val lineAuto by viewModel.lineAuto.collectAsState()
-    val lineSpeed by viewModel.lineSpeed.collectAsState()
+    val lineSeconds by viewModel.lineSeconds.collectAsState()
+    val lineSideAlpha by viewModel.lineSideAlpha.collectAsState()
+    val lineClarity by viewModel.lineClarity.collectAsState()
     val usageJson by viewModel.readingUsage.collectAsState()
     val mostUsed = remember(usageJson) { ReadingUsage.top(usageJson, java.time.LocalDate.now()) }
 
@@ -193,7 +196,7 @@ fun SettingsScreen(
             }
 
             // The "line in the middle" style moves on by itself; a finger on the glass holds it.
-            item { SectionLabel("التشغيل التلقائي") }
+            item { SectionLabel("سطر في الوسط") }
             item {
                 ToggleChip(
                     checked = lineAuto,
@@ -205,18 +208,36 @@ fun SettingsScreen(
                 )
             }
             if (lineAuto) {
+                // Seconds each line rests, half a second a step; the long press
+                // in the reader sets it from a juz's reading time instead.
                 item {
-                    Row(
-                        modifier = width
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Color(0xFF151922))
-                            .padding(3.dp)
-                    ) {
-                        LINE_SPEEDS.forEach { (id, name) ->
-                            Segment(name, selected = lineSpeed == id, modifier = Modifier.weight(1f)) { viewModel.setLineSpeed(id) }
-                        }
-                    }
+                    Stepper(
+                        value = LinePace.secondsText(lineSeconds),
+                        label = "لكل سطر",
+                        modifier = width,
+                        onMore = { viewModel.setLineSeconds(lineSeconds + LinePace.LINE_SECONDS_STEP) },
+                        onLess = { viewModel.setLineSeconds(lineSeconds - LinePace.LINE_SECONDS_STEP) }
+                    )
                 }
+            }
+            // How the middle line and the lines around it show in «سطر في الوسط».
+            item {
+                Stepper(
+                    value = ReaderTypography.arabicDigits(Math.round(lineSideAlpha * 100)) + "٪",
+                    label = "ظهور السطور المجاورة",
+                    modifier = width,
+                    onMore = { viewModel.setLineSideAlpha(lineSideAlpha + 0.05f) },
+                    onLess = { viewModel.setLineSideAlpha(lineSideAlpha - 0.05f) }
+                )
+            }
+            item {
+                Stepper(
+                    value = LinePace.clarityName(lineClarity),
+                    label = "وضوح السطر الأوسط",
+                    modifier = width,
+                    onMore = { viewModel.setLineClarity(lineClarity + 1) },
+                    onLess = { viewModel.setLineClarity(lineClarity - 1) }
+                )
             }
 
             item {
@@ -301,7 +322,25 @@ private val READER_MODES = listOf(
     "fill" to "نهر ممتلئ",
 )
 
-private val LINE_SPEEDS = listOf("slow" to "بطيء", "medium" to "متوسط", "fast" to "سريع")
+/** − value + on one rounded bar, as the font size is set. */
+@Composable
+private fun Stepper(value: String, label: String, modifier: Modifier, onMore: () -> Unit, onLess: () -> Unit) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(30.dp))
+            .background(Color(0xFF151922))
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RoundButton("+", onMore)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = Color(0xFF9CA3AF), fontSize = 10.sp)
+        }
+        RoundButton("−", onLess)
+    }
+}
 
 private fun usageDuration(seconds: Long): String {
     val minutes = seconds / 60
@@ -382,22 +421,3 @@ private fun RoundButton(label: String, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun Segment(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (selected) Color(0xFF0F766E) else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(vertical = 7.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            color = if (selected) Color.White else Color(0xFFCBD5E1),
-            fontSize = 12.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            maxLines = 1
-        )
-    }
-}

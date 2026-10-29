@@ -52,6 +52,7 @@ import androidx.wear.compose.material.*
 import com.quran.watch8.data.model.Ayah
 import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.data.repository.QuranRepository
+import com.quran.watch8.ui.components.LinePace
 import com.quran.watch8.ui.components.ReaderLines
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.RepeatOnResumed
@@ -147,7 +148,9 @@ fun QuranReaderScreen(
     val customReaderTextColorHex by viewModel.customReaderTextColor.collectAsState()
     val mode by viewModel.readerMode.collectAsState()
     val lineAuto by viewModel.lineAuto.collectAsState()
-    val lineSpeed by viewModel.lineSpeed.collectAsState()
+    val lineSeconds by viewModel.lineSeconds.collectAsState()
+    val lineSideAlpha by viewModel.lineSideAlpha.collectAsState()
+    val lineClarity by viewModel.lineClarity.collectAsState()
 
     // Keyed on the text having loaded: opening the reader before the 1.6 MB
     // text finished parsing used to leave the page empty.
@@ -342,8 +345,9 @@ fun QuranReaderScreen(
                 key(cacheKey) {
                     when (mode) {
                         "pages" -> PagedReader(d, anchorIndex, textPaint, markPaint, quranTextColor, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, onAt, gestures, checked)
-                        "line" -> LineReader(d, anchorIndex, diameterPx, textPaint, markPaint, lineAuto, lineSpeed,
-                            paused = selectedAyahForAction != null, nextSurah?.nameAr, openNext, onAt, gestures, checked)
+                        "line" -> LineReader(d, anchorIndex, diameterPx, textPaint, markPaint, lineAuto, lineSeconds,
+                            paused = selectedAyahForAction != null, nextSurah?.nameAr, openNext, onAt, gestures, checked,
+                            sideAlpha = lineSideAlpha, clarity = lineClarity)
                         else -> FlowReader(d, anchorIndex, diameterPx, fill = mode != "river", tickPerVerse = mode != "river", textPaint, markPaint, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, onAt, gestures, checked)
                     }
                 }
@@ -384,7 +388,8 @@ fun QuranReaderScreen(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        // Tighter when the juz row is there too, to stay inside the circle.
+                        verticalArrangement = Arrangement.spacedBy(if (mode == "line" && lineAuto) 6.dp else 10.dp)
                     ) {
                     // The surah before this one in the mushaf; the only way back
                     // a surah, so the swipes stay for the list and the place.
@@ -413,6 +418,37 @@ fun QuranReaderScreen(
                             menuTouches++
                             viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
                         }) { Text("+", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                    }
+                    // «سطر في الوسط»: how long this juz takes at the present pace;
+                    // a minute more or less sets the seconds per line to match.
+                    if (mode == "line" && lineAuto) {
+                        val laid = doc
+                        val juz = remember(surahNumber, ayah.verse) { viewModel.juzLength(surahNumber, ayah.verse) }
+                        // Letters to a line, from this surah as it is laid out now.
+                        val perLine = remember(laid, ayahs) {
+                            if (laid == null || laid.lines.isEmpty()) 0f else ayahs.sumOf { it.text.length }.toFloat() / laid.lines.size
+                        }
+                        val minutes = LinePace.juzMinutes(juz.second, perLine, lineSeconds)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ReaderIconButton(size = 34, onClick = {
+                                menuTouches++
+                                viewModel.setLineSeconds(LinePace.secondsForJuz(juz.second, perLine, max(1, minutes - 1)))
+                            }) { Text("−", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "الجزء ${ReaderTypography.arabicDigits(juz.first)}: ${ReaderTypography.arabicDigits(minutes)} د",
+                                    fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold
+                                )
+                                Text(LinePace.secondsText(lineSeconds) + " للسطر", fontSize = 9.sp, color = Color(0xFFD1D5DB))
+                            }
+                            ReaderIconButton(size = 34, onClick = {
+                                menuTouches++
+                                viewModel.setLineSeconds(LinePace.secondsForJuz(juz.second, perLine, minutes + 1))
+                            }) { Text("+", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                        }
                     }
                     // Settings, centred under «السور».
                     ReaderIconButton(onClick = {
@@ -448,12 +484,6 @@ private fun ReaderGestures.doubleTap(line: ReaderLines.Line?, x: Float) {
     if (mark >= 0) onDoubleTap(mark, true) else onDoubleTap(line.ayahAt(x), false)
 }
 
-/** Milliseconds a line stays in the middle before the next one moves up. */
-private fun lineMillis(speed: String): Long = when (speed) {
-    "slow" -> 6_000L
-    "fast" -> 2_500L
-    else -> 4_000L
-}
 
 /** Pixels in one bezel detent. */
 @Composable
@@ -708,7 +738,8 @@ private fun LineReader(
     textPaint: TextPaint,
     markPaint: TextPaint,
     auto: Boolean,
-    speed: String,
+    /** Seconds each line rests in the middle. */
+    seconds: Float,
     /** Held still from outside, e.g. while the long-press menu is open. */
     paused: Boolean,
     nextName: String?,
@@ -716,10 +747,23 @@ private fun LineReader(
     onAt: (Int) -> Unit,
     gestures: ReaderGestures,
     checked: (Int) -> Boolean,
+    /** Opacity of the lines around the middle one. */
+    sideAlpha: Float,
+    /** How clear the middle line is, see [LinePace.lineCentre]. */
+    clarity: Int,
 ) {
     val lines = doc.lines
     val lh = doc.lineHeight
     val r = diameter / 2f
+    val (centreAlpha, centreStroke) = LinePace.lineCentre(clarity)
+    // The middle line, drawn with a stroke around its letters when asked for.
+    val centrePaint = remember(textPaint, centreStroke) {
+        if (centreStroke <= 0f) textPaint else TextPaint(textPaint).apply {
+            style = Paint.Style.FILL_AND_STROKE
+            strokeWidth = textSize * centreStroke
+            strokeJoin = Paint.Join.ROUND
+        }
+    }
     val lastIndex = max(0, lines.size - 1)
     val pos = remember { Animatable(doc.lineOf(anchorIndex).coerceAtLeast(0).toFloat()) }
     val scope = rememberCoroutineScope()
@@ -746,7 +790,7 @@ private fun LineReader(
     // Moving on by itself, at the chosen pace; at the end, into the next surah.
     // A touch stops it at once, even halfway through a step; on lift it
     // settles on the nearest line and waits a whole line before going on.
-    LaunchedEffect(doc, auto, speed, touching, paused) {
+    LaunchedEffect(doc, auto, seconds, touching, paused) {
         if (!auto || touching || paused) return@LaunchedEffect
         // The bezel or a drag may take the line from under this loop; that
         // only cuts the step short, it must not end the loop.
@@ -762,7 +806,7 @@ private fun LineReader(
             if (pos.value != rest || pos.targetValue != rest) glide(rest, 200)
         }
         while (true) {
-            delay(lineMillis(speed))
+            delay((seconds * 1000).toLong())
             if (current() >= lastIndex) {
                 if (nextName != null) openNext()
                 break
@@ -832,7 +876,9 @@ private fun LineReader(
             for (i in first..last) {
                 val d = i - p
                 val near = max(0f, 1f - abs(d))
-                lines[i].draw(native, size.width / 2f, r + d * lh, lineScale(i, p), 0.28f + 0.72f * near, textPaint, markPaint, checked)
+                val alpha = sideAlpha + (centreAlpha - sideAlpha) * near
+                val paint = if (abs(d) < 0.5f) centrePaint else textPaint
+                lines[i].draw(native, size.width / 2f, r + d * lh, lineScale(i, p), alpha, paint, markPaint, checked)
             }
         }
     }
