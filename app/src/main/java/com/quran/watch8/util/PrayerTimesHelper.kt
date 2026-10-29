@@ -166,6 +166,24 @@ object PrayerTimesHelper {
     fun schedule(prayers: DayPrayers): List<PrayerInfo> =
         listOf(prayers.fajr, prayers.sunrise, prayers.dhuhr, prayers.asr, prayers.maghrib, prayers.isha)
 
+    /** Which of the six times of the schedule is running, when it began, and when the next one begins. */
+    data class SixTimes(val index: Int, val start: Instant, val next: Instant)
+
+    /**
+     * The day as six sections -- the five prayers and sunrise -- for the
+     * face's ring of six. Before today's Fajr the running one is last night's
+     * Isha; after Isha the next one is tomorrow's Fajr.
+     */
+    fun sixTimes(prayers: DayPrayers, now: Instant = Instant.now()): SixTimes {
+        val times = schedule(prayers).map { it.time }
+        val i = times.indexOfLast { !it.isAfter(now) }
+        return when {
+            i < 0 -> SixTimes(5, times[5].minusSeconds(86_400), times[0])
+            i == 5 -> SixTimes(5, times[5], times[0].plusSeconds(86_400))
+            else -> SixTimes(i, times[i], times[i + 1])
+        }
+    }
+
     fun status(prayers: DayPrayers?, now: Instant = Instant.now()): PrayerStatus? {
         if (prayers == null) return null
         val cycle = cycle(prayers)
