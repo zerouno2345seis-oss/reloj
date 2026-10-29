@@ -61,7 +61,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val homeStyle       = prefs.homeStyle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "metro")
     val readerMode      = prefs.readerMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "fill")
     val lineAuto        = prefs.lineAuto.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-    val lineSpeed       = prefs.lineSpeed.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "medium")
+    val lineSeconds     = prefs.lineSeconds.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 4f)
+    val lineSideAlpha   = prefs.lineSideAlpha.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.ui.components.LinePace.DEFAULT_SIDE_ALPHA)
+    val lineClarity     = prefs.lineClarity.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.ui.components.LinePace.DEFAULT_CLARITY)
     val readingUsage    = prefs.readingUsageJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val tilesConfig     = prefs.tilesConfigJson.map { com.quran.watch8.data.model.TileConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.data.model.TileConfig())
     val tilesDisplayMode= prefs.tilesDisplayMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "icons_only")
@@ -215,7 +217,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setHomeStyle(style: String)    { viewModelScope.launch { prefs.setHomeStyle(style) } }
     fun setReaderMode(mode: String)    { viewModelScope.launch { prefs.setReaderMode(mode) } }
     fun setLineAuto(on: Boolean)       { viewModelScope.launch { prefs.setLineAuto(on) } }
-    fun setLineSpeed(speed: String)    { viewModelScope.launch { prefs.setLineSpeed(speed) } }
+    fun setLineSeconds(seconds: Float) { viewModelScope.launch { prefs.setLineSeconds(seconds) } }
+    fun setLineSideAlpha(alpha: Float) { viewModelScope.launch { prefs.setLineSideAlpha(alpha) } }
+    fun setLineClarity(level: Int)     { viewModelScope.launch { prefs.setLineClarity(level) } }
+
+    /** The juz [verse] of [surah] is in, and how many letters of text it holds. */
+    fun juzLength(surah: Int, verse: Int): Pair<Int, Int> {
+        val juz = com.quran.watch8.data.model.Juz.of(surah, verse)
+        return juz to com.quran.watch8.data.model.Juz.verses(juz).sumOf { (s, v) -> quranRepo.getAyah(s, v)?.text?.length ?: 0 }
+    }
     fun addReadingTime(mode: String, font: String, seconds: Long) {
         viewModelScope.launch {
             val today = java.time.LocalDate.now()

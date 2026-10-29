@@ -19,6 +19,7 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.components.WatchIcons
+import com.quran.watch8.ui.components.onSwipeLeft
 import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
@@ -32,7 +33,9 @@ fun QuranScreen(
     viewModel: MainViewModel,
     // A search hit names one ayah; opening its surah at the top made you scroll
     // the whole way down to it.
-    onNavigateToAyah: (surah: Int, ayah: Int) -> Unit = { surah, _ -> onNavigateToReader(surah) }
+    onNavigateToAyah: (surah: Int, ayah: Int) -> Unit = { surah, _ -> onNavigateToReader(surah) },
+    /** A swipe to the left: back to where reading stopped. */
+    onResume: () -> Unit = {}
 ) {
     val lastReading by viewModel.lastReadingPosition.collectAsState()
     val listState = rememberScalingLazyListState()
@@ -51,6 +54,7 @@ fun QuranScreen(
     }
 
     Scaffold(
+        modifier = Modifier.onSwipeLeft(onResume),
         timeText = { TimeText() },
         vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) }

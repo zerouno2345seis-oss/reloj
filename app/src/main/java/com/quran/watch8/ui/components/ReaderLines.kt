@@ -37,7 +37,7 @@ class ReaderLines(
         val ayahs: IntArray,
         /** Space between neighbouring words after stretching. */
         val gap: Float,
-        /** Drawn width: the full width given, or less for a surah's last line. */
+        /** Drawn width: the full width given, or less for a surah's last line and the basmala. */
         val width: Float,
         /** Verses whose first word is on this line. */
         val begins: IntArray,
@@ -63,8 +63,32 @@ class ReaderLines(
             return ayahs.lastOrNull() ?: 0
         }
 
-        /** Draws the line centred on ([cx], [cy]), scaled about that point. */
-        fun draw(canvas: Canvas, cx: Float, cy: Float, scale: Float, alpha: Float, paint: Paint, markPaint: Paint) {
+        /**
+         * The verse whose number mark is under [x] (measured as for [ayahAt]),
+         * or -1 when [x] is on the words. The mark is small, so the hit reaches
+         * half a mark beyond it on either side.
+         */
+        fun markAt(x: Float): Int {
+            var right = width / 2f
+            for (i in texts.indices) {
+                val left = right - widths[i]
+                if (marks[i]) {
+                    val slop = widths[i] / 2f + gap / 2f
+                    if (x >= left - slop && x <= right + slop) return ayahs[i]
+                }
+                right = left - gap
+            }
+            return -1
+        }
+
+        /**
+         * Draws the line centred on ([cx], [cy]), scaled about that point. A
+         * verse for which [checked] is true gets a red tick over its number.
+         */
+        fun draw(
+            canvas: Canvas, cx: Float, cy: Float, scale: Float, alpha: Float, paint: Paint, markPaint: Paint,
+            checked: (Int) -> Boolean = NONE_CHECKED,
+        ) {
             val fm = paint.fontMetrics
             val baseline = -(fm.ascent + fm.descent) / 2f
             canvas.save()
@@ -79,9 +103,23 @@ class ReaderLines(
                 p.textAlign = Paint.Align.RIGHT
                 canvas.drawText(texts[i], right, baseline, p)
                 p.alpha = old
+                if (marks[i] && checked(ayahs[i])) drawTick(canvas, right - widths[i] / 2f, paint.textSize, a)
                 right -= widths[i] + gap
             }
             canvas.restore()
+        }
+
+        /** A red tick centred on [x], over the middle of the line. */
+        private fun drawTick(canvas: Canvas, x: Float, textSize: Float, alpha: Int) {
+            val h = textSize * 0.42f
+            TICK_PAINT.strokeWidth = textSize * 0.11f
+            TICK_PAINT.alpha = alpha
+            val path = android.graphics.Path().apply {
+                moveTo(x - h * 0.5f, 0f)
+                lineTo(x - h * 0.12f, h * 0.38f)
+                lineTo(x + h * 0.55f, -h * 0.45f)
+            }
+            canvas.drawPath(path, TICK_PAINT)
         }
     }
 
@@ -101,7 +139,10 @@ class ReaderLines(
             val row = ArrayList<Word>()
             val begins = ArrayList<Int>()
             var used = 0f
+            var basmala = false
             while (i < words.size) {
+                // The basmala keeps a line of its own: the first verse starts below it.
+                if (row.isNotEmpty() && row.last().ayahIndex < 0 && words[i].ayahIndex >= 0) { basmala = true; break }
                 // A verse mark goes with the word before it, never alone at a line's start.
                 var j = i + 1
                 var group = width(words[i])
@@ -116,7 +157,8 @@ class ReaderLines(
                 used += add
                 i = j
             }
-            lines += justify(row, w, last = i >= words.size, begins.toIntArray())
+            // The basmala is not stretched: it sits in the middle at its own width.
+            lines += justify(row, w, last = basmala || i >= words.size, begins.toIntArray())
         }
         return lines to i
     }
@@ -161,6 +203,13 @@ class ReaderLines(
 
     companion object {
         private val LETTER = Regex("[ء-يٮ-ۓ]")
+        internal val NONE_CHECKED: (Int) -> Boolean = { false }
+        internal val TICK_PAINT = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFFEF4444.toInt()
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
 
         /**
          * A surah as words: the basmala (unless [basmala] is null), then each
