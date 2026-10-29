@@ -233,6 +233,39 @@ class PrayerWindowComplicationService : SuspendingComplicationDataSourceService(
     }
 }
 
+/**
+ * The six times of the day -- the five prayers and sunrise -- for a whole
+ * ring on the face, in one slot. value = index * 1440² + start minute * 1440
+ * + next minute (minutes of the day on the watch's clock; under 2²⁴, so exact
+ * as a float); the face fills the running section from its own clock. Text is
+ * the six start times, "HH:mm" in Western digits one space apart, which the
+ * face cuts with subText for each section's label.
+ */
+class PrayerRingComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? =
+        build(type, 2, 12 * 60 + 52, 16 * 60 + 43, "04:35 06:08 12:52 16:43 19:37 20:58")
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val prayers = todaysPrayers() ?: return null
+        val ring = PrayerTimesHelper.sixTimes(prayers)
+        val zone = ZoneId.systemDefault()
+        fun minuteOfDay(t: Instant) = t.atZone(zone).let { it.hour * 60 + it.minute }
+        PrayerClockMode.refreshAt(this, ring.next.toEpochMilli() + 2_000)
+        val starts = PrayerTimesHelper.schedule(prayers).joinToString(" ") {
+            minuteOfDay(it.time).let { m -> "%02d:%02d".format(java.util.Locale.ROOT, m / 60, m % 60) }
+        }
+        return build(request.complicationType, ring.index, minuteOfDay(ring.start), minuteOfDay(ring.next), starts)
+    }
+
+    private fun build(type: ComplicationType, index: Int, start: Int, next: Int, starts: String): ComplicationData? {
+        if (type != ComplicationType.RANGED_VALUE) return null
+        val value = index * 1440 * 1440 + start * 1440 + next
+        return RangedValueComplicationData.Builder(value.toFloat(), 0f, 6f * 1440 * 1440, text(starts))
+            .setText(text(starts)).setTapAction(openRoute("prayer")).build()
+    }
+}
+
 /** Today's date as day/month in Western digits, e.g. "22/10". */
 class GregorianDateComplicationService : SuspendingComplicationDataSourceService() {
 

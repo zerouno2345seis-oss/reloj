@@ -15,6 +15,7 @@ import android.os.Build
 object PrayerClockMode {
     private const val PREFS = "watch_face"
     private const val KEY = "prayer_clock_mode"
+    private const val KEY_REFRESH = "prayer_refresh_at"
     const val COUNT = 3
 
     fun get(context: Context): Int =
@@ -38,6 +39,13 @@ object PrayerClockMode {
      */
     fun refreshAt(context: Context, atMillis: Long) {
         val alarms = context.getSystemService(AlarmManager::class.java) ?: return
+        // One alarm serves every prayer complication, and the ring of six wants
+        // sunrise too: keep the earliest refresh still to come, or the last
+        // service to ask would push sunrise's refresh past it.
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val pending = prefs.getLong(KEY_REFRESH, 0L)
+        if (pending > System.currentTimeMillis() && pending < atMillis) return
+        prefs.edit().putLong(KEY_REFRESH, atMillis).apply()
         val refresh = PendingIntent.getBroadcast(
             context, 1, Intent(context, PrayerClockModeReceiver::class.java).putExtra(EXTRA_REFRESH_ONLY, true),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -57,6 +65,7 @@ class PrayerClockModeReceiver : BroadcastReceiver() {
         if (!intent.getBooleanExtra(PrayerClockMode.EXTRA_REFRESH_ONLY, false)) PrayerClockMode.advance(context)
         requestComplicationUpdate(context, PrayerClockComplicationService::class.java)
         requestComplicationUpdate(context, PrayerWindowComplicationService::class.java)
+        requestComplicationUpdate(context, PrayerRingComplicationService::class.java)
         requestComplicationUpdate(context, GregorianDateComplicationService::class.java)
     }
 }

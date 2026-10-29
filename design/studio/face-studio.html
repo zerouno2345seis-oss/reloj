@@ -223,13 +223,20 @@ const CONTENT={
   mushaf:{name:"أيقونة المصحف",text:"📖",frac:null,icon:true},bookmarks:{name:"أيقونة الإشارات",text:"🔖",frac:null,icon:true},
   next:{name:"الصلاة القادمة",text:"الفجر 04:32 · متبقي 4س",frac:.25},prev:{name:"مضى على الصلاة",text:"مضى 3س",frac:.4},
   settings:{name:"أيقونة الإعدادات",text:"⚙",frac:null,icon:true},
+  times6:{name:"الأوقات الستة (الحلقة كلها)",text:"",frac:null,six:true},
   none:{name:"فارغ",text:"",frac:null}
 };
 // مجموعات قائمة المحتوى: ما هو موجود فعلًا في التطبيق فقط
 const CGROUPS=[["عام",["none"]],["الساعة",["battery","temp","date","hijri","steps","heart"]],
-  ["المصحف",["surah","khatma","mushaf","bookmarks"]],["الصلاة",["next","prev"]],["اختصارات التطبيق",["settings"]]];
+  ["المصحف",["surah","khatma","mushaf","bookmarks"]],["الصلاة",["next","prev","times6"]],["اختصارات التطبيق",["settings"]]];
 const partnerOf=(s,i)=>{const g=s.segs[i];if(!g||!g.mg)return -1;return s.segs.findIndex((o,j)=>j!==i&&o.mg===g.mg)};
 const isFixed=g=>!!(g.pin||g.mg);
+// «الأوقات الستة» تملأ حلقتها كلها بستة أقسام متساوية من خانة واحدة؛ المواقيت هنا أمثلة للعرض
+const SIXT=[["الفجر",275],["الشروق",368],["الظهر",772],["العصر",1003],["المغرب",1177],["العشاء",1258]];
+function sixLeads(s){const o={};s.segs.forEach((g,i)=>{if(g.c==="times6"&&o[g.rg||1]===undefined)o[g.rg||1]=i});return o}
+function sixNow(){const d=new Date(),m=d.getHours()*60+d.getMinutes();let c=5;SIXT.forEach(([,t],i)=>{if(m>=t)c=i});if(m<SIXT[0][1])c=5;
+  const st=SIXT[c][1],nx=SIXT[(c+1)%6][1],len=((nx-st)%1440+1440)%1440,ps=((m-st)%1440+1440)%1440;return{c,f:ps/len}}
+function setContent(g,v){g.c=v;if(v==="times6"){if(g.mg)S().segs.forEach(o=>{if(o!==g&&o.mg===g.mg)o.mg=null});g.mg=null;g.pin=false}}
 function syncMerged(s){const done=new Set();s.segs.forEach((g,i)=>{if(!g.mg||done.has(g.mg))return;const j=partnerOf(s,i);if(j<0){g.mg=null;return}
   const m=(typeof sel!=="undefined"&&sel===j)?j:i,o=m===i?j:i,M=s.segs[m],O=s.segs[o];["a","s","c","col","ce","tc","cz","pin","isz"].forEach(k=>{O[k]=M[k]});done.add(g.mg)})}
 const CSRC=k=>{for(const[n,l]of CGROUPS)if(l.includes(k))return n;return null};
@@ -326,13 +333,24 @@ function draw(){
     if(Y.gOver&&(s.bg==="custom"||s.bg==="photo"))el("circle",{cx:C,cy:C,r:219,fill:"url(#bgG)"});
     if(s.bg==="arch"||s.bg==="photo")el("path",{d:"M139 330 V205 Q139 120 219 92 Q299 120 299 205 V330",fill:"none",stroke:"#d9b36a","stroke-opacity":.18,"stroke-width":2});
   }
-  curTag="seg";
+  curTag="seg";const six=sixLeads(s);
   s.segs.forEach((g,i)=>{
     const tk=g.rg===2?th2:th,rM=g.rg===2?R_OUT-th-3-th2/2:rMid;
+    if(six[g.rg||1]!==undefined&&six[g.rg||1]!==i)return;
     const cont=CONTENT[g.c]||CONTENT.none,a0=g.a-g.s/2,a1=g.a+g.s/2,bottom=norm(g.a)>90&&norm(g.a)<270;const pj=partnerOf(s,i),skipTxt=pj>=0&&(g.rg||1)===2,rT=pj>=0&&(g.rg||1)===1?(rM+(R_OUT-th-3-th2/2))/2:rM;
     const grp=el("g",{tabindex:0,role:"button","aria-label":"الجزء "+(i+1)+": "+cont.name,style:"cursor:pointer"});
     grp.addEventListener("click",()=>{sel=i;draw();ui()});
     grp.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();sel=i;draw();ui()}});
+    if(g.c==="times6"){const N=sixNow(),fut=g.fc||"#2a3a35";
+      SIXT.forEach(([nm,t],k)=>{const b0=k*60-30+1.5,b1=k*60+30-1.5,bt=norm(k*60)>90&&norm(k*60)<270;
+        if(aod){if(A.ring)el("path",{d:arcPath(rM,b0,b1),stroke:g.col,"stroke-opacity":A.ringOp,"stroke-width":tk-2,fill:"none"},grp);return}
+        el("path",{d:arcPath(rM,b0,b1),stroke:k<N.c?g.col:fut,"stroke-opacity":STY(s).rOp,"stroke-width":tk,fill:"none"},grp);
+        if(k===N.c)el("path",{d:arcPath(rM,b0,b0+(b1-b0)*N.f),stroke:g.col,"stroke-width":tk,fill:"none"},grp);
+        const id="tp"+i+"s"+k;el("path",{id,d:arcPath(bt?rM+fs*.36:rM-fs*.36,b0,b1,bt),fill:"none"},grp);
+        const tx=el("text",{"font-family":STY(s).fnt,"font-size":fs,"font-weight":600,fill:k<N.c?(g.tc||"#1a1408"):"#fff","text-anchor":"middle"},grp);
+        el("textPath",{href:"#"+id,startOffset:"50%"},tx).textContent=nm+" "+pad(Math.floor(t/60))+":"+pad(t%60)});
+      if(i===sel&&!aod)el("path",{d:arcPath(R_OUT-tk,0,359.9),stroke:"#fff","stroke-width":1.5,fill:"none"},grp);
+      return}
     if(aod){if(A.ring)el("path",{d:arcPath(rM,a0,a1),stroke:g.col,"stroke-opacity":A.ringOp,"stroke-width":tk-2,fill:"none"},grp);return}
     const solid=cont.frac==null;
     let strokeC=g.col;if(g.ce){const[x0,y0]=pt(rM,a0),[x1,y1]=pt(rM,a1),gid="sg"+i,lg=el("linearGradient",{id:gid,gradientUnits:"userSpaceOnUse",x1:x0,y1:y0,x2:x1,y2:y1},defs);el("stop",{offset:0,"stop-color":g.col},lg);el("stop",{offset:1,"stop-color":g.ce},lg);strokeC="url(#"+gid+")"}
@@ -347,7 +365,7 @@ function draw(){
         el("textPath",{href:"#"+id,startOffset:"50%"},t).textContent=cont.text}
     }
   });
-  if(!aod&&s.segs[sel]){const g=s.segs[sel],rM=g.rg===2?R_OUT-th-3-th2/2:rMid;curTag="seg";
+  if(!aod&&s.segs[sel]&&s.segs[sel].c!=="times6"){const g=s.segs[sel],rM=g.rg===2?R_OUT-th-3-th2/2:rMid;curTag="seg";
     [[0,g.a-g.s/2],[1,g.a+g.s/2]].forEach(([h,a])=>{const[x,y]=pt(rM,a);el("circle",{cx:x,cy:y,r:10,fill:"#e8bc3e",stroke:"#1a1408","stroke-width":2.5,"data-h":h,style:"cursor:grab"})})}
   curTag="time";
   const Ys=STY(s),rRing=R_OUT-th-off-6;secMode=Ys.secMode;
@@ -405,7 +423,7 @@ function tick(){const d=new Date();
     else if(secMode==="dot"){const[x,y]=pt(secR,sc*6);secArc.setAttribute("cx",x);secArc.setAttribute("cy",y)}
     else secArc.setAttribute("transform",`rotate(${sc*6} ${C} ${C})`)}}
 setInterval(tick,matchMedia("(prefers-reduced-motion: reduce)").matches?1000:200);
-function slotCount(s){let n=0;s.segs.forEach((g,i)=>{if(g.c!=="none"&&g.c!=="temp"){const pj=partnerOf(s,i);if(pj>=0&&pj<i)return;n++}});const E=s.els;if(E.date.show)n++;if(E.pill.show)n++;if(E.prayer.show)n++;if(E.time.show&&s.clock!=="analog")n++;if(E.edges.show)n+=2;return n}
+function slotCount(s){let n=0;const six=sixLeads(s);s.segs.forEach((g,i)=>{const r=g.rg||1;if(six[r]!==undefined){if(six[r]===i)n++;return}if(g.c!=="none"&&g.c!=="temp"){const pj=partnerOf(s,i);if(pj>=0&&pj<i)return;n++}});const E=s.els;if(E.date.show)n++;if(E.pill.show)n++;if(E.prayer.show)n++;if(E.time.show&&s.clock!=="analog")n++;if(E.edges.show)n+=2;return n}
 function spec(){const s=S(),Y=STY(s),n=slotCount(s);
   const nb=document.getElementById("slotNote");if(nb){nb.textContent="عدد الخانات المستعملة: "+n+" من 8"+(n>8?" — تجاوزت الحد، لن تُبنى الواجهة":"");nb.style.color=n>8?"#a52635":""}
   const stops=[{color:Y.gA||"#16323a",alpha:1,pos:0},{color:Y.gT==="none"?(Y.gA||"#16323a"):(Y.gB||"#071214"),alpha:1,pos:1}];
@@ -416,7 +434,7 @@ function spec(){const s=S(),Y=STY(s),n=slotCount(s);
   colors:{text:Y.tCol,soft:Y.soft,accent:Y.acc,seconds:Y.sCol,secondsTrack:Y.trk,hourHand:Y.hCol,minuteHand:Y.mCol,secondHand:Y.sCol,numerals:Y.nCol||Y.tCol,ticks:Y.kCol||Y.tCol},
   font:Y.fnt,backgroundImage:(s.bg==="custom"&&s.img)?s.img:null,backgroundImageOpacity:Y.imgOp,backgroundImageScale:Y.imgS,backgroundImageOffsetX:Y.imgX,backgroundImageOffsetY:Y.imgY,secondsOnEdge:Y.secPos==="edge",seconds:{mode:Y.secMode,position:Y.secPos,radius:Math.round(secR),width:Y.secW},hourNumeralStyle:Y.numStyle,hourNumeralRotation:Y.numRot,hourNumeralWeight:+Y.numW,hourNumeralFont:Y.numFnt||Y.fnt,hourNumeralInset:Y.numOff,digitStyle:Y.numStyle==="arabic"?"arabic-indic":"latin",
   ring:{thickness:s.thick,thickness2:s.segs.some(g=>g.rg===2)?(s.thick2||24):null,fontSize:s.fsize,secondsInside:s.secs,opacity:Y.rOp,gradient:{type:Y.rSw?"sweep":"none",stops:s.segs.length?[{color:s.segs[0].col,alpha:1,pos:0},{color:s.segs[0].ce||s.segs[s.segs.length-1].col,alpha:1,pos:1}]:[]}},
-  segments:s.segs.map((g,i)=>({n:i+1,ring:g.rg||1,weight:g.w||1,angle:Math.round(norm(g.a)),spanDeg:g.s,content:g.c,label:CONTENT[g.c].name,source:CSRC(g.c),color:g.col,colorEnd:g.ce||null,textColor:g.tc||null,customizable:!!g.cz,pinned:!!g.pin,mergedWith:partnerOf(s,i)>=0?partnerOf(s,i)+1:null,iconScale:CONTENT[g.c].icon?(g.isz||100)/100:null})),
+  segments:s.segs.map((g,i)=>({n:i+1,ring:g.rg||1,weight:g.w||1,angle:Math.round(norm(g.a)),spanDeg:g.s,content:g.c,label:CONTENT[g.c].name,source:CSRC(g.c),color:g.col,colorEnd:g.ce||null,textColor:g.tc||null,customizable:!!g.cz,pinned:!!g.pin,mergedWith:partnerOf(s,i)>=0?partnerOf(s,i)+1:null,iconScale:CONTENT[g.c].icon?(g.isz||100)/100:null,futureColor:g.c==="times6"?(g.fc||"#2a3a35"):undefined})),
   aod:AOD(s),slotsUsed:n,elements:s.els},null,1)}
 
 function rng(lbl,min,max,step,val,on){const l=document.createElement("label");l.textContent=lbl;const i=document.createElement("input");i.type="range";i.min=min;i.max=max;i.step=step;i.value=val;
@@ -450,7 +468,7 @@ function ui(){
     const n=document.createElement("span");n.className="n";n.textContent=i+1;n.onclick=()=>{sel=i;draw();ui()};
     const sl=document.createElement("select");sl.id="c-"+cur+"-"+i;sl.setAttribute("aria-label","محتوى الجزء "+(i+1));
     fillContent(sl,g.c);
-    sl.onchange=()=>{g.c=sl.value;sel=i;draw();ui()};
+    sl.onchange=()=>{setContent(g,sl.value);sel=i;draw();ui()};
     const ce=document.createElement("input");ce.type="color";ce.value=g.ce||g.col;ce.title="لون النهاية (تدرّج)";ce.setAttribute("aria-label","لون نهاية الجزء "+(i+1));ce.oninput=()=>{g.ce=ce.value;sel=i;draw()};
     const tc=document.createElement("input");tc.type="color";tc.value=g.tc||"#ffffff";tc.title="لون النص";tc.setAttribute("aria-label","لون نص الجزء "+(i+1));tc.oninput=()=>{g.tc=tc.value;sel=i;draw()};
     const col=document.createElement("input");col.type="color";col.value=g.col;col.setAttribute("aria-label","لون الجزء "+(i+1));col.oninput=()=>{g.col=col.value;sel=i;draw()};
@@ -596,17 +614,17 @@ let ringSel=1;
     const g=s.segs[sel];
     if(g&&(g.rg||1)===ringSel){const pc=mk("div","rs-card");pc.append(mk("h3","rs-h","الجزء المختار"));
       const cf=mk("div","rs-field"),cl=mk("label","","المحتوى");cl.htmlFor="rsCont";const cs=mk("select");cs.id="rsCont";
-      fillContent(cs,g.c);cs.onchange=()=>{g.c=cs.value;draw();ui()};cf.append(cl,cs);pc.append(cf);
+      fillContent(cs,g.c);cs.onchange=()=>{setContent(g,cs.value);draw();ui()};cf.append(cl,cs);pc.append(cf);
       const colors=mk("div","rs-colors");
-      [["لون الجزء","col",g.col],["لون نهايته (تدرّج)","ce",g.ce||g.col],["لون الكتابة","tc",g.tc||"#ffffff"]].forEach(([t,k,v])=>{const w=mk("label","rs-color");const i=mk("input");i.type="color";i.value=v;i.oninput=()=>{g[k]=i.value;draw()};w.append(i,mk("span","",t));colors.append(w)});
+      (g.c==="times6"?[["لون ما مضى","col",g.col],["لون ما لم يأتِ","fc",g.fc||"#2a3a35"],["كتابة ما مضى","tc",g.tc||"#1a1408"]]:[["لون الجزء","col",g.col],["لون نهايته (تدرّج)","ce",g.ce||g.col],["لون الكتابة","tc",g.tc||"#ffffff"]]).forEach(([t,k,v])=>{const w=mk("label","rs-color");const i=mk("input");i.type="color";i.value=v;i.oninput=()=>{g[k]=i.value;draw()};w.append(i,mk("span","",t));colors.append(w)});
       pc.append(colors);
-      const lf=slider("rsLen","الطول",8,300,.5,g.s,v=>Math.round(v)+"°",v=>{setLen(ringSel,sel,v);draw()});lf.querySelector(".rs-val").id="rsLenV";if(g.pin)lf.querySelector("input").disabled=true;pc.append(lf);
+      const lf=slider("rsLen","الطول",8,300,.5,g.s,v=>Math.round(v)+"°",v=>{setLen(ringSel,sel,v);draw()});lf.querySelector(".rs-val").id="rsLenV";if(g.pin)lf.querySelector("input").disabled=true;if(g.c!=="times6")pc.append(lf);else pc.append(mk("p","rs-hint","«الأوقات الستة» تملأ هذه الحلقة كلها بستة أقسام متساوية وتأخذ خانة واحدة. أجزاء الحلقة الأخرى لا تظهر ولا تُبنى ما دامت مختارة. المواقيت هنا أمثلة، وعلى الساعة تأتي من التطبيق."));
       if(CONTENT[g.c].icon)pc.append(slider("rsIsz","حجم الأيقونة",50,220,5,g.isz||100,v=>v+"٪",v=>{g.isz=v;draw()}));
       {const pk=mk("label","rs-check");const pb=mk("input");pb.type="checkbox";pb.checked=!!g.pin;pb.onchange=()=>{g.pin=pb.checked;draw();ui()};pk.append(pb,mk("span","","تثبيت هذا الجزء: لا يتحرك ولا يتغيّر طوله، ولا تحرّكه عمليات التدوير أو التوزيع بالتساوي"));pc.append(pk);
-       const pi=partnerOf(s,sel),mb=mk("div","rs-field");mb.append(mk("label","","دمج مع جزء من الحلقة الأخرى (بشرط تساوي الطول)"));
+       const pi=partnerOf(s,sel),mb=mk("div","rs-field");if(g.c!=="times6"){mb.append(mk("label","","دمج مع جزء من الحلقة الأخرى (بشرط تساوي الطول)"));
        if(pi>=0){const o=s.segs[pi];mb.append(mk("p","rs-hint","مدموج مع الجزء "+(pi+1)+" في الحلقة "+((o.rg||1)===2?"الداخلية":"الخارجية")+": يتحركان ويتلوّنان معًا ويُحسبان خانة واحدة."));
          const ub=mk("button","","فك الدمج");ub.type="button";ub.onclick=()=>{g.mg=null;o.mg=null;draw();ui()};mb.append(ub)}
-       else{const other=(g.rg||1)===1?2:1,cand=s.segs.map((o,j)=>({o,j})).filter(x=>(x.o.rg||1)===other);
+       else{const other=(g.rg||1)===1?2:1,cand=s.segs.map((o,j)=>({o,j})).filter(x=>(x.o.rg||1)===other&&x.o.c!=="times6");
          if(!cand.length)mb.append(mk("p","rs-hint","لا توجد أجزاء في الحلقة الأخرى."));
          else{const sl=mk("select");cand.forEach(({o,j})=>{const eq=Math.abs(o.s-g.s)<=.5,op=mk("option","",(j+1)+" · "+CONTENT[o.c].name+" · "+Math.round(o.s*10)/10+"°"+(eq?"":" — طوله مختلف"));op.value=j;if(!eq||o.mg)op.disabled=true;sl.append(op)});
            const free=[...sl.options].find(x=>!x.disabled);if(free)sl.value=free.value;
@@ -617,7 +635,7 @@ let ringSel=1;
            const eqb=mk("button","","طابِق طوله");eqb.type="button";eqb.title="يجعل الجزء المختار في القائمة بطول هذا الجزء إن اتّسع المكان";
            eqb.onclick=()=>{const j=+sl.value||cand[0].j;const o=s.segs[j];if(!o||o.pin||o.mg)return;setLen(other,j,g.s);draw();ui()};
            const row=mk("div","rs-acts");row.append(sl,mgb,eqb);mb.append(row);
-           if(!free)mb.append(mk("p","rs-hint","لا يوجد في الحلقة الأخرى جزء يساوي طول هذا الجزء. اضغط «طابِق طوله» ثم ادمج."))}}
+           if(!free)mb.append(mk("p","rs-hint","لا يوجد في الحلقة الأخرى جزء يساوي طول هذا الجزء. اضغط «طابِق طوله» ثم ادمج."))}}}
        pc.append(mb)}
       const ck=mk("label","rs-check");const cb=mk("input");cb.type="checkbox";cb.checked=!!g.cz;cb.onchange=()=>{g.cz=cb.checked;draw()};ck.append(cb,mk("span","","يمكن تغيير محتواه من الساعة نفسها"));pc.append(ck);
       const pa=mk("div","rs-acts");const del=mk("button","rs-danger","احذف هذا الجزء");del.type="button";del.onclick=()=>{S().segs.splice(sel,1);const L=order(ringSel);sel=L.length?L[0].i:0;draw();ui()};pa.append(del);pc.append(pa);root.append(pc)}

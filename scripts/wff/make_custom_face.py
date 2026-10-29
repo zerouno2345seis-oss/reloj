@@ -24,8 +24,12 @@ o'clock and name a segment's centre. Every key is optional:
   segments            [{"ring" (1 outer, 2 inner), "angle", "spanDeg", "content", "color", "colorEnd",
                         "textColor", "customizable", "iconScale", "mergedWith", "pinned"}]
                       content (the studio's list): none, battery, temp, date, hijri, steps, heart,
-                      surah, khatma, mushaf, bookmarks, next, prev, settings. Any other key is
-                      drawn as an empty part, and the build says so.
+                      surah, khatma, mushaf, bookmarks, next, prev, settings, times6. Any other
+                      key is drawn as an empty part, and the build says so.
+                      times6 takes its whole ring: six equal sections (Fajr centred at 12, then
+                      sunrise, Dhuhr, Asr, Maghrib, Isha), each with its start time, from one
+                      slot. "color" fills the times passed, "futureColor" the ones to come; the
+                      running one fills as its time goes by. Other parts on that ring are left out.
                       iconScale multiplies an icon's size (0.5-2.2). mergedWith is the 1-based
                       number of the part on the other ring at the same angle and length: the two
                       are one slot, as wide as both rings. pinned only matters to the studio.
@@ -66,7 +70,9 @@ PROVIDERS = {
     "hijri": ("SHORT_TEXT", "HijriDateComplicationService", None),
     "prev": ("RANGED_VALUE", "PrayerWindowComplicationService", None),
     "settings": ("SMALL_IMAGE", "SettingsShortcutComplicationService", None),
+    "times6": ("RANGED_VALUE", "PrayerRingComplicationService", None),
 }
+SIX = ("الفجر", "الشروق", "الظهر", "العصر", "المغرب", "العشاء")
 METERS = {"battery", "steps", "khatma"}
 # The face's own copies of the app's icons (app/src/main/res/drawable/img_*.png).
 ICONS = {"bookmarks": "icon_bookmark", "mushaf": "icon_quran", "settings": "icon_settings"}
@@ -323,11 +329,61 @@ class Face:
         """A part's middle radius and thickness: on the outer ring, or on the inner one."""
         return (self.mid2, self.T2) if seg.get("ring", 1) == 2 and self.T2 > 0 else (self.mid, self.T)
 
+    def six_rings(self, segs, budget):
+        """Builds each ring that holds the six times; returns those rings' numbers."""
+        done = set()
+        for ring_no in (1, 2):
+            six = next((g for g in segs if g.get("content") == "times6" and g.get("ring", 1) == ring_no), None)
+            if six is None or (ring_no == 2 and self.T2 <= 0):
+                continue
+            others = [g for g in segs if g.get("ring", 1) == ring_no and g is not six]
+            if any(g.get("content", "none") != "none" for g in others):
+                self.notes.append(f"ring {ring_no}: the six times fill it, so its other parts are left out")
+            done.add(ring_no)
+            if budget.left() < 1:
+                self.notes.append(f"ring {ring_no}: the six times dropped: no slot left")
+                continue
+            self.parts.append(self._six(budget.take(), six, *self.geometry(six)))
+        return done
+
+    def _six(self, sid, seg, mid, width):
+        """One slot, six equal sections: passed, running (filling) and to come."""
+        V = "[COMPLICATION.RANGED_VALUE_VALUE]"
+        now = "([HOUR_0_23] * 60 + [MINUTE])"
+        index, start, after = f"floor({V} / 2073600)", f"(floor({V} / 1440) % 1440)", f"({V} % 1440)"
+        passed = f"(({now} - {start} + 1440) % 1440)"
+        window = f"(({after} - {start} + 1440) % 1440)"
+        fraction = f"({passed} / ({window} + 1440 * (1 - clamp({window}, 0, 1))))"
+        past, future = seg.get("color", "#D9A948"), seg.get("futureColor", "#2A3A35")
+        dark, light = seg.get("textColor") or "#1A1408", "#FFFFFF"
+        draw = ""
+        for i, name in enumerate(SIX):
+            start_a, end_a = i * 60 - 30 + 1.5, i * 60 + 30 - 1.5
+            if start_a < 0:
+                start_a, end_a = start_a + 360, end_a + 360
+            done = f"clamp({index} - {i}, 0, 1)"                 # 1 once this time has passed
+            running = f"(1 - clamp(abs({index} - {i}), 0, 1))"   # 1 while it runs
+            draw += self._arc(start_a, end_a, future, None, 1.0, mid, width)
+            draw += (f'<Group name="six{i}Past" x="0" y="0" width="450" height="450"><Transform target="alpha" value="(255 * {done})"/>'
+                     + self._arc(start_a, end_a, past, None, 1.0, mid, width) + '</Group>')
+            draw += (f'<Group name="six{i}Now" x="0" y="0" width="450" height="450"><Transform target="alpha" value="(255 * {running})"/>'
+                     + self._level(start_a, end_a, past, mid, width, fraction) + '</Group>')
+            label = (name + " %s", [f"subText([COMPLICATION.TEXT], {i * 6}, {i * 6 + 5})"])
+            draw += self._text_on_arc(start_a, end_a, label, dark, f"(255 * {done})", mid)
+            draw += self._text_on_arc(start_a, end_a, label, light, f"(255 * (1 - {done}))", mid)
+        r_out = mid + width / 2
+        bound = (f'<BoundingArc centerX="225" centerY="225" width="{2 * r_out:.0f}" height="{2 * r_out:.0f}" startAngle="0" '
+                 f'endAngle="359.9" thickness="{width:.1f}"/>')
+        body = f'<Complication type="RANGED_VALUE">{active("sixTimes", draw)}</Complication>'
+        return slot(sid, 0, 0, 450, 450, "RANGED_VALUE", "PrayerRingComplicationService", "RANGED_VALUE", bound, body,
+                    customizable="FALSE", ambient=False)
+
     def ring(self, budget):
         segs = self.s.get("segments", [])
         if not segs or self.T <= 0:
             return
-        units, notes = ring_units(segs)
+        six = self.six_rings(segs, budget)
+        units, notes = ring_units(segs, six)
         self.notes += notes
         outline = ""
         for i, idxs in enumerate(units):
@@ -476,10 +532,12 @@ def seg_span(seg, count):
     return start, end
 
 
-def ring_units(segs):
+def ring_units(segs, skip=()):
     """The ring's parts grouped as slots: one part each, or two merged parts (one on each
-    ring, same angle and length) as one. The outer part leads. Returns (units, notes)."""
-    units, done, notes = [], set(), []
+    ring, same angle and length) as one. The outer part leads. Parts on the rings in `skip`
+    (filled by the six times) are left out. Returns (units, notes)."""
+    units, notes = [], []
+    done = {i for i, g in enumerate(segs) if g.get("ring", 1) in skip}
     for i, g in enumerate(segs):
         if i in done:
             continue
@@ -495,16 +553,19 @@ def ring_units(segs):
             done.update(pair)
             continue
         if g.get("mergedWith"):
-            notes.append(f"segment {i + 1}: not merged (its partner is not the same size on the other ring)")
+            notes.append(f"segment {i + 1}: not merged (no partner of the same size on the other ring)")
         units.append([i])
         done.add(i)
     return units, notes
 
 
 def ring_slot_count(spec):
-    """How many slots the ring takes: merged parts count once; empty and temperature parts none."""
-    units, _ = ring_units(spec.get("segments", []))
-    return sum(1 for u in units if spec["segments"][u[0]].get("content", "none") in PROVIDERS)
+    """How many slots the ring takes: merged parts count once; empty and temperature parts none;
+    a ring of the six times one, whatever else was on it."""
+    segs = spec.get("segments", [])
+    six = {g.get("ring", 1) for g in segs if g.get("content") == "times6"}
+    units, _ = ring_units(segs, six)
+    return len(six) + sum(1 for u in units if segs[u[0]].get("content", "none") in PROVIDERS)
 
 
 class Budget:

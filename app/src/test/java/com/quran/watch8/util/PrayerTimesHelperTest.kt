@@ -59,4 +59,24 @@ class PrayerTimesHelperTest {
         assertTrue(status.minutesElapsed >= 0)
         assertTrue(status.minutesRemaining >= 0)
     }
+
+    @Test
+    fun `the six times count sunrise and wrap round the night`() {
+        val prayers = today()
+        val times = PrayerTimesHelper.schedule(prayers).map { it.time }
+
+        val afterSunrise = PrayerTimesHelper.sixTimes(prayers, times[1].plusSeconds(60))
+        assertEquals(1, afterSunrise.index)
+        assertEquals(times[1], afterSunrise.start)
+        assertEquals(times[2], afterSunrise.next)
+
+        val beforeFajr = PrayerTimesHelper.sixTimes(prayers, times[0].minusSeconds(60))
+        assertEquals(5, beforeFajr.index)
+        assertEquals(times[0], beforeFajr.next)
+        assertTrue(beforeFajr.start.isBefore(times[0]))
+
+        val afterIsha = PrayerTimesHelper.sixTimes(prayers, times[5].plusSeconds(60))
+        assertEquals(5, afterIsha.index)
+        assertEquals(times[0].plusSeconds(86_400), afterIsha.next)
+    }
 }
