@@ -293,4 +293,19 @@ object WatchIcons {
             drawPath(star, color = color, style = Fill)
         }
     }
+
+    /** The surah list: three lines, a dot at the start of each (right, as Arabic reads). */
+    @Composable
+    fun SurahList(modifier: Modifier = Modifier.size(24.dp), color: Color = Color.White) {
+        Canvas(modifier = modifier) {
+            val w = size.width
+            val h = size.height
+            val stroke = w * 0.09f
+            for (k in 0..2) {
+                val y = h * (0.25f + 0.25f * k)
+                drawCircle(color, w * 0.07f, Offset(w * 0.80f, y))
+                drawLine(color, Offset(w * 0.15f, y), Offset(w * 0.62f, y), stroke, StrokeCap.Round)
+            }
+        }
+    }
 }

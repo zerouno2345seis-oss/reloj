@@ -182,7 +182,10 @@ class ContinueReadingComplicationService : SuspendingComplicationDataSourceServi
     }
 
     private fun build(type: ComplicationType, surahName: String?, surah: Int, ayah: Int, snippet: String = ""): ComplicationData? {
-        val tap = openRoute(if (surahName != null) "reader/$surah?startAyah=$ayah" else "quran")
+        // "resume" is read when tapped, not when the face last asked for data,
+        // so the tap opens the mushaf where reading stopped even if the face
+        // still shows an older place.
+        val tap = openRoute(if (surahName != null) "resume" else "quran")
         val label = if (surahName != null) "$surahName ${ReaderTypography.arabicDigits(ayah)}" else "المصحف"
         val icon = MonochromaticImage.Builder(Icon.createWithResource(this, R.drawable.img_quran)).build()
         return when (type) {

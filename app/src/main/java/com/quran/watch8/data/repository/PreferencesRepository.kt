@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.quran.watch8.data.model.Bookmark
 import com.quran.watch8.data.model.SavedLocation
+import com.quran.watch8.ui.components.LinePace
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -44,7 +45,10 @@ class PreferencesRepository(private val context: Context) {
         private val HOME_STYLE = stringPreferencesKey("home_style")    // "metro", "dashboard"
         private val READER_MODE = stringPreferencesKey("reader_mode")  // "pages", "river", "line", "fill"
         private val LINE_AUTO = booleanPreferencesKey("reader_line_auto")
-        private val LINE_SPEED = stringPreferencesKey("reader_line_speed") // "slow", "medium", "fast"
+        private val LINE_SPEED = stringPreferencesKey("reader_line_speed") // "slow", "medium", "fast"; read only as the default for LINE_SECONDS
+        private val LINE_SECONDS = floatPreferencesKey("reader_line_seconds")
+        private val LINE_SIDE_ALPHA = floatPreferencesKey("reader_line_side_alpha")
+        private val LINE_CLARITY = intPreferencesKey("reader_line_clarity") // 1..5, see LinePace.lineCentre
         private val READING_USAGE_JSON = stringPreferencesKey("reading_usage_json")
         private val TILES_CONFIG_JSON = stringPreferencesKey("tiles_config_json")
         private val TILES_DISPLAY_MODE = stringPreferencesKey("tiles_display_mode") // "icons_only", "icons_and_text"
@@ -71,7 +75,12 @@ class PreferencesRepository(private val context: Context) {
     val homeStyle: Flow<String> = context.dataStore.data.map { it[HOME_STYLE] ?: "metro" }
     val readerMode: Flow<String> = context.dataStore.data.map { it[READER_MODE] ?: "fill" }
     val lineAuto: Flow<Boolean> = context.dataStore.data.map { it[LINE_AUTO] ?: true }
-    val lineSpeed: Flow<String> = context.dataStore.data.map { it[LINE_SPEED] ?: "medium" }
+    /** Seconds each line rests in the middle; before this setting, the old three speeds. */
+    val lineSeconds: Flow<Float> = context.dataStore.data.map {
+        it[LINE_SECONDS] ?: when (it[LINE_SPEED]) { "slow" -> 6f; "fast" -> 2.5f; else -> 4f }
+    }
+    val lineSideAlpha: Flow<Float> = context.dataStore.data.map { it[LINE_SIDE_ALPHA] ?: LinePace.DEFAULT_SIDE_ALPHA }
+    val lineClarity: Flow<Int> = context.dataStore.data.map { it[LINE_CLARITY] ?: LinePace.DEFAULT_CLARITY }
     val readingUsageJson: Flow<String> = context.dataStore.data.map { it[READING_USAGE_JSON] ?: "" }
     val tilesConfigJson: Flow<String> = context.dataStore.data.map { it[TILES_CONFIG_JSON] ?: "" }
     val tilesDisplayMode: Flow<String> = context.dataStore.data.map { it[TILES_DISPLAY_MODE] ?: "icons_only" }
@@ -141,8 +150,16 @@ class PreferencesRepository(private val context: Context) {
         context.dataStore.edit { it[LINE_AUTO] = on }
     }
 
-    suspend fun setLineSpeed(speed: String) {
-        context.dataStore.edit { it[LINE_SPEED] = speed }
+    suspend fun setLineSeconds(seconds: Float) {
+        context.dataStore.edit { it[LINE_SECONDS] = LinePace.coerceLineSeconds(seconds) }
+    }
+
+    suspend fun setLineSideAlpha(alpha: Float) {
+        context.dataStore.edit { it[LINE_SIDE_ALPHA] = alpha.coerceIn(LinePace.MIN_SIDE_ALPHA, LinePace.MAX_SIDE_ALPHA) }
+    }
+
+    suspend fun setLineClarity(level: Int) {
+        context.dataStore.edit { it[LINE_CLARITY] = level.coerceIn(1, LinePace.MAX_CLARITY) }
     }
 
     /** Read-modify-write in one transaction, so two quick adds never lose one. */

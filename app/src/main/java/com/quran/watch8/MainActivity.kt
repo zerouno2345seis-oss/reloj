@@ -27,6 +27,7 @@ import com.quran.watch8.ui.screens.*
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.QuranWatchTheme
 import com.quran.watch8.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -98,9 +99,23 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
-                    // Back from the first page leaves the app, to the watch face:
-                    // there is no screen of the app's own behind the reader any more.
+                    // Back from the first page leaves the app, to the watch face.
+                    // The reader always has the surah list behind it, so a swipe
+                    // to the right from the reader lands on the list; on the list
+                    // a swipe does nothing (the window's own swipe-to-close is off
+                    // in the theme), and only the buttons leave the app.
                     val leave: () -> Unit = { if (!navController.popBackStack()) finish() }
+                    val scope = rememberCoroutineScope()
+                    // Opens [route] as the first page; a reader goes on top of the list.
+                    fun openFirst(route: String) {
+                        val reader = route.startsWith("reader/")
+                        navController.navigate(if (reader) "quran" else route) { popUpTo(navController.graph.id) { inclusive = true } }
+                        if (reader) navController.navigate(route)
+                    }
+                    // A reader opened from anywhere sits right above the list.
+                    fun openReader(route: String) {
+                        navController.navigate(route) { popUpTo("quran") }
+                    }
 
                     SwipeDismissableNavHost(
                         navController    = navController,
@@ -112,17 +127,24 @@ class MainActivity : ComponentActivity() {
                         composable("start") {
                             LaunchedEffect(Unit) {
                                 if (pendingRoute != null) return@LaunchedEffect
-                                navController.navigate(viewModel.resumeRoute()) { popUpTo("start") { inclusive = true } }
+                                openFirst(viewModel.resumeRoute())
                             }
                         }
 
                         composable("quran") {
                             QuranScreen(
                                 onBack               = leave,
-                                onNavigateToReader   = { surah -> navController.navigate("reader/$surah") },
+                                onNavigateToReader   = { surah -> openReader("reader/$surah") },
                                 onNavigateToBookmarks = { navController.navigate("bookmarks") },
                                 viewModel            = viewModel,
-                                onNavigateToAyah     = { surah, ayah -> navController.navigate("reader/$surah?startAyah=$ayah") }
+                                onNavigateToAyah     = { surah, ayah -> openReader("reader/$surah?startAyah=$ayah") },
+                                // A swipe to the left goes back to where reading stopped, and no further.
+                                onResume             = {
+                                    scope.launch {
+                                        val route = viewModel.resumeRoute()
+                                        if (route.startsWith("reader/")) openReader(route)
+                                    }
+                                }
                             )
                         }
 
@@ -147,7 +169,8 @@ class MainActivity : ComponentActivity() {
                                 onBack      = leave,
                                 viewModel   = viewModel,
                                 onOpenSettings = { navController.navigate("settings") },
-                                onOpenIndex = { navController.navigate("quran") },
+                                // The list is always right behind the reader.
+                                onOpenIndex = { if (!navController.popBackStack("quran", inclusive = false)) openFirst("quran") },
                                 // Previous/next surah replaces this page rather than
                                 // stacking one reader on another for every surah read.
                                 onOpenSurah = { next ->
@@ -161,9 +184,7 @@ class MainActivity : ComponentActivity() {
                         composable("bookmarks") {
                             BookmarksScreen(
                                 onBack = leave,
-                                onOpenAyah = { surah, ayah ->
-                                    navController.navigate("reader/$surah?startAyah=$ayah")
-                                },
+                                onOpenAyah = { surah, ayah -> openReader("reader/$surah?startAyah=$ayah") },
                                 viewModel = viewModel
                             )
                         }
@@ -189,7 +210,7 @@ class MainActivity : ComponentActivity() {
                         // "resume" (the face's mushaf icon and its time): where reading stopped.
                         val route = pendingRoute?.let { if (it == "resume") viewModel.resumeRoute() else it }
                         if (!route.isNullOrBlank()) {
-                            navController.navigate(route) { popUpTo(navController.graph.id) { inclusive = true } }
+                            openFirst(route)
                             pendingRoute = null
                         }
                     }
