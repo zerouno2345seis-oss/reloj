@@ -9,8 +9,9 @@ import java.time.temporal.IsoFields
  * on the watch. Settings shows the most used pair so the owner can see which
  * one he actually reads with before settling on it.
  *
- * Stored as {"week":"2026-W43","seconds":{"fill|default":1800}}; a new week
- * starts from zero.
+ * Stored as {"week":"2026-W43","seconds":{"fill|default":1800},
+ * "day":"2026-10-21","today":600}; a new week starts from zero, and so does
+ * a new day for "today", which the face's reading-minutes slot shows.
  */
 object ReadingUsage {
     data class Top(val mode: String, val font: String, val seconds: Long)
@@ -24,7 +25,16 @@ object ReadingUsage {
         val counts = old?.takeIf { it.optString("week") == week }?.optJSONObject("seconds") ?: JSONObject()
         val key = "$mode|$font"
         counts.put(key, counts.optLong(key) + seconds)
-        return JSONObject().put("week", week).put("seconds", counts).toString()
+        val day = today.toString()
+        val before = old?.takeIf { it.optString("day") == day }?.optLong("today") ?: 0L
+        return JSONObject().put("week", week).put("seconds", counts)
+            .put("day", day).put("today", before + seconds).toString()
+    }
+
+    /** Seconds read on [today], in any style. */
+    fun todaySeconds(json: String, today: LocalDate): Long {
+        val obj = runCatching { JSONObject(json) }.getOrNull() ?: return 0
+        return if (obj.optString("day") == today.toString()) obj.optLong("today") else 0
     }
 
     fun top(json: String, today: LocalDate): Top? {

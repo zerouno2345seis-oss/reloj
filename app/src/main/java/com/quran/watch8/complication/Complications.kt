@@ -28,9 +28,12 @@ import com.quran.watch8.data.model.ArgentinaLocations
 import com.quran.watch8.data.model.SurahMetadata
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.util.HijriDate
+import com.quran.watch8.util.MushafDivisions
 import com.quran.watch8.util.PrayerTimesHelper
+import com.quran.watch8.util.ReadingUsage
 import kotlinx.coroutines.flow.firstOrNull
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
@@ -374,3 +377,165 @@ abstract class ShortcutComplicationService(
 class QuranShortcutComplicationService : ShortcutComplicationService("resume", "المصحف", R.drawable.img_quran)
 class SettingsShortcutComplicationService : ShortcutComplicationService("settings", "الإعدادات", R.drawable.img_settings)
 class BookmarksShortcutComplicationService : ShortcutComplicationService("bookmarks", "الإشارات", R.drawable.img_bookmark)
+
+/** Where reading stopped, as a place in the 604-page mushaf; null the first time. */
+private suspend fun Context.readingPlace(): MushafDivisions.Place? =
+    (applicationContext as QuranWatchApplication).databaseRepository.lastReadingPosition.firstOrNull()
+        ?.let { MushafDivisions.placeOf(it.surah, it.ayahNumber) }
+
+/**
+ * The juz and hizb where reading stopped. The meter is the quarter reached
+ * inside the juz (1..8 of its eight quarters); the long text marks the
+ * quarter the way the mushaf does: ¼, ½ or ¾ before the hizb.
+ */
+class JuzHizbComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? =
+        build(type, MushafDivisions.Place(juz = 15, hizb = 29, quarter = 3, page = 285))
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? =
+        build(request.complicationType, readingPlace() ?: MushafDivisions.placeOf(1, 1))
+
+    private fun build(type: ComplicationType, place: MushafDivisions.Place): ComplicationData? {
+        val juz = text("الجزء ${place.juz}")
+        val hizb = text("الحزب ${place.hizb}")
+        val full = text(longLabel(place))
+        val tap = openRoute("resume")
+        return when (type) {
+            ComplicationType.SHORT_TEXT ->
+                ShortTextComplicationData.Builder(juz, full).setTitle(hizb).setTapAction(tap).build()
+            ComplicationType.LONG_TEXT ->
+                LongTextComplicationData.Builder(full, full).setTapAction(tap).build()
+            ComplicationType.RANGED_VALUE ->
+                RangedValueComplicationData.Builder(quarterInJuz(place).toFloat(), 0f, 8f, full)
+                    .setText(juz).setTitle(hizb).setTapAction(tap).build()
+            else -> null
+        }
+    }
+
+    companion object {
+        /** 1..8: the hizb's half of the juz, then its quarter. */
+        fun quarterInJuz(place: MushafDivisions.Place): Int = ((place.hizb - 1) % 2) * 4 + place.quarter
+
+        /** "الجزء 15 · ½ الحزب 29"; the first quarter of a hizb has no mark. */
+        fun longLabel(place: MushafDivisions.Place): String {
+            val mark = when (place.quarter) { 2 -> "¼ "; 3 -> "½ "; 4 -> "¾ "; else -> "" }
+            return "الجزء ${place.juz} · ${mark}الحزب ${place.hizb}"
+        }
+    }
+}
+
+/** The mushaf page where reading stopped, out of 604; the meter fills with the pages behind. */
+class MushafPageComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? = build(type, 285)
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? =
+        build(request.complicationType, readingPlace()?.page ?: 1)
+
+    private fun build(type: ComplicationType, page: Int): ComplicationData? {
+        val number = text("$page")
+        val title = text("صفحة")
+        val full = text("صفحة $page من ${MushafDivisions.PAGES}")
+        val tap = openRoute("resume")
+        return when (type) {
+            ComplicationType.SHORT_TEXT ->
+                ShortTextComplicationData.Builder(number, full).setTitle(title).setTapAction(tap).build()
+            ComplicationType.LONG_TEXT ->
+                LongTextComplicationData.Builder(full, full).setTapAction(tap).build()
+            ComplicationType.RANGED_VALUE ->
+                RangedValueComplicationData.Builder(page.toFloat(), 0f, MushafDivisions.PAGES.toFloat(), full)
+                    .setText(number).setTitle(title).setTapAction(tap).build()
+            else -> null
+        }
+    }
+}
+
+/**
+ * Minutes read today, in any style; the reader adds them every half minute.
+ * The meter is against an hour, and stays full past it.
+ */
+class ReadingTodayComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? = build(type, 12)
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val json = (applicationContext as QuranWatchApplication).prefsRepository.readingUsageJson.firstOrNull() ?: ""
+        return build(request.complicationType, (ReadingUsage.todaySeconds(json, LocalDate.now()) / 60).toInt())
+    }
+
+    private fun build(type: ComplicationType, minutes: Int): ComplicationData? {
+        val amount = text(PrayerTimesHelper.formatCountdown(minutes))
+        val title = text("اليوم")
+        val full = text("قراءة اليوم ${PrayerTimesHelper.formatCountdown(minutes)}")
+        val tap = openRoute("resume")
+        return when (type) {
+            ComplicationType.SHORT_TEXT ->
+                ShortTextComplicationData.Builder(amount, full).setTitle(title).setTapAction(tap).build()
+            ComplicationType.LONG_TEXT ->
+                LongTextComplicationData.Builder(full, full).setTapAction(tap).build()
+            ComplicationType.RANGED_VALUE ->
+                RangedValueComplicationData.Builder(minutes.coerceAtMost(METER_MINUTES).toFloat(), 0f, METER_MINUTES.toFloat(), full)
+                    .setText(amount).setTitle(title).setTapAction(tap).build()
+            else -> null
+        }
+    }
+
+    companion object {
+        const val METER_MINUTES = 60
+    }
+}
+
+/**
+ * Today's sunrise and sunset. Sunset is the Maghrib time, which every method
+ * the app offers puts at sunset itself. value = sunrise minute * 1440 +
+ * sunset minute (minutes of the day on the watch's clock), so a face can
+ * draw the daylight arc; text is both times "HH:mm HH:mm" in Western digits,
+ * title the name of the one coming next.
+ */
+class SunTimesComplicationService : SuspendingComplicationDataSourceService() {
+
+    override fun getPreviewData(type: ComplicationType): ComplicationData? =
+        build(type, 6 * 60 + 8, 19 * 60 + 37, 12 * 60)
+
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
+        val prayers = todaysPrayers() ?: return null
+        val zone = ZoneId.systemDefault()
+        fun minuteOfDay(t: Instant) = t.atZone(zone).let { it.hour * 60 + it.minute }
+        val now = minuteOfDay(Instant.now())
+        // Wake again just after the next one, so the title turns over on time.
+        val next = if (now < minuteOfDay(prayers.sunrise.time)) prayers.sunrise.time
+            else if (now < minuteOfDay(prayers.maghrib.time)) prayers.maghrib.time else null
+        if (next != null) PrayerClockMode.refreshAt(this, next.toEpochMilli() + 2_000)
+        return build(request.complicationType, minuteOfDay(prayers.sunrise.time), minuteOfDay(prayers.maghrib.time), now)
+    }
+
+    private fun build(type: ComplicationType, sunrise: Int, sunset: Int, now: Int): ComplicationData? {
+        val sunriseFirst = nextIsSunrise(sunrise, sunset, now)
+        val name = text(if (sunriseFirst) "الشروق" else "الغروب")
+        val at = text(hhmm(if (sunriseFirst) sunrise else sunset))
+        val both = text("${hhmm(sunrise)} ${hhmm(sunset)}")
+        val full = text("الشروق ${hhmm(sunrise)} · الغروب ${hhmm(sunset)}")
+        val tap = openRoute("prayer")
+        return when (type) {
+            ComplicationType.SHORT_TEXT ->
+                ShortTextComplicationData.Builder(at, full).setTitle(name).setTapAction(tap).build()
+            ComplicationType.LONG_TEXT ->
+                LongTextComplicationData.Builder(full, full).setTapAction(tap).build()
+            ComplicationType.RANGED_VALUE ->
+                RangedValueComplicationData.Builder(encode(sunrise, sunset).toFloat(), 0f, 1440f * 1440, full)
+                    .setText(both).setTitle(name).setTapAction(tap).build()
+            else -> null
+        }
+    }
+
+    companion object {
+        fun encode(sunrise: Int, sunset: Int): Int = sunrise * 1440 + sunset
+
+        /** After sunset the next one is tomorrow's sunrise. */
+        fun nextIsSunrise(sunrise: Int, sunset: Int, now: Int): Boolean = now < sunrise || now >= sunset
+
+        fun hhmm(minuteOfDay: Int): String =
+            "%02d:%02d".format(java.util.Locale.ROOT, minuteOfDay / 60, minuteOfDay % 60)
+    }
+}
