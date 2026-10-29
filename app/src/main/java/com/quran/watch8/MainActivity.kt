@@ -177,6 +177,12 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("reader/$next") {
                                         popUpTo(back.destination.id) { inclusive = true }
                                     }
+                                },
+                                // Back into the surah before, on its last verse.
+                                onOpenSurahAt = { target, verse ->
+                                    navController.navigate("reader/$target?startAyah=$verse") {
+                                        popUpTo(back.destination.id) { inclusive = true }
+                                    }
                                 }
                             )
                         }

@@ -215,8 +215,8 @@ fun SettingsScreen(
                         value = LinePace.secondsText(lineSeconds),
                         label = "لكل سطر",
                         modifier = width,
-                        onMore = { viewModel.setLineSeconds(lineSeconds + LinePace.LINE_SECONDS_STEP) },
-                        onLess = { viewModel.setLineSeconds(lineSeconds - LinePace.LINE_SECONDS_STEP) }
+                        onMore = { viewModel.setLineSeconds(LinePace.step(lineSeconds, slower = true)) },
+                        onLess = { viewModel.setLineSeconds(LinePace.step(lineSeconds, slower = false)) }
                     )
                 }
             }

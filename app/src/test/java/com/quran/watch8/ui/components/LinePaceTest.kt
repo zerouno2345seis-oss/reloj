@@ -6,8 +6,8 @@ import org.junit.Test
 class LinePaceTest {
     @Test
     fun secondsStayInRangeToATenth() {
-        assertEquals(1f, LinePace.coerceLineSeconds(0.2f))
-        assertEquals(20f, LinePace.coerceLineSeconds(99f))
+        assertEquals(0.2f, LinePace.coerceLineSeconds(0.05f))
+        assertEquals(120f, LinePace.coerceLineSeconds(999f))
         assertEquals(2.5f, LinePace.coerceLineSeconds(2.49f))
     }
 
@@ -24,5 +24,14 @@ class LinePaceTest {
         assertEquals(4f, LinePace.secondsForJuz(60_000, 40f, 100))
         // One minute more slows every line a little.
         assertEquals(4f * 101 / 100, LinePace.secondsForJuz(60_000, 40f, 101), 0.05f)
+    }
+
+    @Test
+    fun stepsNeverStickAndStayInRange() {
+        assertEquals(4.5f, LinePace.step(4f, slower = true))
+        assertEquals(3.6f, LinePace.step(4f, slower = false))
+        assertEquals(0.3f, LinePace.step(0.2f, slower = true))
+        assertEquals(0.2f, LinePace.step(0.2f, slower = false))
+        assertEquals(120f, LinePace.step(120f, slower = true))
     }
 }

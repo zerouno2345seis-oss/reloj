@@ -39,7 +39,11 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -136,7 +140,8 @@ fun QuranReaderScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit = {},
     onOpenIndex: () -> Unit = {},
-    onOpenSurah: (Int) -> Unit = {}
+    onOpenSurah: (Int) -> Unit = {},
+    onOpenSurahAt: (Int, Int) -> Unit = { surah, _ -> onOpenSurah(surah) }
 ) {
     val fontSize by viewModel.fontSize.collectAsState()
     val ayahColorName by viewModel.ayahColor.collectAsState()
@@ -274,6 +279,16 @@ fun QuranReaderScreen(
 
         val nextSurah = SurahMetadata.getSurah(surahNumber + 1).takeIf { surahNumber < 114 }
         val openNext: () -> Unit = { onOpenSurah(surahNumber + 1) }
+        // Backing out of the first page opens the surah before, on its last
+        // verse, so the Quran reads as one long page in both directions.
+        val openPrev: (() -> Unit)? = if (surahNumber > 1) {
+            { onOpenSurahAt(surahNumber - 1, SurahMetadata.getSurah(surahNumber - 1)?.versesCount ?: -1) }
+        } else null
+        // One step slower or faster, from the bezel or the buttons of the menu.
+        val paceStep: (Boolean) -> Unit = { slower ->
+            menuTouches++
+            viewModel.setLineSeconds(LinePace.step(lineSeconds, slower))
+        }
 
         // The verse to open on: the one asked for, then wherever reading has
         // got to, so a change of font or style keeps the reader's place.
@@ -344,11 +359,11 @@ fun QuranReaderScreen(
             } else {
                 key(cacheKey) {
                     when (mode) {
-                        "pages" -> PagedReader(d, anchorIndex, textPaint, markPaint, quranTextColor, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, onAt, gestures, checked)
+                        "pages" -> PagedReader(d, anchorIndex, textPaint, markPaint, quranTextColor, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
                         "line" -> LineReader(d, anchorIndex, diameterPx, textPaint, markPaint, lineAuto, lineSeconds,
-                            paused = selectedAyahForAction != null, nextSurah?.nameAr, openNext, onAt, gestures, checked,
+                            paused = selectedAyahForAction != null, nextSurah?.nameAr, openNext, openPrev, paceStep, onAt, gestures, checked,
                             sideAlpha = lineSideAlpha, clarity = lineClarity)
-                        else -> FlowReader(d, anchorIndex, diameterPx, fill = mode != "river", tickPerVerse = mode != "river", textPaint, markPaint, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, onAt, gestures, checked)
+                        else -> FlowReader(d, anchorIndex, diameterPx, fill = mode != "river", tickPerVerse = mode != "river", textPaint, markPaint, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
                     }
                 }
             }
@@ -419,8 +434,9 @@ fun QuranReaderScreen(
                             viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
                         }) { Text("+", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
                     }
-                    // «سطر في الوسط»: how long this juz takes at the present pace;
-                    // a minute more or less sets the seconds per line to match.
+                    // «سطر في الوسط»: the pace. The bezel sets it (clockwise is
+                    // faster), or the two buttons; a step is about an eighth, with
+                    // no floor or ceiling beyond what nobody would read at.
                     if (mode == "line" && lineAuto) {
                         val laid = doc
                         val juz = remember(surahNumber, ayah.verse) { viewModel.juzLength(surahNumber, ayah.verse) }
@@ -433,21 +449,18 @@ fun QuranReaderScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            ReaderIconButton(size = 34, onClick = {
-                                menuTouches++
-                                viewModel.setLineSeconds(LinePace.secondsForJuz(juz.second, perLine, max(1, minutes - 1)))
-                            }) { Text("−", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                            ReaderPill("أبطأ") { paceStep(true) }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    "الجزء ${ReaderTypography.arabicDigits(juz.first)}: ${ReaderTypography.arabicDigits(minutes)} د",
-                                    fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold
+                                    LinePace.secondsText(lineSeconds) + " للسطر",
+                                    fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold
                                 )
-                                Text(LinePace.secondsText(lineSeconds) + " للسطر", fontSize = 9.sp, color = Color(0xFFD1D5DB))
+                                Text(
+                                    "الجزء ${ReaderTypography.arabicDigits(juz.first)} ≈ ${ReaderTypography.arabicDigits(minutes)} د",
+                                    fontSize = 9.sp, color = Color(0xFFD1D5DB)
+                                )
                             }
-                            ReaderIconButton(size = 34, onClick = {
-                                menuTouches++
-                                viewModel.setLineSeconds(LinePace.secondsForJuz(juz.second, perLine, minutes + 1))
-                            }) { Text("+", fontSize = 16.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                            ReaderPill("أسرع") { paceStep(false) }
                         }
                     }
                     // Settings, centred under «السور».
@@ -504,6 +517,7 @@ private fun PagedReader(
     nextName: String?,
     nextHasBasmala: Boolean,
     openNext: () -> Unit,
+    openPrev: (() -> Unit)?,
     onAt: (Int) -> Unit,
     gestures: ReaderGestures,
     checked: (Int) -> Boolean,
@@ -515,6 +529,25 @@ private fun PagedReader(
     val start = doc.pageOf(anchorIndex).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = start, pageCount = { pageCount })
     val scope = rememberCoroutineScope()
+    var leaving by remember { mutableStateOf(false) }
+    fun leaveBack() { if (!leaving && openPrev != null) { leaving = true; openPrev() } }
+    // A pull down past the first screen carries on into the surah before.
+    var pulled by remember { mutableFloatStateOf(0f) }
+    val pullBack = remember(pagerState) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (pagerState.currentPage == 0 && available.y > 0f) {
+                    pulled += available.y
+                    if (pulled > 90f) leaveBack()
+                }
+                return Offset.Zero
+            }
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                pulled = 0f
+                return Velocity.Zero
+            }
+        }
+    }
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.collectLatest { page ->
@@ -546,12 +579,14 @@ private fun PagedReader(
         ),
         modifier = Modifier
             .fillMaxSize()
+            .nestedScroll(pullBack)
             .onRotaryScrollEvent { event ->
                 rotaryAcc += event.verticalScrollPixels
                 if (abs(rotaryAcc) >= detentPx / 2f && pageCount > 0) {
                     val step = if (rotaryAcc > 0) 1 else -1
                     rotaryAcc = 0f
                     val from = if (pagerState.isScrollInProgress) pagerState.targetPage else pagerState.currentPage
+                    if (step < 0 && from == 0) leaveBack()
                     val to = (from + step).coerceIn(0, pageCount - 1)
                     if (to != from) scope.launch { pagerState.animateScrollToPage(to, animationSpec = tween(180)) }
                 }
@@ -604,6 +639,7 @@ private fun FlowReader(
     nextName: String?,
     nextHasBasmala: Boolean,
     openNext: () -> Unit,
+    openPrev: (() -> Unit)?,
     onAt: (Int) -> Unit,
     gestures: ReaderGestures,
     checked: (Int) -> Boolean,
@@ -622,9 +658,17 @@ private fun FlowReader(
 
     val startLine = doc.lineOf(anchorIndex).coerceAtLeast(0)
     var offset by remember { mutableFloatStateOf((startLine * lh).coerceIn(0f, maxOffset)) }
+    var leaving by remember { mutableStateOf(false) }
+    var pulled by remember { mutableFloatStateOf(0f) }
+    fun leaveBack() { if (!leaving && openPrev != null) { leaving = true; openPrev() } }
     val scrollState = rememberScrollableState { delta ->
         val old = offset
         offset = (offset - delta).coerceIn(0f, maxOffset)
+        // Pulled down past the first line: on into the surah before.
+        if (old <= 0f && delta > 0f) {
+            pulled += delta
+            if (pulled > diameter * 0.2f) leaveBack()
+        } else if (delta < 0f || offset > 0f) pulled = 0f
         old - offset
     }
     val scope = rememberCoroutineScope()
@@ -684,6 +728,7 @@ private fun FlowReader(
             .fillMaxSize()
             .onRotaryScrollEvent { event ->
                 val step = event.verticalScrollPixels / detentPx * lh * 1.5f
+                if (step < 0f && (rotaryTarget ?: offset) <= 1f) leaveBack()
                 val target = ((rotaryTarget ?: offset) + step).coerceIn(0f, maxOffset)
                 rotaryTarget = target
                 scope.launch {
@@ -744,6 +789,9 @@ private fun LineReader(
     paused: Boolean,
     nextName: String?,
     openNext: () -> Unit,
+    openPrev: (() -> Unit)?,
+    /** One step slower (true) or faster, while the long-press menu is open. */
+    onPaceStep: (Boolean) -> Unit,
     onAt: (Int) -> Unit,
     gestures: ReaderGestures,
     checked: (Int) -> Boolean,
@@ -778,7 +826,10 @@ private fun LineReader(
         val fit = ((ReaderLines.chord(r + d * lh, diameter) - diameter * 0.04f) / lines[i].width.coerceAtLeast(1f)).coerceAtMost(1f)
         return max(0.35f, min(fit, 0.78f + 0.22f * near))
     }
+    var leaving by remember { mutableStateOf(false) }
+    fun leaveBack() { if (!leaving && openPrev != null) { leaving = true; openPrev() } }
     fun goTo(index: Int) {
+        if (index < 0 && current() <= 0) { leaveBack(); return }
         val to = index.coerceIn(0, lastIndex)
         scope.launch { pos.animateTo(to.toFloat(), tween(420)) }
     }
@@ -826,7 +877,9 @@ private fun LineReader(
             .onRotaryScrollEvent { event ->
                 rotaryAcc += event.verticalScrollPixels
                 if (abs(rotaryAcc) >= detentPx / 2f) {
-                    goTo(current() + if (rotaryAcc > 0) 1 else -1)
+                    // With the menu open the bezel sets the pace: clockwise is faster.
+                    if (paused && auto) onPaceStep(rotaryAcc < 0)
+                    else if (!paused) goTo(current() + if (rotaryAcc > 0) 1 else -1)
                     rotaryAcc = 0f
                 }
                 true

@@ -6,13 +6,25 @@ package com.quran.watch8.ui.components
  * tested off the watch.
  */
 object LinePace {
-    const val MIN_LINE_SECONDS = 1f
-    const val MAX_LINE_SECONDS = 20f
-    const val LINE_SECONDS_STEP = 0.5f
+    // Wide on purpose: the only limits are the ones nobody would read at.
+    const val MIN_LINE_SECONDS = 0.2f
+    const val MAX_LINE_SECONDS = 120f
+    /** One step of the pace: about an eighth, so it feels the same at 1 s and at 40 s. */
+    const val PACE_FACTOR = 1.12f
 
     /** Seconds per line, to a tenth, within the range. */
     fun coerceLineSeconds(value: Float): Float =
         (Math.round(value * 10f) / 10f).coerceIn(MIN_LINE_SECONDS, MAX_LINE_SECONDS)
+
+    /**
+     * The seconds per line one step slower ([slower]) or faster, always at
+     * least a tenth away so a step never sticks at a small value.
+     */
+    fun step(value: Float, slower: Boolean): Float {
+        val now = coerceLineSeconds(value)
+        val moved = coerceLineSeconds(if (slower) now * PACE_FACTOR else now / PACE_FACTOR)
+        return if (moved != now) moved else coerceLineSeconds(now + if (slower) 0.1f else -0.1f)
+    }
 
     private fun digits(n: Int): String = n.toString().map { '\u0660' + (it - '0') }.joinToString("")
 
