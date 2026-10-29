@@ -218,7 +218,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setLineSpeed(speed: String)    { viewModelScope.launch { prefs.setLineSpeed(speed) } }
     fun addReadingTime(mode: String, font: String, seconds: Long) {
         viewModelScope.launch {
-            prefs.updateReadingUsage { com.quran.watch8.util.ReadingUsage.add(it, mode, font, seconds, java.time.LocalDate.now()) }
+            val today = java.time.LocalDate.now()
+            var newMinute = false
+            prefs.updateReadingUsage { old ->
+                com.quran.watch8.util.ReadingUsage.add(old, mode, font, seconds, today).also {
+                    newMinute = com.quran.watch8.util.ReadingUsage.todaySeconds(old, today) / 60 !=
+                        com.quran.watch8.util.ReadingUsage.todaySeconds(it, today) / 60
+                }
+            }
+            // The face's reading-minutes slot moves on whole minutes only.
+            if (newMinute) com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.ReadingTodayComplicationService::class.java
+            )
         }
     }
     fun setTileConfig(config: com.quran.watch8.data.model.TileConfig) { viewModelScope.launch { prefs.setTilesConfigJson(config.toJson()) } }
@@ -311,6 +322,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             com.quran.watch8.complication.requestComplicationUpdate(
                 appContext, com.quran.watch8.complication.ContinueReadingComplicationService::class.java
             )
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.JuzHizbComplicationService::class.java
+            )
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.MushafPageComplicationService::class.java
+            )
         }
     }
 
@@ -346,6 +363,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             com.quran.watch8.complication.requestComplicationUpdate(
                 appContext, com.quran.watch8.complication.PrayerClockComplicationService::class.java
+            )
+            com.quran.watch8.complication.requestComplicationUpdate(
+                appContext, com.quran.watch8.complication.SunTimesComplicationService::class.java
             )
             com.quran.watch8.util.PrayerAlarmScheduler.scheduleAll(appContext)
         }

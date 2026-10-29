@@ -67,5 +67,6 @@ class PrayerClockModeReceiver : BroadcastReceiver() {
         requestComplicationUpdate(context, PrayerWindowComplicationService::class.java)
         requestComplicationUpdate(context, PrayerRingComplicationService::class.java)
         requestComplicationUpdate(context, GregorianDateComplicationService::class.java)
+        requestComplicationUpdate(context, SunTimesComplicationService::class.java)
     }
 }
