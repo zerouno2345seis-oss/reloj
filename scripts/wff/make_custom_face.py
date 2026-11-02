@@ -512,7 +512,8 @@ class Face:
             customizable = "TRUE" if lead.get("customizable") else "FALSE"
             self.parts.append(slot(sid, 0, 0, 450, 450, types, provider, default, bound, body,
                                    customizable=customizable, system=system or "EMPTY", ambient=False))
-        self.parts.append(ambient_only("ringOutline", f'<PartDraw x="0" y="0" width="450" height="450">{outline}</PartDraw>'))
+        if outline:   # a ring of only the six times has no parts to outline, and an empty PartDraw is invalid
+            self.parts.append(ambient_only("ringOutline", f'<PartDraw x="0" y="0" width="450" height="450">{outline}</PartDraw>'))
 
     # ── seconds, dial, hands ──────────────────────────────────────────────────
     def seconds(self):

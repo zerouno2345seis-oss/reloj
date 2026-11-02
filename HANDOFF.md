@@ -207,3 +207,5 @@ A/B على `SM_L500` عبر `/data/local/tmp/batt.sh` (قراءتا `/proc/<pid>
 - 2026-10-27: studio v2: a designed rings panel (outer/inner switch, ring thickness, font, opacity and rotation, parts strip, chosen part content, three colours and length with the neighbour adjusting, split/even/delete/remove inner, slot counter).
 
 - 2026-11-02: zaher exported «الأوقات الستة» from the studio: design/faces/six.json, module watchface-c-six (package ...watchface.c.six). The tap on the time is dropped: 8 slots are full. Published through the update button; not tried on the watch.
+
+- 2026-11-02: zaher exported «حلقتان»: design/faces/duo.json, module watchface-c-duo. times6 on ring 1 takes the whole ring, so battery, steps and next on that ring are left out by the build. Published; not tried on the watch.
