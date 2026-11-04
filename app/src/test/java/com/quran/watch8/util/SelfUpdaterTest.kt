@@ -19,4 +19,10 @@ class SelfUpdaterTest {
     fun versionComesFromTheTag() {
         assertEquals(140L, SelfUpdater.versionFromTag("v140"))
     }
+
+    @Test
+    fun faceVersionIsTheFacesOwn() {
+        assertEquals(1042L, SelfUpdater.faceVersion("face-com.quran.watch8.watchface.row-v1042.apk"))
+        assertNull(SelfUpdater.faceVersion("build-quran-watch8-v140.apk"))
+    }
 }

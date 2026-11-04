@@ -25,8 +25,12 @@ apk="app/build/outputs/apk/release/app-release.apk"
 cp "$apk" "build-quran-watch8-v${count}.apk"
 assets=("build-quran-watch8-v${count}.apk")
 for face in "${faces[@]}"; do
-  # face-<package>-v<count>.apk: SelfUpdater.facePackage reads the package from the name.
-  name="face-com.quran.watch8.${face//-/.}-v${count}.apk"
+  # face-<package>-v<faceVersion>.apk: SelfUpdater reads the package and the face's own
+  # version from the name, and installs it only when that version is newer than the
+  # watch's. The version counts commits in the face's folder only (its build.gradle.kts),
+  # so an unchanged face keeps its number and is not downloaded again.
+  fv=$((1000 + $(git rev-list --count HEAD -- "$face")))
+  name="face-com.quran.watch8.${face//-/.}-v${fv}.apk"
   cp "$face/build/outputs/apk/release/$face-release.apk" "$name"
   assets+=("$name")
 done

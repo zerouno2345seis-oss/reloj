@@ -5,10 +5,13 @@ plugins {
     id("com.android.application")
 }
 
-val gitCommitCount: Int = providers.exec {
-    commandLine("git", "rev-list", "--count", "HEAD")
+// The face's own version: 1000 + the commits that touched this folder, so a
+// release that leaves the face alone keeps its number and the watch's update
+// button skips it. (1000 keeps it above the old whole-repo counts, ~200.)
+val gitCommitCount: Int = 1000 + (providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD", "--", projectDir.absolutePath)
     isIgnoreExitValue = true
-}.standardOutput.asText.get().trim().toIntOrNull() ?: 1
+}.standardOutput.asText.get().trim().toIntOrNull() ?: 1)
 
 android {
     namespace = "com.quran.watch8.watchface.row"
