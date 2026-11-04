@@ -223,6 +223,12 @@ input[type=color]{border-radius:5px;cursor:pointer}
 textarea{background:#f8fbf9;color:#19332a;border-color:#aabfb1}
 
 .property-bar{overflow:visible!important}.property-select{width:100%;font-size:14px;padding:8px 10px}
+.is-preview{position:relative}.is-preview .preview-head{position:absolute;top:6px;inset-inline:6px;z-index:8;background:transparent!important;border:0!important;padding:0!important;gap:4px!important;flex-wrap:wrap;pointer-events:none}
+.is-preview .preview-head>*{pointer-events:auto}.is-preview .preview-head strong{display:none}
+.is-preview .preview-head select,.is-preview .preview-head .auto-btn{flex:none!important;max-width:118px!important;font-size:11px!important;padding:3px 6px!important;min-height:0!important;height:26px;border-radius:13px!important;background:rgba(255,255,255,.88)!important}.is-preview .preview-head .auto-btn.pin{background:#176747!important;color:#fff!important}
+.is-preview .preview-content{padding:0!important}.is-preview .stage svg#face{width:min(100cqw,100cqh)!important;max-width:none!important;max-height:100cqh!important}
+.auto-pop{position:absolute;top:38px;inset-inline-end:6px;z-index:9;background:#fff;border:1px solid #aabfb1;border-radius:12px;padding:10px 12px;box-shadow:0 10px 28px rgba(25,49,38,.22);display:flex;flex-direction:column;gap:6px;font-size:12px;width:230px;max-height:calc(100% - 46px);overflow:auto}
+.auto-pop[hidden]{display:none}.auto-pop b{font-size:12px;color:#176747;margin-top:4px}.auto-pop label{justify-content:flex-start;gap:6px;font-size:12px}.auto-pop .chips{display:flex;gap:4px;flex-wrap:wrap}.auto-pop .chips button{padding:3px 9px;font-size:12px;border-radius:12px}.auto-pop .chips button.on{background:#176747;color:#fff}
 .auto-btn{flex:none;font-size:12px;padding:6px 10px!important;white-space:nowrap}.auto-btn.pin{background:#176747!important;color:#fff!important;border-color:#176747!important}
 </style>
 <script>
@@ -554,18 +560,26 @@ const PALS=[
  ["#f1e9da","#cbbf9f","#7a4b1d","#2b1d0e","#5e4a33","#2b1d0e","#7a4b1d","#a3402a"]];
 const FONTS=["Noto Kufi Arabic, sans-serif","El Messiri, sans-serif","Reem Kufi, sans-serif","Cairo, sans-serif","Amiri, serif","Changa, sans-serif","Almarai, sans-serif"];
 const rnd=a=>a[Math.floor(Math.random()*a.length)],rr=(a,b,st=1)=>Math.round((a+Math.random()*(b-a))/st)*st;
-function suggest(){const bases=[...BASE].filter(k=>k!=="__auto"),b=rnd(bases),s=clone(FACES[b]),Y=STY(s),[gA,gB,acc,tC,soft,hC,mC,sC]=rnd(PALS);
-  Object.assign(Y,{gA,gB,acc,tCol:tC,soft,hCol:hC,mCol:mC,sCol:sC,nCol:tC,kCol:tC,trk:tC,hubCol:acc,gT:rnd(["radial","radial","linear"]),gAng:rr(0,360,15),fnt:rnd(FONTS),
-    numStyle:rnd(["latin","arabic","roman","latin"]),numRot:rnd(["upright","upright","radial"]),numW:rnd(["400","600","700"]),numOff:rr(0,14),
-    secMode:rnd(["arc","hand","dot"]),secW:rr(2,5,.5),hLen:rr(60,95),hW:rr(5,10,.5),mLen:rr(95,140),mW:rr(3,7,.5),secTail:rr(10,30),hubR:rr(4,9,.5),minorTicks:Math.random()<.6,tickLen:rr(7,16)});
-  s.clock=rnd(["analog","analog","both","digital"]);s.nums=rnd(["12","4","none"]);s.numSize=rr(16,28);s.ticks=Math.random()<.7;s.secs=Math.random()<.85;
-  if(s.bg!=="custom")s.bg=rnd(["plain","plain",s.bg]);
-  const ringCols=[acc,soft,sC,mC];(s.segs||[]).forEach((g,i)=>{g.col=ringCols[i%ringCols.length];g.ce=null;g.tc=gB});
-  s.name="اقتراح تلقائي";s.custom=true;s.basedOn=b;FACES.__auto=clone(s);ST.__auto=s;HIDDEN.delete("__auto");cur="__auto";sel=0;buildTabs();draw();ui();autoUi()}
+// AO: what «تلقائي» may change. clock: which time shapes it may pick; the rest are on/off.
+const AO={clock:{analog:true,digital:true,both:true},from:"base",col:true,font:true,nums:true,hands:true,secs:true,ticks:true,ring:true,bg:true};
+let AUTOC=[],autoI=0;
+function makeSuggestion(){const bases=[...BASE].filter(k=>k!=="__auto"),b=AO.from==="cur"&&cur!=="__auto"?cur:rnd(bases),src=AO.from==="cur"?(cur==="__auto"&&ST.__autoSrc?ST.__autoSrc:S()):FACES[b],s=clone(src),Y=STY(s),[gA,gB,acc,tC,soft,hC,mC,sC]=rnd(PALS);
+  if(AO.col)Object.assign(Y,{gA,gB,acc,tCol:tC,soft,hCol:hC,mCol:mC,sCol:sC,nCol:tC,kCol:tC,trk:tC,hubCol:acc,gT:rnd(["radial","radial","linear"]),gAng:rr(0,360,15)});
+  if(AO.font)Y.fnt=rnd(FONTS);
+  if(AO.nums){Object.assign(Y,{numStyle:rnd(["latin","arabic","roman","latin"]),numRot:rnd(["upright","upright","radial"]),numW:rnd(["400","600","700"]),numOff:rr(0,14)});s.nums=rnd(["12","4","none"]);s.numSize=rr(16,28)}
+  if(AO.hands)Object.assign(Y,{hLen:rr(60,95),hW:rr(5,10,.5),mLen:rr(95,140),mW:rr(3,7,.5),hubR:rr(4,9,.5)});
+  if(AO.secs){Object.assign(Y,{secMode:rnd(["arc","hand","dot"]),secW:rr(2,5,.5),secTail:rr(10,30)});s.secs=Math.random()<.85}
+  if(AO.ticks){Y.minorTicks=Math.random()<.6;Y.tickLen=rr(7,16);s.ticks=Math.random()<.7}
+  const cl=Object.keys(AO.clock).filter(k=>AO.clock[k]);if(cl.length)s.clock=rnd(cl);
+  if(AO.bg&&s.bg!=="custom")s.bg=rnd(["plain","plain",s.bg]);
+  if(AO.ring){const ringCols=[Y.acc,Y.soft,Y.sCol,Y.mCol];(s.segs||[]).forEach((g,i)=>{g.col=ringCols[i%ringCols.length];g.ce=null;g.tc=Y.gB||"#071214"})}
+  s.name="اقتراح تلقائي";s.custom=true;s.basedOn=b;return s}
+function showAuto(i){autoI=i;const s=clone(AUTOC[i]);FACES.__auto=clone(s);ST.__auto=s;cur="__auto";sel=0;buildTabs();draw();ui();autoUi()}
+function suggest(n){if(cur!=="__auto")ST.__autoSrc=clone(S());AUTOC=Array.from({length:n||4},makeSuggestion);showAuto(0)}
 async function pinAuto(){if(cur!=="__auto")return;const nm=await dlg("اسم الواجهة",{input:"واجهة أنيقة",ok:"ثبّت"});if(!nm)return;
   const k="custom"+Date.now(),c=clone(ST.__auto);c.name=nm;FACES[k]=clone(c);ST[k]=c;delete FACES.__auto;delete ST.__auto;try{localStorage.removeItem("faceEd___auto")}catch(e){}cur=k;sel=0;saveCustom();buildTabs();draw();ui();autoUi()}
-function autoUi(){const p=document.getElementById("pinAuto");if(p)p.hidden=cur!=="__auto"}
-document.getElementById("autoFace").onclick=suggest;document.getElementById("pinAuto").onclick=pinAuto;
+function autoUi(){const p=document.getElementById("pinAuto");if(p)p.hidden=cur!=="__auto";const c=document.getElementById("autoChips");if(c){c.replaceChildren(...AUTOC.map((_,i)=>{const b=document.createElement("button");b.type="button";b.textContent=i+1;b.className=cur==="__auto"&&i===autoI?"on":"";b.onclick=()=>showAuto(i);return b}))}}
+document.getElementById("autoFace").onclick=()=>suggest(4);document.getElementById("pinAuto").onclick=pinAuto;
 document.getElementById("unhide").onclick=()=>{HIDDEN.clear();saveHidden();buildTabs();draw();ui()};
 document.getElementById("secs").onchange=e=>{S().secs=e.target.checked;document.getElementById("secsShow").checked=e.target.checked;draw()};
 document.getElementById("bg").onchange=e=>{S().bg=e.target.value;draw()};
@@ -731,7 +745,18 @@ let ringSel=1;
   const faceSelect=document.createElement('select'); faceSelect.className='preview-select'; faceSelect.setAttribute('aria-label','اختيار الواجهة');
   const commandSelect=document.createElement('select'); commandSelect.className='preview-select'; commandSelect.setAttribute('aria-label','إجراءات الواجهة');
   // «تلقائي» and «ثبّت» stay visible beside the face list: they are pressed again and again.
-  const autoBtn=document.createElement('button');autoBtn.type='button';autoBtn.className='auto-btn';autoBtn.textContent='✨ تلقائي';autoBtn.title='اقتراح واجهة جديدة في كل ضغطة';autoBtn.onclick=()=>document.getElementById('autoFace').click();
+  const autoBtn=document.createElement('button');autoBtn.type='button';autoBtn.className='auto-btn';autoBtn.textContent='✨ تلقائي';autoBtn.title='اختر ما يتغيّر ثم اطلب الاقتراحات';
+  const pop=document.createElement('div');pop.className='auto-pop';pop.hidden=true;
+  {const ck=(txt,get,set)=>{const l=document.createElement('label'),i=document.createElement('input');i.type='checkbox';i.checked=get();i.onchange=()=>set(i.checked);l.append(i,txt);return l};
+   const h=t=>{const b=document.createElement('b');b.textContent=t;return b};
+   pop.append(h('شكل الوقت'),ck('عقارب',()=>AO.clock.analog,v=>AO.clock.analog=v),ck('رقمي',()=>AO.clock.digital,v=>AO.clock.digital=v),ck('عقارب ورقمي صغير',()=>AO.clock.both,v=>AO.clock.both=v),
+     h('ابدأ من'),ck('الواجهة المفتوحة الآن (بدل واجهة أساسية عشوائية)',()=>AO.from==='cur',v=>AO.from=v?'cur':'base'),
+     h('ما الذي يتغيّر'),...[['col','الألوان والتدرّج'],['font','الخط'],['nums','أرقام الساعات'],['hands','العقارب (طول وسماكة)'],['secs','الثواني'],['ticks','علامات الدقائق'],['ring','ألوان الحلقة'],['bg','الخلفية']].map(([k,n])=>ck(n,()=>AO[k],v=>AO[k]=v)));
+   const go=document.createElement('button');go.type='button';go.textContent='✨ أعطني 4 اقتراحات';go.onclick=()=>document.getElementById('autoFace').click();
+   const chips=document.createElement('div');chips.className='chips';chips.id='autoChips';
+   const close=document.createElement('button');close.type='button';close.textContent='إغلاق';close.onclick=()=>{pop.hidden=true};
+   pop.append(go,h('الاقتراحات (اضغط رقمًا لتراه)'),chips,close)}
+  autoBtn.onclick=()=>{pop.hidden=!pop.hidden};
   const pinBtn=document.createElement('button');pinBtn.type='button';pinBtn.className='auto-btn pin';pinBtn.textContent='📌 ثبّت';pinBtn.hidden=true;pinBtn.onclick=()=>document.getElementById('pinAuto').click();
   new MutationObserver(()=>{pinBtn.hidden=document.getElementById('pinAuto').hidden}).observe(document.getElementById('pinAuto'),{attributes:true,attributeFilter:['hidden']});
   const commands=[['aod','الشاشة المطفأة'],['dupFace','نسخة'],['reset','افتراضي'],['newFace','جديدة'],['delFace','حذف']];
@@ -762,7 +787,7 @@ let ringSel=1;
       const title=document.createElement('strong'); title.textContent=item==='preview'?'محرّر الواجهات':'أدوات التحرير'; head.append(title);
       const content=document.createElement('div'); content.className='cell-content';
       if(item==='preview'){
-        head.classList.add('preview-head');head.append(faceSelect,commandSelect,autoBtn,pinBtn);
+        head.classList.add('preview-head');head.append(faceSelect,commandSelect,autoBtn,pinBtn);cell.append(pop);
         content.classList.add('preview-content'); content.append(stage);
       } else {
         const selector=document.createElement('select'); selector.setAttribute('aria-label','قائمة أدوات '+positions[index]);
