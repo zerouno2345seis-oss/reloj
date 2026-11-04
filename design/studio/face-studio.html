@@ -260,10 +260,11 @@ const CONTENT={
   next:{name:"الصلاة القادمة",text:"الفجر 04:32 · متبقي 4س",frac:.25},prev:{name:"مضى على الصلاة",text:"مضى 3س",frac:.4},
   settings:{name:"أيقونة الإعدادات",text:"⚙",frac:null,icon:true},
   times6:{name:"الأوقات الستة (الحلقة كلها)",text:"",frac:null,six:true},
+  moon:{name:"قمر زخرفي (غير حي)",text:"☾",frac:null,icon:true},
   none:{name:"فارغ",text:"",frac:null}
 };
 // مجموعات قائمة المحتوى: ما هو موجود فعلًا في التطبيق فقط
-const CGROUPS=[["عام",["none"]],["الساعة",["battery","temp","date","hijri","steps","heart"]],
+const CGROUPS=[["عام",["none","moon"]],["الساعة",["battery","temp","date","hijri","steps","heart"]],
   ["المصحف",["surah","khatma","mushaf","bookmarks"]],["الصلاة",["next","prev","times6"]],["اختصارات التطبيق",["settings"]]];
 const partnerOf=(s,i)=>{const g=s.segs[i];if(!g||!g.mg)return -1;return s.segs.findIndex((o,j)=>j!==i&&o.mg===g.mg)};
 const isFixed=g=>!!(g.pin||g.mg);
@@ -319,11 +320,11 @@ FACES.chrono=LUX({name:"كرونوغراف",clock:"analog",nums:"none",numSize:2
   els:{date:{show:false,y:60,scale:1},pill:{show:false,y:110,scale:.85},time:{show:true,y:200,scale:.6},prayer:{show:false,y:300,scale:.8},edges:{show:false,y:219,scale:1}}});
 FACES.heritage=LUX({name:"التراث",clock:"analog",nums:"12",numSize:24,ticks:true,
   sty:{gA:"#f4ecdc",gB:"#cdbd98",gT:"radial",tCol:"#2a1d0f",soft:"#6a5638",acc:"#8a5a1c",sCol:"#8a5a1c",hCol:"#1f160b",mCol:"#1f160b",nCol:"#2a1d0f",kCol:"#2a1d0f",fnt:"Amiri, serif",numStyle:"roman",numW:"400",secMode:"hand",secW:1.5,tex:"guilloche",texOp:.14,idx:"double",tickLen:10,minorTicks:true,hLen:78,hW:5,mLen:125,mW:3.5,hubR:5,hubCol:"#8a5a1c",bezel:true},
-  pods:{shape:"half",at:"1",r:52,d:150,f:15,rot:0,fill:"#1f160b",op:.08,line:"#8a5a1c",txt:"#2a1d0f",items:["next"]},
+  pods:{shape:"half",at:"1",r:52,d:200,f:15,rot:0,fill:"#1f160b",op:.08,line:"#8a5a1c",txt:"#2a1d0f",items:["next"]},
   els:{date:{show:true,y:150,scale:.7},pill:{show:false,y:110,scale:.85},time:{show:true,y:200,scale:.6},prayer:{show:false,y:300,scale:.8},edges:{show:false,y:219,scale:1}}});
 FACES.halfs=LUX({name:"أنصاف الدوائر",clock:"analog",nums:"none",numSize:20,ticks:true,
   sty:{gA:"#0f2a2a",gB:"#04100f",gT:"radial",tCol:"#f4efe2",soft:"#c8d3cc",acc:"#d9b36a",sCol:"#7fd1b9",hCol:"#ffffff",mCol:"#d9b36a",kCol:"#d9b36a",fnt:"El Messiri, sans-serif",secMode:"dot",secPos:"edge",secW:3,tex:"rosette",texOp:.07,idx:"dot",tickLen:8,minorTicks:false,hLen:70,hW:7,mLen:105,mW:5,hubR:7,hubCol:"#d9b36a"},
-  pods:{shape:"half",at:"4",r:48,d:156,f:15,rot:0,fill:"#d9b36a",op:.16,line:"#d9b36a",txt:"#ffffff",items:["hijri","battery","next","steps"]},
+  pods:{shape:"half",at:"4",r:48,d:200,f:15,rot:0,fill:"#d9b36a",op:.16,line:"#d9b36a",txt:"#ffffff",items:["hijri","battery","next","steps"]},
   els:{date:{show:false,y:60,scale:1},pill:{show:false,y:110,scale:.85},time:{show:true,y:200,scale:.6},prayer:{show:false,y:300,scale:.8},edges:{show:false,y:219,scale:1}}});
 FACES.lcd=LUX({name:"هجين رقمي",clock:"both",nums:"4",numSize:26,ticks:true,
   sty:{gA:"#20242a",gB:"#08090b",gT:"radial",tCol:"#e9eef2",soft:"#9aa6b0",acc:"#7fe0ff",sCol:"#7fe0ff",hCol:"#e9eef2",mCol:"#e9eef2",kCol:"#e9eef2",fnt:"Changa, sans-serif",secMode:"arc",secPos:"edge",secW:3,tex:"grid",texOp:.06,idx:"baton",tickLen:12,minorTicks:true,hLen:80,hW:8,mLen:130,mW:5,hubR:6,hubCol:"#7fe0ff"},
@@ -331,22 +332,60 @@ FACES.lcd=LUX({name:"هجين رقمي",clock:"both",nums:"4",numSize:26,ticks:t
   els:{date:{show:true,y:118,scale:.6},pill:{show:false,y:110,scale:.85},time:{show:true,y:140,scale:.8},prayer:{show:false,y:300,scale:.8},edges:{show:false,y:219,scale:1}}});
 FACES.dash=LUX({name:"لوحة المعلومات",clock:"digital",nums:"none",ticks:false,
   sty:{gA:"#1b1530",gB:"#07050f",gT:"radial",tCol:"#f1ecff",soft:"#b9b0d6",acc:"#c9a7ff",sCol:"#ffcf6e",fnt:"Cairo, sans-serif",secMode:"arc",secPos:"edge",secW:2,tex:"none",texOp:.1},
-  pods:{shape:"circle",at:"8",r:27,d:160,f:11,rot:0,fill:"#c9a7ff",op:.14,line:"#c9a7ff",txt:"#ffffff",items:["battery","steps","heart","temp","next","prev","khatma","hijri"]},
+  pods:{shape:"circle",at:"8",r:36,d:160,f:11,rot:0,fill:"#c9a7ff",op:.14,line:"#c9a7ff",txt:"#ffffff",items:["battery","steps","heart","temp","next","prev","khatma","hijri"]},
   els:{date:{show:true,y:170,scale:.6},pill:{show:false,y:110,scale:.85},time:{show:true,y:205,scale:.7},prayer:{show:false,y:300,scale:.8},edges:{show:false,y:219,scale:1}}});
 FACES.petals=LUX({name:"البتلات",clock:"analog",nums:"none",ticks:false,
   sty:{gA:"#2b0f1a",gB:"#0c0306",gT:"radial",tCol:"#fff0f4",soft:"#dab3bf",acc:"#ffd6a5",sCol:"#ffd6a5",hCol:"#fff0f4",mCol:"#ffd6a5",fnt:"Reem Kufi, sans-serif",secMode:"hand",secW:1.5,tex:"waves",texOp:.06,hLen:72,hW:6,mLen:118,mW:4,hubR:6,hubCol:"#ffd6a5",bezel:true},
   pods:{shape:"petal",at:"6",r:40,d:130,f:12,rot:30,fill:"#ff8fab",op:.18,line:"#ffd6a5",txt:"#fff0f4",items:["next","battery","steps","hijri","heart","khatma"]},
   els:{date:{show:false,y:60,scale:1},pill:{show:false,y:110,scale:.85},time:{show:true,y:200,scale:.6},prayer:{show:false,y:300,scale:.8},edges:{show:false,y:219,scale:1}}});
+// نماذج مستوحاة من صور المستند: تحفظ مستقلة وقابلة للتعديل والحذف.
+const INSPIRED=[
+  ["frost","S4U Frost","chrono","#f7f7f3","#bfc2c5","#997044","#252b30","2h","sunburst"],
+  ["samsung_heritage","Samsung Heritage Classic","heritage","#252a30","#030405","#ec7b26","#f2f4f5","2v","grid"],
+  ["sporty","Samsung Sporty Classic","chrono","#20252b","#030405","#ec7b26","#f2f4f5","4","none"]
+];
+for(const [id,label,base,gA,gB,acc,ink,at,tex] of INSPIRED){
+  const face=JSON.parse(JSON.stringify(FACES[base]));
+  face.name="مستوحاة من "+label;
+  face.nums="none"; face.ticks=true;
+  Object.assign(face.sty,{gA,gB,acc,tCol:ink,soft:ink,hCol:ink,mCol:ink,sCol:acc,nCol:ink,kCol:id==="frost"?"#8d653e":ink,hubCol:acc,tex,idx:"baton",minorTicks:true,secMode:"hand"});
+  Object.assign(face.pods,{shape:"circle",at,fill:id==="frost"?"#9e7449":"#11161d",line:id==="frost"?"#9e7449":"#c8ced2",txt:ink,op:id==="frost"?.32:.65,
+    items:id==="frost"?["steps","battery"]:id==="sporty"?["moon","battery","heart","steps"]:["moon","steps"],
+    r:id==="frost"?65:id==="sporty"?36:43,d:id==="frost"?100:110,f:id==="frost"?14:21});
+  if(id==="frost"){
+    Object.assign(face.sty,{hCol:"#594433",mCol:"#594433",hLen:78,mLen:140,hW:10,mW:8,tickLen:20,secW:1.5,texOp:.05});
+    face.pods.fill="#b9956d"; face.pods.op=.22;
+  }else{
+    Object.assign(face.sty,{hCol:"#f2f4f5",mCol:"#f2f4f5",sCol:"#ee7927",hLen:90,mLen:150,hW:7,mW:5,tickLen:15,secW:2,texOp:id==="sporty"?0:.12});
+    face.pods.txt="#f3f4f5";
+  }
+  // الحقول قيَم معاينة وليست صورًا أو بيانات من الساعة.
+  face.els.date.show=false; face.els.prayer.show=false; face.els.pill.show=false; face.els.edges.show=false;
+  FACES["inspired_"+id]=face;
+}
+// القوالب التي أزيلت من الافتراضيات: تُحفظ نسخها المعدلة بدل محوها.
+const RETIRED_INSPIRED=["milan","royale","davos","assen","mystique","archeus","md313","vero","altum","chrono_hybrid","dx102","shift","rc_one","tomcat","absolut","mac1851","salatik"].map(id=>"inspired_"+id);
 const clone=o=>JSON.parse(JSON.stringify(o));
 const BASE=new Set(Object.keys(FACES));
 const BLANK=()=>({name:"واجهة جديدة",bg:"plain",clock:"digital",thick:24,fsize:16,secs:true,segs:[],
   els:{date:E(60),pill:{show:false,y:120,scale:1},time:E(200),prayer:E(310),edges:{show:false,y:219,scale:1}},custom:true});
-try{const cl=JSON.parse(localStorage.getItem("faceEd_customList")||"[]");cl.forEach(k=>{if(!FACES[k]){let n="";try{n=JSON.parse(localStorage.getItem("faceEd_"+k)||"{}").name||""}catch(e){}FACES[k]=Object.assign(BLANK(),{name:n||k})}})}catch(e){}
-let HIDDEN=new Set();try{HIDDEN=new Set(JSON.parse(localStorage.getItem("faceEd_hidden")||"[]").filter(k=>BASE.has(k)))}catch(e){}
+try{
+  const cl=JSON.parse(localStorage.getItem("faceEd_customList")||"[]");
+  for(const k of RETIRED_INSPIRED){
+    const raw=localStorage.getItem("faceEd_"+k);
+    if(!raw)continue;
+    try{const saved=JSON.parse(raw);if(saved&&typeof saved==="object"&&saved.els&&Array.isArray(saved.segs)){FACES[k]=saved;if(!cl.includes(k))cl.push(k)}}catch(e){}
+  }
+  localStorage.setItem("faceEd_customList",JSON.stringify(cl));
+  cl.forEach(k=>{if(!FACES[k]){let n="";try{n=JSON.parse(localStorage.getItem("faceEd_"+k)||"{}").name||""}catch(e){}FACES[k]=Object.assign(BLANK(),{name:n||k})}})
+}catch(e){}
+let HIDDEN=new Set();try{HIDDEN=new Set(JSON.parse(localStorage.getItem("faceEd_hidden")||"[]").filter(k=>BASE.has(k)||RETIRED_INSPIRED.includes(k)))}catch(e){}
 const saveHidden=()=>{try{localStorage.setItem("faceEd_hidden",JSON.stringify([...HIDDEN]))}catch(e){}};
 const firstVisible=()=>Object.keys(FACES).find(k=>!HIDDEN.has(k));
 const saveCustom=()=>{try{localStorage.setItem("faceEd_customList",JSON.stringify(Object.keys(FACES).filter(k=>!BASE.has(k)&&k!=="__auto")))}catch(e){}};
 let ST={};for(const k in FACES){ST[k]=clone(FACES[k]);try{const s=localStorage.getItem("faceEd_"+k);if(s){const o=JSON.parse(s);if((o.ver||0)===(FACES[k].ver||0))ST[k]=o}}catch(e){}}
+// Upgrade the old untouched default size while preserving other saved sizes.
+if(ST.dash?.pods?.r===27)ST.dash.pods.r=36;
 let cur="row",sel=0,aod=false,elSel="date";try{cur=localStorage.getItem("faceEd_cur")||"row"}catch(e){}
 if(!FACES[cur]||HIDDEN.has(cur))cur=firstVisible()||"row";
 if(location.hash&&FACES[location.hash.slice(1)])cur=location.hash.slice(1);
@@ -355,6 +394,7 @@ for(const k in ST)(ST[k].segs||[]).forEach(g=>{if(!CONTENT[g.c])g.c="none"});
 const S=()=>ST[cur];
 const STY=s=>{s.sty=s.sty||{};const D=({gA:null,gB:null,gT:"radial",tCol:"#ffffff",hCol:"#ffffff",mCol:"#d9b36a",sCol:"#3fb58a",fnt:"Noto Kufi Arabic, sans-serif",rOp:1,imgOp:.6,imgS:1,imgX:0,imgY:0,secEdge:true,gAng:180,gOver:false,soft:"#c9d4ce",acc:"#d9b36a",trk:"#ffffff",nCol:null,kCol:null,rSw:false,numStyle:"latin",numRot:"upright",numW:"700",numFnt:"",numOff:0,secMode:"arc",secPos:null,secR:200,secW:3,hLen:70,hW:7,mLen:105,mW:5,secTail:22,hubR:7,hubCol:"#d9b36a",minorTicks:true,tickLen:10,tex:"none",texOp:.12,idx:"line",bezel:false});for(const k in D)if(s.sty[k]===undefined)s.sty[k]=D[k];if(!s.sty.secPos)s.sty.secPos=s.sty.secEdge?"edge":"ring";return s.sty};
 const PODAT={"4":[0,90,180,270],"3":[90,180,270],"2h":[90,270],"2v":[0,180],"1":[180],"6":[0,60,120,180,240,300],"8":[0,45,90,135,180,225,270,315]};
+const podDistance=p=>p.shape==="half"?Math.sqrt(Math.max(0,C*C-p.r*p.r)):p.d;
 const POD=s=>{s.pods=s.pods||{shape:"none",at:"3",r:36,d:110,f:13,rot:0,fill:"#000000",op:.35,line:"#d9b36a",txt:"#ffffff",items:[]};const p=s.pods;const n=(PODAT[p.at]||[]).length;while(p.items.length<n)p.items.push(["battery","steps","date","heart","next","temp","khatma","hijri"][p.items.length%8]);return p};
 const ROMAN=["","I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
 const fmtNum=(n,st)=>st==="roman"?ROMAN[n]:st==="arabic"?String(n).replace(/\d/g,d=>"٠١٢٣٤٥٦٧٨٩"[d]):String(n);
@@ -416,7 +456,7 @@ function draw(){
     const cont=CONTENT[g.c]||CONTENT.none,a0=g.a-g.s/2,a1=g.a+g.s/2,bottom=norm(g.a)>90&&norm(g.a)<270;const pj=partnerOf(s,i),skipTxt=pj>=0&&(g.rg||1)===2,rT=pj>=0&&(g.rg||1)===1?(rM+(R_OUT-th-3-th2/2))/2:rM;
     const grp=el("g",{tabindex:0,role:"button","aria-label":"الجزء "+(i+1)+": "+cont.name,style:"cursor:pointer"});
     grp.addEventListener("click",()=>{sel=i;draw();ui()});
-    grp.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();sel=i;draw();ui()}});
+    grp.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();grp.dispatchEvent(new MouseEvent("click",{bubbles:true}))}});
     if(g.c==="times6"){const N=sixNow(),fut=g.fc||"#2a3a35";
       SIXT.forEach(([nm,t],k)=>{const b0=k*60-30+1.5,b1=k*60+30-1.5,bt=norm(k*60)>90&&norm(k*60)<270;
         if(aod){if(A.ring)el("path",{d:arcPath(rM,b0,b1),stroke:g.col,"stroke-opacity":A.ringOp,"stroke-width":tk-2,fill:"none"},grp);return}
@@ -449,9 +489,9 @@ function draw(){
   const rS=secMode==="hand"?(Ys.secPos==="ring"?rRing:217.5):secR;
   if(s.secs&&!aod){const sw=Ys.secW;
     if(secMode!=="hand")el("circle",{cx:C,cy:C,r:secR,fill:"none",stroke:Ys.trk,"stroke-opacity":.08*(Ys.trk==="#ffffff"?1:4),"stroke-width":sw});
-    if(secMode==="arc")secArc=el("path",{d:"",stroke:Ys.sCol,"stroke-width":sw,fill:"none","stroke-linecap":"butt"});
-    else if(secMode==="dot")secArc=el("circle",{cx:C,cy:C-secR,r:Math.max(3,sw*1.6),fill:Ys.sCol});
-    else{secArc=el("g",{});el("line",{x1:C,y1:C+Ys.secTail,x2:C,y2:C-secR,stroke:Ys.sCol,"stroke-width":Math.max(1,sw*.7),"stroke-linecap":"round"},secArc);el("circle",{cx:C,cy:C,r:4,fill:Ys.sCol},secArc)}
+    if(secMode==="arc")secArc=el("path",{"data-property":"secMode",d:"",stroke:Ys.sCol,"stroke-width":sw,fill:"none","stroke-linecap":"butt"});
+    else if(secMode==="dot")secArc=el("circle",{"data-property":"secMode",cx:C,cy:C-secR,r:Math.max(3,sw*1.6),fill:Ys.sCol});
+    else{secArc=el("g",{"data-property":"secMode"});el("line",{x1:C,y1:C+Ys.secTail,x2:C,y2:C-secR,stroke:Ys.sCol,"stroke-width":Math.max(1,sw*.7),"stroke-linecap":"round"},secArc);el("circle",{cx:C,cy:C,r:4,fill:Ys.sCol},secArc)}
   }else secArc=null;
   const Y=STY(s),E=s.els,dim=aod?A.dim:Y.soft,bright=aod?A.bright:Y.tCol;
   // dial finish: a light engraved pattern over the background
@@ -481,13 +521,14 @@ function draw(){
   }
   // pods: sub-dials, half circles, windows, drops or petals, each holding one content
   curTag="pods";
-  {const p=POD(s);if(p.shape!=="none"&&!aod){(PODAT[p.at]||[]).forEach((a0,i)=>{const a=a0+(p.rot||0),[x,y]=pt(p.d,a),r=p.r,k=p.items[i]||"none",g=el("g",{});
+  {const p=POD(s);if(p.shape!=="none"&&!aod){(PODAT[p.at]||[]).forEach((a0,i)=>{const a=a0+(p.rot||0),distance=podDistance(p),[x,y]=pt(distance,a),r=p.r,k=p.items[i]||"none",g=el("g",{"data-pod":i,tabindex:0,role:"button","aria-label":"العداد "+(i+1)+": "+(CONTENT[k]?.name||"فارغ"),style:"cursor:pointer"});
+    g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();g.dispatchEvent(new MouseEvent("click",{bubbles:true}))}});
     const st={fill:p.fill,"fill-opacity":p.op,stroke:p.line,"stroke-width":1.6};
     if(p.shape==="circle"){el("circle",Object.assign({cx:x,cy:y,r},st),g);for(let m=0;m<12;m++){const q=m*30*Math.PI/180;el("line",{x1:x+Math.sin(q)*(r-2),y1:y-Math.cos(q)*(r-2),x2:x+Math.sin(q)*(r-(m%3?5:8)),y2:y-Math.cos(q)*(r-(m%3?5:8)),stroke:p.line,"stroke-width":m%3?.8:1.6,"stroke-opacity":.8},g)}}
-    else if(p.shape==="half"){// flat side toward the centre, round side toward the rim
-      const ux=(x-C)/p.d,uy=(y-C)/p.d,lx=x-uy*r,ly=y+ux*r,rx=x+uy*r,ry=y-ux*r;el("path",Object.assign({d:`M${lx} ${ly}A${r} ${r} 0 0 0 ${rx} ${ry}Z`},st),g);
-      // the label sits inside the half, a little toward its round side
-      const tx=x+ux*r*.42,ty=y+uy*r*.42,tt=CONTENT[k]?CONTENT[k].text:"";el("text",{x:tx,y:ty,"text-anchor":"middle","dominant-baseline":"central","font-size":Math.min(p.f,r*2.6/Math.max(1,tt.length)),"font-weight":700,fill:p.txt,"font-family":Y.fnt}).textContent=CONTENT[k]?CONTENT[k].text:"";return}
+    else if(p.shape==="half"){// flat edge toward the rim; rounded half extends toward the centre
+      const ux=(x-C)/distance,uy=(y-C)/distance,lx=x-uy*r,ly=y+ux*r,rx=x+uy*r,ry=y-ux*r;el("path",Object.assign({d:`M${lx} ${ly}A${r} ${r} 0 0 1 ${rx} ${ry}Z`},st),g);
+      // Keep the label inside the inward-facing half.
+      const tx=x-ux*r*.42,ty=y-uy*r*.42,tt=CONTENT[k]?CONTENT[k].text:"";el("text",{x:tx,y:ty,"text-anchor":"middle","dominant-baseline":"central","font-size":Math.min(p.f,r*2.6/Math.max(1,tt.length)),"font-weight":700,fill:p.txt,"font-family":Y.fnt},g).textContent=CONTENT[k]?CONTENT[k].text:"";return}
     else if(p.shape==="square"){el("rect",Object.assign({x:x-r*1.3,y:y-r*.62,width:r*2.6,height:r*1.24,rx:r*.18},st),g)}
     else if(p.shape==="drop"){el("path",Object.assign({d:`M${x} ${y-r}C${x+r} ${y-r*.2} ${x+r*.7} ${y+r} ${x} ${y+r}C${x-r*.7} ${y+r} ${x-r} ${y-r*.2} ${x} ${y-r}Z`,transform:`rotate(${a+180} ${x} ${y})`},st),g)}
     else if(p.shape==="petal"){el("ellipse",Object.assign({cx:x,cy:y,rx:r*.62,ry:r,transform:`rotate(${a} ${x} ${y})`},st),g)}
@@ -509,8 +550,8 @@ function draw(){
     const k=E.time.scale,y=E.time.y;
     if(s.clock!=="analog")timeEl=el("text",{x:C,y:y+(s.clock==="both"?34*k:30*k),"text-anchor":"middle","font-family":STY(s).fnt,"font-weight":700,"font-size":(s.clock==="both"?30:88)*k,fill:bright,style:"font-variant-numeric:tabular-nums"});
     if(s.clock!=="digital"){
-      hH=el("line",{x1:C,y1:C,x2:C,y2:C-Y.hLen,stroke:aod?bright:Y.hCol,"stroke-width":Y.hW,"stroke-linecap":"round"});
-      hM=el("line",{x1:C,y1:C,x2:C,y2:C-Y.mLen,stroke:aod?bright:Y.mCol,"stroke-width":Y.mW,"stroke-linecap":"round"});
+      hH=el("line",{"data-property":"hLen",x1:C,y1:C,x2:C,y2:C-Y.hLen,stroke:aod?bright:Y.hCol,"stroke-width":Y.hW,"stroke-linecap":"round"});
+      hM=el("line",{"data-property":"mLen",x1:C,y1:C,x2:C,y2:C-Y.mLen,stroke:aod?bright:Y.mCol,"stroke-width":Y.mW,"stroke-linecap":"round"});
       if(Y.hubR>0)el("circle",{cx:C,cy:C,r:Y.hubR,fill:Y.hubCol});
     }
   }
@@ -538,7 +579,7 @@ function spec(){const s=S(),Y=STY(s),n=slotCount(s);
   backgroundGradient:{type:Y.gT==="none"?"none":Y.gT,angle:Y.gAng,stops,overImage:!!Y.gOver},
   clock:s.clock==="digital"?"digital":"analog",bothClocks:s.clock==="both",
   hourNumerals:s.clock==="digital"?"none":(s.nums||"none"),hourNumeralSize:s.numSize||22,minuteTicks:s.clock!=="digital"&&!!s.ticks,minorTicks:!!Y.minorTicks,tickLength:Y.tickLen,showSeconds:!!s.secs,
-  pods:(()=>{const p=POD(s);return p.shape==="none"?null:{shape:p.shape,positions:(PODAT[p.at]||[]).map(a=>a+(p.rot||0)),radius:p.r,distance:p.d,fontSize:p.f,fill:p.fill,fillOpacity:p.op,line:p.line,text:p.txt,items:p.items.slice(0,(PODAT[p.at]||[]).length).map(k=>({content:k,label:CONTENT[k]?CONTENT[k].name:k,source:CSRC(k)}))}})(),
+  pods:(()=>{const p=POD(s);return p.shape==="none"?null:{shape:p.shape,positions:(PODAT[p.at]||[]).map(a=>a+(p.rot||0)),radius:p.r,distance:podDistance(p),fontSize:p.f,fill:p.fill,fillOpacity:p.op,line:p.line,text:p.txt,items:p.items.slice(0,(PODAT[p.at]||[]).length).map(k=>({content:k,label:CONTENT[k]?CONTENT[k].name:k,source:CSRC(k)}))}})(),
   dialTexture:Y.tex,dialTextureOpacity:Y.texOp,hourIndex:Y.idx,innerBezel:!!Y.bezel,
   hands:{hour:{length:Y.hLen,width:Y.hW,color:Y.hCol},minute:{length:Y.mLen,width:Y.mW,color:Y.mCol},second:{tail:Y.secTail},hub:{radius:Y.hubR,color:Y.hubCol}},
   colors:{text:Y.tCol,soft:Y.soft,accent:Y.acc,seconds:Y.sCol,secondsTrack:Y.trk,hourHand:Y.hCol,minuteHand:Y.mCol,secondHand:Y.sCol,numerals:Y.nCol||Y.tCol,ticks:Y.kCol||Y.tCol},
@@ -552,6 +593,7 @@ function rng(lbl,min,max,step,val,on){const l=document.createElement("label");l.
 function podsUi(){const s=S(),p=POD(s),Y=STY(s),g=id=>document.getElementById(id);
   g("podShape").value=p.shape;g("podShape").onchange=e=>{p.shape=e.target.value;draw();podsUi()};g("podAt").value=p.at;g("podAt").onchange=e=>{p.at=e.target.value;POD(s);draw();podsUi()};
   [["podR","r"],["podD","d"],["podF","f"],["podRot","rot"],["podOp","op"]].forEach(([id,k])=>{const i=g(id),v=g(id+"V");i.value=p[k];v.textContent=p[k];i.oninput=()=>{p[k]=+i.value;v.textContent=i.value;draw()}});
+  g("podD").disabled=p.shape==="half";if(p.shape==="half")g("podDV").textContent="مثبّت على الحافة";
   [["podFill","fill"],["podLine","line"],["podTxt","txt"]].forEach(([id,k])=>{const i=g(id);i.value=p[k];i.oninput=()=>{p[k]=i.value;draw()}});
   const box=g("podItems");box.replaceChildren();if(p.shape!=="none")(PODAT[p.at]||[]).forEach((a,i)=>{const l=document.createElement("label");l.textContent="العداد "+(i+1)+" ";const se=document.createElement("select");fillContent(se,p.items[i]);se.onchange=()=>{p.items[i]=se.value;draw()};l.append(se);box.append(l)});
   g("tex").value=Y.tex;g("tex").onchange=e=>{Y.tex=e.target.value;draw()};{const i=g("texOp"),v=g("texOpV");i.value=Y.texOp;v.textContent=Y.texOp;i.oninput=()=>{Y.texOp=+i.value;v.textContent=i.value;draw()}}
@@ -663,7 +705,7 @@ function makeSuggestion(){const bases=[...BASE].filter(k=>k!=="__auto"),b=AO.fro
   const cl=Object.keys(AO.clock).filter(k=>AO.clock[k]);if(cl.length)s.clock=rnd(cl);
   if(AO.bg&&s.bg!=="custom")s.bg=rnd(["plain","plain",s.bg]);
   if(AO.shapes){const p=POD(s);p.shape=rnd(["circle","half","square","drop","petal","none","circle","half"]);p.at=rnd(Object.keys(PODAT));const n=PODAT[p.at].length;
-    p.r=n>=6?rr(20,32):n>=3?rr(30,48):rr(38,60);p.d=p.shape==="half"?200-p.r:rr(n>=6?130:85,n>=6?165:130);p.f=rr(10,16);p.rot=rnd([0,0,15,30,45]);p.fill=rnd([Y.acc,"#000000",Y.soft]);p.op=rr(.08,.4,.02);p.line=Y.acc;p.txt=Y.tCol;
+    p.r=n>=6?rr(20,32):n>=3?rr(30,48):rr(38,60);p.d=p.shape==="half"?200:rr(n>=6?130:85,n>=6?165:130);p.f=rr(10,16);p.rot=rnd([0,0,15,30,45]);p.fill=rnd([Y.acc,"#000000",Y.soft]);p.op=rr(.08,.4,.02);p.line=Y.acc;p.txt=Y.tCol;
     const pool=["battery","steps","heart","temp","next","prev","khatma","hijri","date","surah"].sort(()=>Math.random()-.5);p.items=pool.slice(0,n)}
   if(AO.tex){Y.tex=rnd(["none","sunburst","guilloche","grid","rosette","waves"]);Y.texOp=rr(.04,.16,.01);Y.idx=rnd(["line","baton","dot","diamond","double"]);Y.bezel=Math.random()<.4}
   if(AO.ring&&Math.random()<.3)s.segs=[];
@@ -833,7 +875,7 @@ let ringSel=1;
   window.faceStudioSections = sections;
   const titles = sections.map(d => d.querySelector('summary').textContent.trim());
   sections.forEach(d => { d.removeAttribute('name'); d.open = true; });
-  const positions = ['أعلى اليسار','أعلى اليمين','أسفل اليسار','أسفل اليمين'];
+  const positions = ['أعلى اليسار','أسفل اليسار','أعلى اليمين','أسفل اليمين'];
   const grid=document.createElement('main'); grid.className='studio-grid'; grid.setAttribute('aria-label','مساحة التحرير'); top.after(grid);
   const storage=document.createElement('div'); storage.hidden=true; storage.setAttribute('aria-hidden','true'); grid.after(storage);
   const tabs=document.getElementById('tabs'); storage.append(tabs); top.remove();
@@ -899,8 +941,27 @@ let ringSel=1;
     });
     grid.replaceChildren(...cells); sections.forEach((section,i)=>{if(!order.includes(i))storage.append(section)});
   }
-  function show(id){const index=sections.findIndex(s=>s.id===id);if(index<0||order.includes(index))return;const target=order.findIndex(x=>x!=='preview');order[target]=index;save();render()}
-  svg.addEventListener('click',e=>{const tag=e.target.closest('[data-k]')?.dataset.k; const id={bg:'secBg',seg:'secRing',time:'secTime',date:'secEls',pill:'secEls',prayer:'secEls',edges:'secEls'}[tag];if(id)show(id)});
+  function show(id){
+    const index=sections.findIndex(s=>s.id===id),target=order.findIndex(x=>x!=='preview');
+    if(index<0||target<0)return;
+    const current=order.indexOf(index);
+    if(current===target)return;
+    if(current>=0)order[current]=order[target];
+    order[target]=index;save();render();
+  }
+  svg.addEventListener('click',e=>{
+    const tag=e.target.closest('[data-k]')?.dataset.k;
+    const id={bg:'secBg',seg:'secRing',time:'secTime',tex:'secPods',pods:'secPods',date:'secEls',pill:'secEls',prayer:'secEls',edges:'secEls'}[tag];
+    if(!id)return;
+    const pod=e.target.closest('[data-pod]');
+    show(id);
+    const property=e.target.closest('[data-property]')?.dataset.property||{bg:'bg',time:'clock',tex:'tex',pods:'podItems',date:'els',pill:'els',prayer:'els',edges:'els'}[tag];
+    if(property&&window.faceStudioRevealProperty)window.faceStudioRevealProperty(id,property);
+    if(pod){
+      const items=document.querySelectorAll('#podItems label');
+      items.forEach((item,i)=>{item.classList.toggle('selected-pod',i===Number(pod.dataset.pod))});
+    }
+  });
   document.getElementById('aod').addEventListener('click',()=>{if(aod)show('secAod')});
   render(); oldWrap.remove();
 })();
@@ -958,7 +1019,17 @@ let ringSel=1;
     });
     function update(){pick.value=String(active);buttons.forEach((b,i)=>{b.setAttribute('aria-pressed',String(i===active));blocks[i].hidden=i!==active})}
     host.replaceChildren(bar,panels);update();
+    host._revealProperty=element=>{
+      const index=blocks.findIndex(block=>block===element||block.contains(element));
+      if(index<0)return false;
+      active=index;selected.set(key,index);update();return true;
+    };
   }
+  window.faceStudioRevealProperty=(sectionId,elementId)=>{
+    const section=document.getElementById(sectionId),element=document.getElementById(elementId);
+    const body=section?.querySelector(':scope > .body');
+    if(body?._revealProperty&&element)body._revealProperty(element);
+  };
   function buildAod(box){
     const children=[...box.children].filter(n=>!n.classList.contains('property-bar')&&!n.classList.contains('property-panels'));
     if(!children.length)return;
@@ -1014,6 +1085,11 @@ svg#face{touch-action:none}
 </style>
 
 <style>
+@media(min-width:701px){
+  .studio-grid>.studio-cell:nth-child(2){grid-column:1;grid-row:2}
+  .studio-grid>.studio-cell:nth-child(3){grid-column:2;grid-row:1}
+  .studio-grid>.studio-cell:nth-child(4){grid-column:2;grid-row:2}
+}
 /* Rings panel */
 .rs{display:flex;flex-direction:column;gap:12px;padding:12px}
 .rs-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#e6efe9;border-radius:11px;padding:4px}
@@ -1031,6 +1107,7 @@ svg#face{touch-action:none}
 .rs-acts{display:flex;gap:8px;flex-wrap:wrap}
 .rs-danger{color:#a33a2a!important;border-color:#e3b7ad!important}
 .rs-strip{display:flex;gap:3px;direction:ltr;min-height:44px;border-radius:9px;overflow:hidden;background:#e6efe9;padding:3px}
+.selected-pod{outline:2px solid #398463;outline-offset:3px;border-radius:4px}
 .rs-part{flex-basis:0;min-width:18px;border:none!important;border-radius:6px!important;padding:2px 4px!important;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
 .rs-part.on{outline:3px solid #123b29;outline-offset:-3px}
 .rs-pl{font-size:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl}
