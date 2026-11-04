@@ -16,7 +16,8 @@ o'clock and name a segment's centre. Every key is optional:
   background          "photo" | "mosques" | "pattern" | "none"
   backgroundGradient  {"type": "none|linear|radial", "angle": deg, "overImage": bool,
                        "stops": [{"color": "#RRGGBB", "alpha": 0-1, "pos": 0-1}]}
-  clock               "digital" | "analog"; hourNumerals "none|4|12", hourNumeralSize, minuteTicks
+  clock               "digital" | "analog"; hourNumerals "none|4|12", hourNumeralSize, minuteTicks,
+                      minorTicks, tickLength; hands {hour,minute:{length,width,color}, hub:{radius,color}}
   colors              text, soft, accent, seconds, secondsTrack, hourHand, minuteHand,
                       secondHand, numerals, ticks
   ring                {"thickness", "thickness2", "fontSize", "secondsInside",
@@ -549,7 +550,7 @@ class Face:
             self.second_hand = active("seconds",
                                      '<Group name="secondHand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">'
                                      '<Transform target="angle" value="[SECOND] * 6"/>'
-                                     f'<PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="{225 + 22 * K:.1f}" endX="225" endY="{225 - length:.1f}">'
+                                     f'<PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="{225 + float(((self.s.get("hands") or {}).get("second") or {}).get("tail", 22)) * K:.1f}" endX="225" endY="{225 - length:.1f}">'
                                      f'<Stroke color="{self.sec}" thickness="{max(1.0, w * 0.7):.1f}" cap="ROUND"/></Line>'
                                      f'<Ellipse x="221" y="221" width="8" height="8"><Fill color="{self.sec}"/></Ellipse></PartDraw></Group>')
             return length
@@ -571,8 +572,12 @@ class Face:
         out = []
         if self.s.get("minuteTicks"):
             tick = argb(c.get("ticks", "#B8C4BE"))
+            big_len = float(self.s.get("tickLength", 10)) * K * 1.6
+            minor = self.s.get("minorTicks", True)
             for i in range(60):
-                length, w = (16, 3) if i % 5 == 0 else (6, 1.5)
+                if i % 5 and not minor:
+                    continue
+                length, w = (big_len, 3) if i % 5 == 0 else (big_len * 0.4, 1.5)
                 (x0, y0), (x1, y1) = pol(inner_r - 3, i * 6), pol(inner_r - 3 - length, i * 6)
                 out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="{w}" cap="ROUND"/></Line>')
         if out:
@@ -583,7 +588,7 @@ class Face:
             size = round(self.s.get("hourNumeralSize", 18) * K)
             # Close to the rim: the figure's outer edge a few pixels inside the seconds line
             # (or the ticks), measured on the figure's half height.
-            r = inner_r - 3 - (20 if self.s.get("minuteTicks") else 4) - size * 0.55 - float(self.s.get("hourNumeralInset", 0)) * K
+            r = inner_r - 3 - ((float(self.s.get("tickLength", 10)) * K * 1.6 + 4) if self.s.get("minuteTicks") else 4) - size * 0.55 - float(self.s.get("hourNumeralInset", 0)) * K
             nums = argb(c.get("numerals", "#D3DAD6"))
             style, radial = self.s.get("hourNumeralStyle", "latin"), self.s.get("hourNumeralRotation") == "radial"
             # The figures are written 1-12; "arabic" draws them as ١-١٢ through the face's
@@ -605,17 +610,25 @@ class Face:
 
     def hands(self):
         c = self.s.get("colors", {})
+        hs = self.s.get("hands") or {}
+        hh, mh, sh, hub = hs.get("hour") or {}, hs.get("minute") or {}, hs.get("second") or {}, hs.get("hub") or {}
+        # Studio lengths are in 438 px space; without "hands" the old fixed sizes stay.
+        hl, hw = (hh["length"] * K, hh.get("width", 7) * 1.3) if "length" in hh else (70, 9)
+        ml, mw = (mh["length"] * K, mh.get("width", 5) * 1.2) if "length" in mh else (112, 6)
+        hub_r = float(hub.get("radius", 9 / K)) * K
+        hub_c = argb(hub["color"]) if hub.get("color") else self.accent
 
         def hand(name, length, width, color, angle):
             return (f'<Group name="{name}" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Transform target="angle" value="{angle}"/>'
                     f'<PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="225" endX="225" endY="{225 - length}">'
                     f'<Stroke color="{color}" thickness="{width}" cap="ROUND"/></Line></PartDraw></Group>')
         self.parts.append(active("hands",
-                                 hand("hour", 70, 9, argb(c.get("hourHand", "#FFFFFF")), "([HOUR_0_23] % 12) * 30 + [MINUTE] * 0.5")
-                                 + hand("minute", 112, 6, argb(c.get("minuteHand", "#E8EEEA")), "[MINUTE] * 6 + [SECOND] * 0.1")
+                                 hand("hour", round(hl), hw, argb(c.get("hourHand", "#FFFFFF")), "([HOUR_0_23] % 12) * 30 + [MINUTE] * 0.5")
+                                 + hand("minute", round(ml), mw, argb(c.get("minuteHand", "#E8EEEA")), "[MINUTE] * 6 + [SECOND] * 0.1")
                                  + (hand("second", 118, 2, argb(c.get("secondHand", "#E8BC3E")), "[SECOND] * 6")
                                     if not self.s.get("ring", {}).get("secondsInside", True) and not self.s.get("seconds") else "")
-                                 + f'<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="216" y="216" width="18" height="18"><Fill color="{self.accent}"/></Ellipse></PartDraw>'))
+                                 + (f'<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="{225 - hub_r:.1f}" y="{225 - hub_r:.1f}" width="{2 * hub_r:.1f}" height="{2 * hub_r:.1f}"><Fill color="{hub_c}"/></Ellipse></PartDraw>'
+                                    if hub_r > 0 else "")))
 
 
 def seg_span(seg, count):

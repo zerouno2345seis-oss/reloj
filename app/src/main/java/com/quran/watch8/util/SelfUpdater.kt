@@ -64,6 +64,10 @@ object SelfUpdater {
         Regex("""^face-(.+)-v\d+\.apk$""").find(assetName)?.groupValues?.get(1)
 
     /** `v42` -> 42; anything without a number is no release of ours. */
+    /** `face-com.example.face-v1042.apk` -> 1042: the face's own version, not the release's. */
+    fun faceVersion(assetName: String): Long? =
+        Regex("""^face-.+-v(\d+)\.apk$""").find(assetName)?.groupValues?.get(1)?.toLongOrNull()
+
     fun versionFromTag(tag: String): Long? = tag.filter { it.isDigit() }.toLongOrNull()
 
     suspend fun check(context: Context): Check = withContext(Dispatchers.IO) {
@@ -82,7 +86,7 @@ object SelfUpdater {
             val apk = release.assets.firstOrNull { it.name.endsWith(".apk") && facePackage(it.name) == null }
                 ?: return@withContext Check.Failed("no apk in ${release.tagName}")
             val faces = release.assets.mapNotNull { asset ->
-                facePackage(asset.name)?.takeIf { installedVersionCode(context, it) < remote }?.let { Face(it, asset.url) }
+                facePackage(asset.name)?.takeIf { installedVersionCode(context, it) < (faceVersion(asset.name) ?: remote) }?.let { Face(it, asset.url) }
             }
             val appNew = remote > installedVersionCode(context)
             if (!appNew && faces.isEmpty()) Check.UpToDate
