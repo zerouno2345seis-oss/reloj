@@ -93,6 +93,8 @@ body{box-sizing:border-box;width:100%}
       <button id="delFace" type="button">🗑 حذف</button>
       <button id="reset" type="button">↺ افتراضي</button>
       <button id="unhide" type="button" hidden>↺ استعادة المحذوفة</button>
+      <button id="autoFace" type="button">✨ تلقائي</button>
+      <button id="pinAuto" type="button" hidden>📌 ثبّت الاقتراح</button>
     </div>
   </div>
 
@@ -220,6 +222,8 @@ input[type=color]{border-radius:5px;cursor:pointer}
 .selbox{border-color:#aabfb1;background:#f8fbf9}.seg.sel{background:#e8f3eb;border-color:#398463}.el{border-color:#d6e4db}
 textarea{background:#f8fbf9;color:#19332a;border-color:#aabfb1}
 
+.property-bar{overflow:visible!important}.property-select{width:100%;font-size:14px;padding:8px 10px}
+.auto-btn{flex:none;font-size:12px;padding:6px 10px!important;white-space:nowrap}.auto-btn.pin{background:#176747!important;color:#fff!important;border-color:#176747!important}
 </style>
 <script>
 const NS="http://www.w3.org/2000/svg", C=219, R_OUT=214;
@@ -293,7 +297,7 @@ try{const cl=JSON.parse(localStorage.getItem("faceEd_customList")||"[]");cl.forE
 let HIDDEN=new Set();try{HIDDEN=new Set(JSON.parse(localStorage.getItem("faceEd_hidden")||"[]").filter(k=>BASE.has(k)))}catch(e){}
 const saveHidden=()=>{try{localStorage.setItem("faceEd_hidden",JSON.stringify([...HIDDEN]))}catch(e){}};
 const firstVisible=()=>Object.keys(FACES).find(k=>!HIDDEN.has(k));
-const saveCustom=()=>{try{localStorage.setItem("faceEd_customList",JSON.stringify(Object.keys(FACES).filter(k=>!BASE.has(k))))}catch(e){}};
+const saveCustom=()=>{try{localStorage.setItem("faceEd_customList",JSON.stringify(Object.keys(FACES).filter(k=>!BASE.has(k)&&k!=="__auto")))}catch(e){}};
 let ST={};for(const k in FACES){ST[k]=clone(FACES[k]);try{const s=localStorage.getItem("faceEd_"+k);if(s){const o=JSON.parse(s);if((o.ver||0)===(FACES[k].ver||0))ST[k]=o}}catch(e){}}
 let cur="row",sel=0,aod=false,elSel="date";try{cur=localStorage.getItem("faceEd_cur")||"row"}catch(e){}
 if(!FACES[cur]||HIDDEN.has(cur))cur=firstVisible()||"row";
@@ -518,7 +522,7 @@ svg.addEventListener("click",e=>{const k=(e.target.closest("[data-k]")||{dataset
   else if(ELS[k]){elSel=k;open("secEls");ui()}});
 {const nf=document.getElementById("numFnt");[...document.getElementById("fnt").options].forEach(o=>nf.append(new Option(o.textContent,o.value)))}
 const tabs=document.getElementById("tabs");
-function buildTabs(){tabs.innerHTML="";const ub=document.getElementById("unhide");if(ub)ub.hidden=!HIDDEN.size;for(const k in FACES){if(HIDDEN.has(k))continue;const b=document.createElement("button");b.type="button";b.dataset.k=k;b.setAttribute("role","tab");b.textContent=(ST[k]&&ST[k].name)||FACES[k].name;b.onclick=()=>{cur=k;sel=0;draw();ui()};tabs.appendChild(b)}}
+function buildTabs(){tabs.innerHTML="";const ub=document.getElementById("unhide");if(ub)ub.hidden=!HIDDEN.size;for(const k in FACES){if(HIDDEN.has(k))continue;const b=document.createElement("button");b.type="button";b.dataset.k=k;b.setAttribute("role","tab");b.textContent=(ST[k]&&ST[k].name)||FACES[k].name;b.onclick=()=>{cur=k;sel=0;draw();ui();autoUi()};tabs.appendChild(b)}}
 buildTabs();
 document.getElementById("imgUp").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas"),z=Math.min(1,450/Math.min(im.width,im.height)),w=Math.round(im.width*z),h=Math.round(im.height*z);c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);S().img=c.toDataURL("image/jpeg",.82);S().bg="custom";document.getElementById("bg").value="custom";draw();ui()};im.src=r.result};r.readAsDataURL(f)};
 document.getElementById("imgClr").onclick=()=>{const s=S();s.img=null;if(s.bg==="custom")s.bg="plain";draw();ui()};
@@ -537,6 +541,31 @@ document.getElementById("dupFace").onclick=async()=>{const src=cur,nm=await dlg(
 document.getElementById("delFace").onclick=async()=>{if(Object.keys(FACES).filter(k=>!HIDDEN.has(k)).length<=1){dlg("هذه آخر واجهة ظاهرة، لا تُحذف.",{cancel:false});return}
   if(BASE.has(cur)){if(!await dlg("حذف الواجهة الأساسية «"+S().name+"»؟ تُخفى من القائمة، وتستطيع إرجاعها من «استعادة المحذوفة».",{ok:"احذف"}))return;HIDDEN.add(cur);saveHidden();cur=firstVisible();sel=0;buildTabs();draw();ui();return}if(!await dlg("حذف الواجهة «"+S().name+"»؟ لا يمكن التراجع.",{ok:"احذف"}))return;const k=cur;delete FACES[k];delete ST[k];try{localStorage.removeItem("faceEd_"+k)}catch(e){}cur=firstVisible();sel=0;saveCustom();buildTabs();draw();ui()};
 for(const k of["thick","fsize"])document.getElementById(k).addEventListener("input",e=>{S()[k]=+e.target.value;document.getElementById(k+"V").textContent=e.target.value;draw()});
+// «تلقائي»: each press draws a new suggestion from a hand-picked set of palettes and
+// proportions on one of the base layouts; «ثبّت» keeps it as a face of its own.
+const PALS=[
+ ["#0f2a2a","#04100f","#d9b36a","#f4efe2","#c8d3cc","#ffffff","#d9b36a","#7fd1b9"],
+ ["#1b1530","#07050f","#c9a7ff","#f1ecff","#b9b0d6","#ffffff","#c9a7ff","#ffcf6e"],
+ ["#2a1a10","#0b0604","#ffa857","#faf4ec","#e1d1bd","#ffffff","#ffa857","#ffbd77"],
+ ["#0d1b2a","#02060c","#6fb7ff","#eaf4ff","#a9c2da","#ffffff","#6fb7ff","#ff7a7a"],
+ ["#10261a","#030a06","#8fd694","#eefaf0","#b5ccb9","#f3f3f3","#8fd694","#ffd166"],
+ ["#2b0f1a","#0c0306","#ff8fab","#fff0f4","#dab3bf","#ffffff","#ff8fab","#ffd6a5"],
+ ["#1c1c1c","#000000","#e8bc3e","#f5f5f5","#bdbdbd","#ffffff","#e8bc3e","#e8bc3e"],
+ ["#f1e9da","#cbbf9f","#7a4b1d","#2b1d0e","#5e4a33","#2b1d0e","#7a4b1d","#a3402a"]];
+const FONTS=["Noto Kufi Arabic, sans-serif","El Messiri, sans-serif","Reem Kufi, sans-serif","Cairo, sans-serif","Amiri, serif","Changa, sans-serif","Almarai, sans-serif"];
+const rnd=a=>a[Math.floor(Math.random()*a.length)],rr=(a,b,st=1)=>Math.round((a+Math.random()*(b-a))/st)*st;
+function suggest(){const bases=[...BASE].filter(k=>k!=="__auto"),b=rnd(bases),s=clone(FACES[b]),Y=STY(s),[gA,gB,acc,tC,soft,hC,mC,sC]=rnd(PALS);
+  Object.assign(Y,{gA,gB,acc,tCol:tC,soft,hCol:hC,mCol:mC,sCol:sC,nCol:tC,kCol:tC,trk:tC,hubCol:acc,gT:rnd(["radial","radial","linear"]),gAng:rr(0,360,15),fnt:rnd(FONTS),
+    numStyle:rnd(["latin","arabic","roman","latin"]),numRot:rnd(["upright","upright","radial"]),numW:rnd(["400","600","700"]),numOff:rr(0,14),
+    secMode:rnd(["arc","hand","dot"]),secW:rr(2,5,.5),hLen:rr(60,95),hW:rr(5,10,.5),mLen:rr(95,140),mW:rr(3,7,.5),secTail:rr(10,30),hubR:rr(4,9,.5),minorTicks:Math.random()<.6,tickLen:rr(7,16)});
+  s.clock=rnd(["analog","analog","both","digital"]);s.nums=rnd(["12","4","none"]);s.numSize=rr(16,28);s.ticks=Math.random()<.7;s.secs=Math.random()<.85;
+  if(s.bg!=="custom")s.bg=rnd(["plain","plain",s.bg]);
+  const ringCols=[acc,soft,sC,mC];(s.segs||[]).forEach((g,i)=>{g.col=ringCols[i%ringCols.length];g.ce=null;g.tc=gB});
+  s.name="اقتراح تلقائي";s.custom=true;s.basedOn=b;FACES.__auto=clone(s);ST.__auto=s;HIDDEN.delete("__auto");cur="__auto";sel=0;buildTabs();draw();ui();autoUi()}
+async function pinAuto(){if(cur!=="__auto")return;const nm=await dlg("اسم الواجهة",{input:"واجهة أنيقة",ok:"ثبّت"});if(!nm)return;
+  const k="custom"+Date.now(),c=clone(ST.__auto);c.name=nm;FACES[k]=clone(c);ST[k]=c;delete FACES.__auto;delete ST.__auto;try{localStorage.removeItem("faceEd___auto")}catch(e){}cur=k;sel=0;saveCustom();buildTabs();draw();ui();autoUi()}
+function autoUi(){const p=document.getElementById("pinAuto");if(p)p.hidden=cur!=="__auto"}
+document.getElementById("autoFace").onclick=suggest;document.getElementById("pinAuto").onclick=pinAuto;
 document.getElementById("unhide").onclick=()=>{HIDDEN.clear();saveHidden();buildTabs();draw();ui()};
 document.getElementById("secs").onchange=e=>{S().secs=e.target.checked;document.getElementById("secsShow").checked=e.target.checked;draw()};
 document.getElementById("bg").onchange=e=>{S().bg=e.target.value;draw()};
@@ -701,6 +730,10 @@ let ringSel=1;
   const tabs=document.getElementById('tabs'); storage.append(tabs); top.remove();
   const faceSelect=document.createElement('select'); faceSelect.className='preview-select'; faceSelect.setAttribute('aria-label','اختيار الواجهة');
   const commandSelect=document.createElement('select'); commandSelect.className='preview-select'; commandSelect.setAttribute('aria-label','إجراءات الواجهة');
+  // «تلقائي» and «ثبّت» stay visible beside the face list: they are pressed again and again.
+  const autoBtn=document.createElement('button');autoBtn.type='button';autoBtn.className='auto-btn';autoBtn.textContent='✨ تلقائي';autoBtn.title='اقتراح واجهة جديدة في كل ضغطة';autoBtn.onclick=()=>document.getElementById('autoFace').click();
+  const pinBtn=document.createElement('button');pinBtn.type='button';pinBtn.className='auto-btn pin';pinBtn.textContent='📌 ثبّت';pinBtn.hidden=true;pinBtn.onclick=()=>document.getElementById('pinAuto').click();
+  new MutationObserver(()=>{pinBtn.hidden=document.getElementById('pinAuto').hidden}).observe(document.getElementById('pinAuto'),{attributes:true,attributeFilter:['hidden']});
   const commands=[['aod','الشاشة المطفأة'],['dupFace','نسخة'],['reset','افتراضي'],['newFace','جديدة'],['delFace','حذف']];
   function syncFaces(){
     const buttons=[...tabs.querySelectorAll('button')], selected=buttons.find(b=>b.getAttribute('aria-selected')==='true');
@@ -729,7 +762,7 @@ let ringSel=1;
       const title=document.createElement('strong'); title.textContent=item==='preview'?'محرّر الواجهات':'أدوات التحرير'; head.append(title);
       const content=document.createElement('div'); content.className='cell-content';
       if(item==='preview'){
-        head.classList.add('preview-head');head.append(faceSelect,commandSelect);
+        head.classList.add('preview-head');head.append(faceSelect,commandSelect,autoBtn,pinBtn);
         content.classList.add('preview-content'); content.append(stage);
       } else {
         const selector=document.createElement('select'); selector.setAttribute('aria-label','قائمة أدوات '+positions[index]);
@@ -783,16 +816,20 @@ let ringSel=1;
     const panels=document.createElement('div');panels.className='property-panels';
     let active=Math.min(selected.get(key)||0,entries.length-1);
     const buttons=[], blocks=[];
+    // A dropdown, not a strip of buttons: the strip ran far off to the side.
+    const pick=document.createElement('select');pick.className='property-select';pick.setAttribute('aria-label','اختيار الخاصية');bar.append(pick);
+    pick.addEventListener('change',()=>{active=+pick.value;selected.set(key,active);update()});
     entries.forEach(({name,nodes},i)=>{
       const block=document.createElement('div');block.className='property-panel';block.id='property-panel-'+(++serial);
       nodes.forEach(n=>{simplifyLabel(n);block.append(n)});
       const button=document.createElement('button');button.type='button';button.className='property-button';button.title=name;button.setAttribute('aria-label',name);button.setAttribute('aria-controls',block.id);
       const symbol=document.createElement('span');symbol.className='property-icon';symbol.setAttribute('aria-hidden','true');symbol.textContent=icon(name);
       const text=document.createElement('span');text.className='property-name';text.textContent=short(name);
-      button.append(symbol,text);bar.append(button);panels.append(block);buttons.push(button);blocks.push(block);
+      button.append(symbol,text);panels.append(block);buttons.push(button);blocks.push(block);
+      pick.append(new Option(icon(name)+'  '+name,String(i)));
       button.addEventListener('click',()=>{active=i;selected.set(key,i);update()});
     });
-    function update(){buttons.forEach((b,i)=>{b.setAttribute('aria-pressed',String(i===active));blocks[i].hidden=i!==active})}
+    function update(){pick.value=String(active);buttons.forEach((b,i)=>{b.setAttribute('aria-pressed',String(i===active));blocks[i].hidden=i!==active})}
     host.replaceChildren(bar,panels);update();
   }
   function buildAod(box){
