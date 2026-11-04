@@ -92,6 +92,7 @@ body{box-sizing:border-box;width:100%}
       <button id="dupFace" type="button">⧉ نسخة</button>
       <button id="delFace" type="button">🗑 حذف</button>
       <button id="reset" type="button">↺ افتراضي</button>
+      <button id="unhide" type="button" hidden>↺ استعادة المحذوفة</button>
     </div>
   </div>
 
@@ -116,6 +117,15 @@ body{box-sizing:border-box;width:100%}
       <label>خط الأرقام <select id="numFnt"><option value="">خط الواجهة نفسه</option></select></label>
       <label>بُعد الأرقام عن الحافة <input id="numOff" type="range" min="0" max="70" step="1"><span class="v" id="numOffV"></span></label>
       <label>علامات الدقائق <input id="ticks" type="checkbox"></label>
+      <label>الخطوط الصغيرة (بين الساعات) <input id="minorTicks" type="checkbox"></label>
+      <label>طول علامات الساعات <input id="tickLen" type="range" min="4" max="30" step="1"><span class="v" id="tickLenV"></span></label>
+      <label>إظهار الثواني <input id="secsShow" type="checkbox"></label>
+      <label>طول عقرب الساعات <input id="hLen" type="range" min="30" max="160" step="1"><span class="v" id="hLenV"></span></label>
+      <label>سماكة عقرب الساعات <input id="hW" type="range" min="1" max="16" step="0.5"><span class="v" id="hWV"></span></label>
+      <label>طول عقرب الدقائق <input id="mLen" type="range" min="40" max="210" step="1"><span class="v" id="mLenV"></span></label>
+      <label>سماكة عقرب الدقائق <input id="mW" type="range" min="1" max="14" step="0.5"><span class="v" id="mWV"></span></label>
+      <label>ذيل عقرب الثواني <input id="secTail" type="range" min="0" max="60" step="1"><span class="v" id="secTailV"></span></label>
+      <label>حجم نقطة المركز <input id="hubR" type="range" min="0" max="16" step="0.5"><span class="v" id="hubRV"></span></label>
       <label>شكل الثواني <select id="secMode"><option value="arc">شريط يمتلئ</option><option value="hand">عقرب ثوانٍ</option><option value="dot">نقطة تدور</option></select></label>
       <label>موضع الثواني <select id="secPos"><option value="edge">على الحافة تمامًا</option><option value="ring">داخل الحلقة</option><option value="custom">مخصّص (بالمنزلق)</option></select></label>
       <label>بُعد الثواني عن المركز (أو طول العقرب) <input id="secR" type="range" min="40" max="218" step="1"><span class="v" id="secRV"></span></label>
@@ -126,6 +136,7 @@ body{box-sizing:border-box;width:100%}
         <label>لون الثواني <input id="sCol" type="color"></label>
         <label>لون الأرقام <input id="nCol" type="color"></label>
         <label>لون علامات الدقائق <input id="kCol" type="color"></label>
+        <label>لون نقطة المركز <input id="hubCol" type="color"></label>
         <label>لون مسار الثواني <input id="trk" type="color"></label>
       </div>
     </div></details>
@@ -279,14 +290,18 @@ const BASE=new Set(Object.keys(FACES));
 const BLANK=()=>({name:"واجهة جديدة",bg:"plain",clock:"digital",thick:24,fsize:16,secs:true,segs:[],
   els:{date:E(60),pill:{show:false,y:120,scale:1},time:E(200),prayer:E(310),edges:{show:false,y:219,scale:1}},custom:true});
 try{const cl=JSON.parse(localStorage.getItem("faceEd_customList")||"[]");cl.forEach(k=>{if(!FACES[k]){let n="";try{n=JSON.parse(localStorage.getItem("faceEd_"+k)||"{}").name||""}catch(e){}FACES[k]=Object.assign(BLANK(),{name:n||k})}})}catch(e){}
+let HIDDEN=new Set();try{HIDDEN=new Set(JSON.parse(localStorage.getItem("faceEd_hidden")||"[]").filter(k=>BASE.has(k)))}catch(e){}
+const saveHidden=()=>{try{localStorage.setItem("faceEd_hidden",JSON.stringify([...HIDDEN]))}catch(e){}};
+const firstVisible=()=>Object.keys(FACES).find(k=>!HIDDEN.has(k));
 const saveCustom=()=>{try{localStorage.setItem("faceEd_customList",JSON.stringify(Object.keys(FACES).filter(k=>!BASE.has(k))))}catch(e){}};
 let ST={};for(const k in FACES){ST[k]=clone(FACES[k]);try{const s=localStorage.getItem("faceEd_"+k);if(s){const o=JSON.parse(s);if((o.ver||0)===(FACES[k].ver||0))ST[k]=o}}catch(e){}}
 let cur="row",sel=0,aod=false,elSel="date";try{cur=localStorage.getItem("faceEd_cur")||"row"}catch(e){}
+if(!FACES[cur]||HIDDEN.has(cur))cur=firstVisible()||"row";
 if(location.hash&&FACES[location.hash.slice(1)])cur=location.hash.slice(1);
 if(!ST[cur])cur="row";
 for(const k in ST)(ST[k].segs||[]).forEach(g=>{if(!CONTENT[g.c])g.c="none"});
 const S=()=>ST[cur];
-const STY=s=>{s.sty=s.sty||{};const D=({gA:null,gB:null,gT:"radial",tCol:"#ffffff",hCol:"#ffffff",mCol:"#d9b36a",sCol:"#3fb58a",fnt:"Noto Kufi Arabic, sans-serif",rOp:1,imgOp:.6,imgS:1,imgX:0,imgY:0,secEdge:true,gAng:180,gOver:false,soft:"#c9d4ce",acc:"#d9b36a",trk:"#ffffff",nCol:null,kCol:null,rSw:false,numStyle:"latin",numRot:"upright",numW:"700",numFnt:"",numOff:0,secMode:"arc",secPos:null,secR:200,secW:3});for(const k in D)if(s.sty[k]===undefined)s.sty[k]=D[k];if(!s.sty.secPos)s.sty.secPos=s.sty.secEdge?"edge":"ring";return s.sty};
+const STY=s=>{s.sty=s.sty||{};const D=({gA:null,gB:null,gT:"radial",tCol:"#ffffff",hCol:"#ffffff",mCol:"#d9b36a",sCol:"#3fb58a",fnt:"Noto Kufi Arabic, sans-serif",rOp:1,imgOp:.6,imgS:1,imgX:0,imgY:0,secEdge:true,gAng:180,gOver:false,soft:"#c9d4ce",acc:"#d9b36a",trk:"#ffffff",nCol:null,kCol:null,rSw:false,numStyle:"latin",numRot:"upright",numW:"700",numFnt:"",numOff:0,secMode:"arc",secPos:null,secR:200,secW:3,hLen:70,hW:7,mLen:105,mW:5,secTail:22,hubR:7,hubCol:"#d9b36a",minorTicks:true,tickLen:10});for(const k in D)if(s.sty[k]===undefined)s.sty[k]=D[k];if(!s.sty.secPos)s.sty.secPos=s.sty.secEdge?"edge":"ring";return s.sty};
 const ROMAN=["","I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
 const fmtNum=(n,st)=>st==="roman"?ROMAN[n]:st==="arabic"?String(n).replace(/\d/g,d=>"٠١٢٣٤٥٦٧٨٩"[d]):String(n);
 const fmtDigits=(t,st)=>st==="arabic"?t.replace(/\d/g,d=>"٠١٢٣٤٥٦٧٨٩"[d]):t;
@@ -382,16 +397,16 @@ function draw(){
     if(secMode!=="hand")el("circle",{cx:C,cy:C,r:secR,fill:"none",stroke:Ys.trk,"stroke-opacity":.08*(Ys.trk==="#ffffff"?1:4),"stroke-width":sw});
     if(secMode==="arc")secArc=el("path",{d:"",stroke:Ys.sCol,"stroke-width":sw,fill:"none","stroke-linecap":"butt"});
     else if(secMode==="dot")secArc=el("circle",{cx:C,cy:C-secR,r:Math.max(3,sw*1.6),fill:Ys.sCol});
-    else{secArc=el("g",{});el("line",{x1:C,y1:C+22,x2:C,y2:C-secR,stroke:Ys.sCol,"stroke-width":Math.max(1,sw*.7),"stroke-linecap":"round"},secArc);el("circle",{cx:C,cy:C,r:4,fill:Ys.sCol},secArc)}
+    else{secArc=el("g",{});el("line",{x1:C,y1:C+Ys.secTail,x2:C,y2:C-secR,stroke:Ys.sCol,"stroke-width":Math.max(1,sw*.7),"stroke-linecap":"round"},secArc);el("circle",{cx:C,cy:C,r:4,fill:Ys.sCol},secArc)}
   }else secArc=null;
   const Y=STY(s),E=s.els,dim=aod?A.dim:Y.soft,bright=aod?A.bright:Y.tCol;
   // hour numerals and minute ticks for the analog dial
   if(s.clock!=="digital"){
     const rT=rS-6;
-    if(s.ticks)for(let m=0;m<60;m++){const big=m%5===0,[x0,y0]=pt(rT,m*6),[x1,y1]=pt(rT-(big?10:5),m*6);
+    if(s.ticks)for(let m=0;m<60;m++){const big=m%5===0;if(!big&&!Y.minorTicks)continue;const[x0,y0]=pt(rT,m*6),[x1,y1]=pt(rT-(big?Y.tickLen:Y.tickLen/2),m*6);
       el("line",{x1:x0,y1:y0,x2:x1,y2:y1,stroke:aod?bright:(STY(s).kCol||bright),"stroke-opacity":big?.8:.35,"stroke-width":big?2.5:1.2})}
     const nz=s.nums||"none",ns=s.numSize||22;
-    if(nz!=="none")for(let h=1;h<=12;h++){if(nz==="4"&&h%3)continue;const[x,y]=pt(rT-(s.ticks?16:4)-ns*.55-(Y.numOff||0),h*30);
+    if(nz!=="none")for(let h=1;h<=12;h++){if(nz==="4"&&h%3)continue;const[x,y]=pt(rT-(s.ticks?Y.tickLen+6:4)-ns*.55-(Y.numOff||0),h*30);
       const rot=Y.numRot==="radial"?(h>=4&&h<=8?h*30+180:h*30):0;
       el("text",{x,y,"dominant-baseline":"central","text-anchor":"middle","font-family":Y.numFnt||Y.fnt,"font-weight":Y.numW||700,"font-size":ns,fill:aod?bright:(Y.nCol||bright),style:"font-variant-numeric:tabular-nums",transform:rot?`rotate(${rot} ${x} ${y})`:""}).textContent=fmtNum(h,Y.numStyle)}
   }
@@ -409,9 +424,9 @@ function draw(){
     const k=E.time.scale,y=E.time.y;
     if(s.clock!=="analog")timeEl=el("text",{x:C,y:y+(s.clock==="both"?34*k:30*k),"text-anchor":"middle","font-family":STY(s).fnt,"font-weight":700,"font-size":(s.clock==="both"?30:88)*k,fill:bright,style:"font-variant-numeric:tabular-nums"});
     if(s.clock!=="digital"){
-      hH=el("line",{x1:C,y1:C,x2:C,y2:C-70,stroke:aod?bright:Y.hCol,"stroke-width":7,"stroke-linecap":"round"});
-      hM=el("line",{x1:C,y1:C,x2:C,y2:C-105,stroke:aod?bright:Y.mCol,"stroke-width":5,"stroke-linecap":"round"});
-      el("circle",{cx:C,cy:C,r:7,fill:"#d9b36a"});
+      hH=el("line",{x1:C,y1:C,x2:C,y2:C-Y.hLen,stroke:aod?bright:Y.hCol,"stroke-width":Y.hW,"stroke-linecap":"round"});
+      hM=el("line",{x1:C,y1:C,x2:C,y2:C-Y.mLen,stroke:aod?bright:Y.mCol,"stroke-width":Y.mW,"stroke-linecap":"round"});
+      if(Y.hubR>0)el("circle",{cx:C,cy:C,r:Y.hubR,fill:Y.hubCol});
     }
   }
   curTag="prayer";
@@ -437,7 +452,8 @@ function spec(){const s=S(),Y=STY(s),n=slotCount(s);
   document.getElementById("spec").value=JSON.stringify({id:BASE.has(cur)?cur:cur.replace(/^custom/,"c").replace(/[^a-z0-9]/g,""),face:cur,faceName:s.name,isNewFace:!BASE.has(cur),basedOn:s.basedOn||null,background:s.bg,
   backgroundGradient:{type:Y.gT==="none"?"none":Y.gT,angle:Y.gAng,stops,overImage:!!Y.gOver},
   clock:s.clock==="digital"?"digital":"analog",bothClocks:s.clock==="both",
-  hourNumerals:s.clock==="digital"?"none":(s.nums||"none"),hourNumeralSize:s.numSize||22,minuteTicks:s.clock!=="digital"&&!!s.ticks,
+  hourNumerals:s.clock==="digital"?"none":(s.nums||"none"),hourNumeralSize:s.numSize||22,minuteTicks:s.clock!=="digital"&&!!s.ticks,minorTicks:!!Y.minorTicks,tickLength:Y.tickLen,showSeconds:!!s.secs,
+  hands:{hour:{length:Y.hLen,width:Y.hW,color:Y.hCol},minute:{length:Y.mLen,width:Y.mW,color:Y.mCol},second:{tail:Y.secTail},hub:{radius:Y.hubR,color:Y.hubCol}},
   colors:{text:Y.tCol,soft:Y.soft,accent:Y.acc,seconds:Y.sCol,secondsTrack:Y.trk,hourHand:Y.hCol,minuteHand:Y.mCol,secondHand:Y.sCol,numerals:Y.nCol||Y.tCol,ticks:Y.kCol||Y.tCol},
   font:Y.fnt,backgroundImage:(s.bg==="custom"&&s.img)?s.img:null,backgroundImageOpacity:Y.imgOp,backgroundImageScale:Y.imgS,backgroundImageOffsetX:Y.imgX,backgroundImageOffsetY:Y.imgY,secondsOnEdge:Y.secPos==="edge",seconds:{mode:Y.secMode,position:Y.secPos,radius:Math.round(secR),width:Y.secW},hourNumeralStyle:Y.numStyle,hourNumeralRotation:Y.numRot,hourNumeralWeight:+Y.numW,hourNumeralFont:Y.numFnt||Y.fnt,hourNumeralInset:Y.numOff,digitStyle:Y.numStyle==="arabic"?"arabic-indic":"latin",
   ring:{thickness:s.thick,thickness2:s.segs.some(g=>g.rg===2)?(s.thick2||24):null,fontSize:s.fsize,secondsInside:s.secs,opacity:Y.rOp,gradient:{type:Y.rSw?"sweep":"none",stops:s.segs.length?[{color:s.segs[0].col,alpha:1,pos:0},{color:s.segs[0].ce||s.segs[s.segs.length-1].col,alpha:1,pos:1}]:[]}},
@@ -458,9 +474,11 @@ function ui(){
    for(const[k,id]of[["imgS","imgS"],["imgX","imgX"],["imgY","imgY"]]){const i=document.getElementById(id),v=document.getElementById(id+"V");i.value=STY(s)[k];v.textContent=STY(s)[k];i.oninput=()=>{STY(s)[k]=+i.value;v.textContent=i.value;draw()}}
    {const Y=STY(s);
     for(const k of["numStyle","numRot","numW","numFnt","secMode","secPos"]){const i=document.getElementById(k);i.value=Y[k];i.onchange=()=>{Y[k]=i.value;if(k==="secPos")Y.secEdge=i.value==="edge";if(k==="secPos"&&i.value==="custom")Y.secR=Math.round(secR);draw();ui()}}
-    for(const k of["numOff","secR","secW"]){const i=document.getElementById(k),v=document.getElementById(k+"V");const cv=k==="secR"&&Y.secPos!=="custom"?Math.round(secR):Y[k];i.value=cv;v.textContent=cv;i.oninput=()=>{Y[k]=+i.value;v.textContent=i.value;if(k==="secR"&&Y.secPos!=="custom"){Y.secPos="custom";Y.secEdge=false;document.getElementById("secPos").value="custom"}draw()}}}
+    {const ms=document.getElementById("minorTicks");ms.checked=!!Y.minorTicks;ms.onchange=()=>{Y.minorTicks=ms.checked;draw()};
+     const ss=document.getElementById("secsShow");ss.checked=!!s.secs;ss.onchange=()=>{s.secs=ss.checked;document.getElementById("secs").checked=ss.checked;draw()};}
+    for(const k of["numOff","secR","secW","hLen","hW","mLen","mW","secTail","hubR","tickLen"]){const i=document.getElementById(k),v=document.getElementById(k+"V");const cv=k==="secR"&&Y.secPos!=="custom"?Math.round(secR):Y[k];i.value=cv;v.textContent=cv;i.oninput=()=>{Y[k]=+i.value;v.textContent=i.value;if(k==="secR"&&Y.secPos!=="custom"){Y.secPos="custom";Y.secEdge=false;document.getElementById("secPos").value="custom"}draw()}}}
    const io=document.getElementById("imgOp");io.value=STY(s).imgOp;document.getElementById("imgOpV").textContent=STY(s).imgOp;io.oninput=()=>{STY(s).imgOp=+io.value;document.getElementById("imgOpV").textContent=io.value;draw()}}
-  {const Y=STY(s);const m={gA:["gA","#16323a"],gB:["gB","#071214"],tCol:["tCol"],hCol:["hCol"],mCol:["mCol"],sCol:["sCol"],soft:["soft"],acc:["acc"],trk:["trk"],nCol:["nCol","#ffffff"],kCol:["kCol","#ffffff"]};
+  {const Y=STY(s);const m={gA:["gA","#16323a"],gB:["gB","#071214"],tCol:["tCol"],hCol:["hCol"],mCol:["mCol"],sCol:["sCol"],soft:["soft"],acc:["acc"],trk:["trk"],nCol:["nCol","#ffffff"],kCol:["kCol","#ffffff"],hubCol:["hubCol","#d9b36a"]};
    for(const k in m){const i=document.getElementById(m[k][0]);i.value=Y[k]||m[k][1];i.oninput=()=>{Y[k]=i.value;draw()}}
    const f=document.getElementById("fnt");f.value=Y.fnt;f.onchange=()=>{Y.fnt=f.value;draw()};
    const ga=document.getElementById("gAng");ga.value=Y.gAng;document.getElementById("gAngV").textContent=Y.gAng;ga.oninput=()=>{Y.gAng=+ga.value;document.getElementById("gAngV").textContent=ga.value;draw()};
@@ -500,7 +518,7 @@ svg.addEventListener("click",e=>{const k=(e.target.closest("[data-k]")||{dataset
   else if(ELS[k]){elSel=k;open("secEls");ui()}});
 {const nf=document.getElementById("numFnt");[...document.getElementById("fnt").options].forEach(o=>nf.append(new Option(o.textContent,o.value)))}
 const tabs=document.getElementById("tabs");
-function buildTabs(){tabs.innerHTML="";for(const k in FACES){const b=document.createElement("button");b.type="button";b.dataset.k=k;b.setAttribute("role","tab");b.textContent=(ST[k]&&ST[k].name)||FACES[k].name;b.onclick=()=>{cur=k;sel=0;draw();ui()};tabs.appendChild(b)}}
+function buildTabs(){tabs.innerHTML="";const ub=document.getElementById("unhide");if(ub)ub.hidden=!HIDDEN.size;for(const k in FACES){if(HIDDEN.has(k))continue;const b=document.createElement("button");b.type="button";b.dataset.k=k;b.setAttribute("role","tab");b.textContent=(ST[k]&&ST[k].name)||FACES[k].name;b.onclick=()=>{cur=k;sel=0;draw();ui()};tabs.appendChild(b)}}
 buildTabs();
 document.getElementById("imgUp").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement("canvas"),z=Math.min(1,450/Math.min(im.width,im.height)),w=Math.round(im.width*z),h=Math.round(im.height*z);c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);S().img=c.toDataURL("image/jpeg",.82);S().bg="custom";document.getElementById("bg").value="custom";draw();ui()};im.src=r.result};r.readAsDataURL(f)};
 document.getElementById("imgClr").onclick=()=>{const s=S();s.img=null;if(s.bg==="custom")s.bg="plain";draw();ui()};
@@ -516,9 +534,11 @@ document.getElementById("autoCol").onclick=()=>{const s=S();if(!s.img){dlg("ار
   s.segs.forEach((g,i)=>{g.col=hex(i%2?B:A)});draw();ui()};im.src=s.img};
 document.getElementById("newFace").onclick=async()=>{const nm=await dlg("اسم الواجهة الجديدة",{input:"واجهتي",ok:"أنشئ"});if(!nm)return;const k="custom"+Date.now();FACES[k]=Object.assign(BLANK(),{name:nm});ST[k]=clone(FACES[k]);cur=k;sel=0;saveCustom();buildTabs();draw();ui()};
 document.getElementById("dupFace").onclick=async()=>{const src=cur,nm=await dlg("اسم النسخة الجديدة",{input:S().name+" (نسخة)",ok:"انسخ"});if(!nm)return;const k="custom"+Date.now(),c=clone(S());c.name=nm;c.custom=true;c.basedOn=BASE.has(src)?src:(S().basedOn||src);FACES[k]=clone(c);ST[k]=c;cur=k;sel=0;saveCustom();buildTabs();draw();ui()};
-document.getElementById("delFace").onclick=async()=>{if(BASE.has(cur)){dlg("هذه واجهة أساسية لا تُحذف. تستطيع إعادتها إلى شكلها الأول من «افتراضي».",{cancel:false});return}if(!await dlg("حذف الواجهة «"+S().name+"»؟ لا يمكن التراجع.",{ok:"احذف"}))return;const k=cur;delete FACES[k];delete ST[k];try{localStorage.removeItem("faceEd_"+k)}catch(e){}cur="row";sel=0;saveCustom();buildTabs();draw();ui()};
+document.getElementById("delFace").onclick=async()=>{if(Object.keys(FACES).filter(k=>!HIDDEN.has(k)).length<=1){dlg("هذه آخر واجهة ظاهرة، لا تُحذف.",{cancel:false});return}
+  if(BASE.has(cur)){if(!await dlg("حذف الواجهة الأساسية «"+S().name+"»؟ تُخفى من القائمة، وتستطيع إرجاعها من «استعادة المحذوفة».",{ok:"احذف"}))return;HIDDEN.add(cur);saveHidden();cur=firstVisible();sel=0;buildTabs();draw();ui();return}if(!await dlg("حذف الواجهة «"+S().name+"»؟ لا يمكن التراجع.",{ok:"احذف"}))return;const k=cur;delete FACES[k];delete ST[k];try{localStorage.removeItem("faceEd_"+k)}catch(e){}cur=firstVisible();sel=0;saveCustom();buildTabs();draw();ui()};
 for(const k of["thick","fsize"])document.getElementById(k).addEventListener("input",e=>{S()[k]=+e.target.value;document.getElementById(k+"V").textContent=e.target.value;draw()});
-document.getElementById("secs").onchange=e=>{S().secs=e.target.checked;draw()};
+document.getElementById("unhide").onclick=()=>{HIDDEN.clear();saveHidden();buildTabs();draw();ui()};
+document.getElementById("secs").onchange=e=>{S().secs=e.target.checked;document.getElementById("secsShow").checked=e.target.checked;draw()};
 document.getElementById("bg").onchange=e=>{S().bg=e.target.value;draw()};
 document.getElementById("clock").onchange=e=>{S().clock=e.target.value;draw()};
 document.getElementById("nums").onchange=e=>{S().nums=e.target.value;draw()};
@@ -541,6 +561,15 @@ let dragMode="resize";try{dragMode=localStorage.getItem("faceEd_dragMode")||"res
   const ang=e=>{const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse());return n360(Math.atan2(p.x-C,-(p.y-C))*180/Math.PI)};
   svg.addEventListener("pointerdown",e=>{const h=e.target.closest("[data-h]");if(!h)return;e.preventDefault();e.stopPropagation();
     if(S().segs[sel].pin)return;
+    if(dragMode==="push"){const s=S(),g=s.segs[sel],rg=g.rg||1,st0=n360(g.a-g.s/2);
+      // The ring in order from the chosen part; u is each start measured from it. A part met on the way is pushed on, 3° apart; a fixed one stops it.
+      const L=s.segs.map((o,j)=>({o,j})).filter(x=>(x.o.rg||1)===rg).map(x=>({j:x.j,s:x.o.s,fx:x.j!==sel&&isFixed(x.o),u:x.j===sel?0:n360(n360(x.o.a-x.o.s/2)-st0)})).sort((a,b)=>a.u-b.u);
+      // How far it may go each way: the free room up to the first fixed part (each gap less its 3°); with none, half a turn.
+      let fwd=0,back=0,fs=false,bs=false;
+      for(let k=1;k<L.length;k++){fwd+=Math.max(0,L[k].u-(L[k-1].u+L[k-1].s)-3);if(L[k].fx){fs=true;break}}
+      for(let k=L.length-1;k>=1;k--){const nx=k===L.length-1?360:L[k+1].u;back+=Math.max(0,nx-(L[k].u+L[k].s)-3);if(L[k].fx){bs=true;break}}
+      if(!fs)fwd=180;if(!bs)back=180;
+      d={push:true,a0:ang(e),st0,L,fwd:Math.min(180,fwd),back:Math.min(180,back)};svg.setPointerCapture(e.pointerId);return}
     if(dragMode!=="resize"){const s=S(),g=s.segs[sel],rg=g.rg||1,same=s.segs.map((o,j)=>({o,j})).filter(x=>(x.o.rg||1)===rg);
       const movers=same.filter(x=>dragMode==="all"?(x.j===sel||!isFixed(x.o)):x.j===sel),obst=same.filter(x=>!movers.includes(x));
       let fwd=360,back=360;movers.forEach(m=>{const st=n360(m.o.a-m.o.s/2),en=n360(m.o.a+m.o.s/2);obst.forEach(({o})=>{fwd=Math.min(fwd,n360(n360(o.a-o.s/2)-en)-3);back=Math.min(back,n360(st-n360(o.a+o.s/2))-3)})});
@@ -549,6 +578,11 @@ let dragMode="resize";try{dragMode=localStorage.getItem("faceEd_dragMode")||"res
     s.segs.forEach((o,j)=>{if(j===sel||(o.rg||1)!==(g.rg||1))return;const oe=side?o.a-o.s/2:o.a+o.s/2,dd=Math.abs(n360(oe-edge+180)-180);if(dd<best){best=dd;nb=j}});
     d={side,nb,pinNb:nb!==null&&isFixed(s.segs[nb]),gap:nb===null?0:best,fixed:side?g.a-g.s/2:g.a+g.s/2,far:nb===null?null:(side?s.segs[nb].a+s.segs[nb].s/2:s.segs[nb].a-s.segs[nb].s/2)};svg.setPointerCapture(e.pointerId)});
   svg.addEventListener("pointermove",e=>{if(!d)return;const s=S(),g=s.segs[sel],a=ang(e);
+    if(d.push){let dl=n360(a-d.a0+180)-180;dl=Math.max(-d.back,Math.min(d.fwd,dl));dl=Math.round(dl*2)/2;const L=d.L,n=L.length,u=L.map(x=>x.u);
+      u[0]=dl;
+      if(dl>=0){let end=dl+L[0].s;for(let k=1;k<n;k++){u[k]=Math.max(L[k].u,end+3);end=u[k]+L[k].s}}
+      else{let start=360+dl;for(let k=n-1;k>=1;k--){u[k]=Math.min(L[k].u+L[k].s,start-3)-L[k].s;start=u[k]}}
+      L.forEach((x,k)=>{if(!x.fx||k===0)s.segs[x.j].a=n360(d.st0+u[k]+x.s/2)});draw();return}
     if(d.mv){let dl=n360(a-d.a0+180)-180;dl=Math.max(-d.back,Math.min(d.fwd,dl));dl=Math.round(dl*2)/2;
       d.orig.forEach(([j,a0])=>{s.segs[j].a=n360(a0+dl)});draw();return}
     const max=d.nb===null?340:(d.side?n360(d.far-d.fixed):n360(d.fixed-d.far))-d.gap-8;
@@ -603,8 +637,8 @@ let ringSel=1;
     {const L0=order(ringSel);const cur0=L0.length?Math.round(startOf(L0[0].g)):0;
      gr.append(slider("rsEvStart","بداية التوزيع بالتساوي",0,359,1,cur0,v=>v+"°",v=>{even(ringSel,v);draw()}))}
     rset.append(gr);
-    {const dm=mk("div","rs-field");dm.append(mk("label","","عند سحب المقبض الذهبي على الساعة"));const sw2=mk("div","rs-switch rs-switch3");
-     [["resize","يتغيّر طول الجزء"],["move","يتحرك الجزء وحده"],["all","تتحرك كل الأجزاء"]].forEach(([k,t])=>{const b=mk("button",dragMode===k?"on":"",(dragMode===k?"✓ ":"")+t);b.type="button";b.setAttribute("aria-pressed",dragMode===k);
+    {const dm=mk("div","rs-field");dm.append(mk("label","","عند سحب المقبض الذهبي على الساعة"));const sw2=mk("div","rs-switch rs-sw4");
+     [["resize","يتغيّر طول الجزء"],["move","يتحرك الجزء وحده"],["push","يدفع الجار أمامه"],["all","تتحرك كل الأجزاء"]].forEach(([k,t])=>{const b=mk("button",dragMode===k?"on":"",(dragMode===k?"✓ ":"")+t);b.type="button";b.setAttribute("aria-pressed",dragMode===k);
        b.onclick=()=>{dragMode=k;try{localStorage.setItem("faceEd_dragMode",k)}catch(e){}ui()};sw2.append(b)});dm.append(sw2);rset.append(dm)}
     const acts=mk("div","rs-acts");
     const a1=mk("button","","وزّع بالتساوي");a1.type="button";a1.onclick=()=>{even(ringSel);draw();ui()};
@@ -820,7 +854,7 @@ svg#face{touch-action:none}
 .rs{display:flex;flex-direction:column;gap:12px;padding:12px}
 .rs-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#e6efe9;border-radius:11px;padding:4px}
 .rs-switch button{border:none;background:transparent;border-radius:8px;padding:8px;font-weight:600;color:#3a5a4b}
-.rs-switch3{grid-template-columns:repeat(3,1fr)!important}.rs-switch3 button{font-size:12px;padding:8px 4px}
+.rs-switch3{grid-template-columns:repeat(3,1fr)!important}.rs-sw4 button{font-size:12px;padding:8px 4px}.rs-switch3 button{font-size:12px;padding:8px 4px}
 .rs-switch button.on{background:#fff;color:#123b29;box-shadow:0 1px 4px rgba(25,49,38,.18)}
 .rs-card{border:1px solid #d6e4db;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:#fbfdfc}
 .rs-h{margin:0;font-size:13px;color:#176747;letter-spacing:.2px}
