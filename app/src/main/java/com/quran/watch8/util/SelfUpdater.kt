@@ -135,6 +135,44 @@ object SelfUpdater {
      * to confirm -- and, the first time, to allow installs from this app --
      * through [InstallStatusReceiver].
      */
+    /**
+     * Installs several packages (the watch faces) as ONE multi-package session, so
+     * Android asks for a single confirmation instead of one per face. Each face is
+     * its own package (Wear OS allows one face per package), hence the children.
+     */
+    suspend fun installAll(context: Context, apks: List<Pair<File, String>>) = withContext(Dispatchers.IO) {
+        if (apks.isEmpty()) return@withContext
+        if (apks.size == 1) { install(context, apks[0].first, apks[0].second); return@withContext }
+        val installer = context.packageManager.packageInstaller
+        val parentParams = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setMultiPackage()
+            if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        }
+        val parentId = installer.createSession(parentParams)
+        installer.openSession(parentId).use { parent ->
+            for ((apk, pkg) in apks) {
+                val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+                    setAppPackageName(pkg)
+                    if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                }
+                val childId = installer.createSession(params)
+                installer.openSession(childId).use { child ->
+                    child.openWrite("base.apk", 0, apk.length()).use { out ->
+                        apk.inputStream().use { it.copyTo(out) }
+                        child.fsync(out)
+                    }
+                }
+                parent.addChildSessionId(childId)
+            }
+            val intent = Intent(context, InstallStatusReceiver::class.java).setAction(ACTION_INSTALL_STATUS)
+            val pending = PendingIntent.getBroadcast(
+                context, parentId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+            parent.commit(pending.intentSender)
+        }
+    }
+
     suspend fun install(context: Context, apk: File, packageName: String = context.packageName) = withContext(Dispatchers.IO) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {

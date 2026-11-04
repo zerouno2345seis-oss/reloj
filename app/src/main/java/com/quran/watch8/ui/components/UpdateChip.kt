@@ -48,12 +48,17 @@ fun UpdateChip(modifier: Modifier = Modifier) {
                     try {
                         // Faces first: installing the app restarts it, which
                         // would cut short anything still to come.
-                        for ((i, face) in update.faces.withIndex()) {
-                            val file = SelfUpdater.download(context, face.url, "face-$i.apk") { p ->
-                                status = "تنزيل الواجهة ${(p * 100).toInt()}٪"
-                            }
-                            status = "أكّد تثبيت الواجهة على الشاشة"
-                            SelfUpdater.install(context, file, face.packageName)
+                        // All faces download first, then go to the system in one
+                        // multi-package session: one confirmation for all of them.
+                        val n = update.faces.size
+                        val files = update.faces.mapIndexed { i, face ->
+                            SelfUpdater.download(context, face.url, "face-$i.apk") { p ->
+                                status = "تنزيل الواجهة ${i + 1} من $n · ${(p * 100).toInt()}٪"
+                            } to face.packageName
+                        }
+                        if (files.isNotEmpty()) {
+                            status = "أكّد تثبيت $n واجهة على الشاشة"
+                            SelfUpdater.installAll(context, files)
                         }
                         val appUrl = update.apkUrl
                         if (appUrl != null) {
@@ -63,7 +68,7 @@ fun UpdateChip(modifier: Modifier = Modifier) {
                             status = "أكّد التثبيت على الشاشة"
                             SelfUpdater.install(context, apk)
                         } else {
-                            status = "ثُبّتت الواجهة"
+                            status = "ثُبّتت الواجهات"
                         }
                     } catch (e: Exception) {
                         status = "تعذّر التنزيل: ${e.message ?: ""}"
