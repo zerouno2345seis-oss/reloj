@@ -577,9 +577,30 @@ class Face:
             for i in range(60):
                 if i % 5 and not minor:
                     continue
-                length, w = (big_len, (7 if i % 15 == 0 else 5) if self.s.get("hourIndex") == "baton" else 3) if i % 5 == 0 else (big_len * 0.4, 1.5)
-                (x0, y0), (x1, y1) = pol(inner_r - 3, i * 6), pol(inner_r - 3 - length, i * 6)
-                out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="{w}" cap="ROUND"/></Line>')
+                idx = self.s.get("hourIndex") or "line"
+                big = i % 5 == 0
+                r0 = inner_r - 3
+                if big and idx == "dot":
+                    cx, cy = pol(r0 - big_len / 2, i * 6)
+                    d = (4.6 if i % 15 == 0 else 3.2) * K
+                    out.append(f'<Ellipse x="{cx - d:.1f}" y="{cy - d:.1f}" width="{2*d:.1f}" height="{2*d:.1f}"><Fill color="{tick}"/></Ellipse>')
+                    continue
+                if big and idx == "double":
+                    for q in (i * 6 - 1.2, i * 6 + 1.2):
+                        (x0, y0), (x1, y1) = pol(r0, q), pol(r0 - big_len, q)
+                        out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="1.8"/></Line>')
+                    continue
+                if big and idx == "diamond":
+                    # A lozenge: two strokes tapering from the middle (no polygons on the watch).
+                    w0 = (6 if i % 15 == 0 else 4) * K
+                    for f0, f1 in ((0, .5), (.5, 1)):
+                        (x0, y0), (x1, y1) = pol(r0 - big_len * f0, i * 6), pol(r0 - big_len * f1, i * 6)
+                        out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="{w0:.1f}" cap="ROUND"/></Line>')
+                    continue
+                length, w = (big_len, (7 if i % 15 == 0 else 5) if idx == "baton" else 3) if big else (big_len * 0.4, 1.5)
+                (x0, y0), (x1, y1) = pol(r0, i * 6), pol(r0 - length, i * 6)
+                cap = "BUTT" if idx == "baton" and big else "ROUND"
+                out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="{w}" cap="{cap}"/></Line>')
         if out:
             self.parts.append(active("ticks", f'<PartDraw x="0" y="0" width="450" height="450">{"".join(out)}</PartDraw>'))
         which = self.s.get("hourNumerals", "none")
@@ -706,38 +727,42 @@ def element(spec, name, default_y, default_scale=1.0):
     return e.get("show", True), e.get("y", default_y) * K, e.get("scale", default_scale)
 
 
-def validate_studio_features(spec):
-    """Reject studio features this generator cannot yet carry to a watch.
+POD_SHAPES = ("circle", "half", "square", "drop", "petal")
+POD_STATIC = {"none", "moon", "temp"}
+TEXTURES = ("none", "sunburst", "grid", "guilloche", "rosette", "waves")
+HOUR_INDEX = ("line", "baton", "dot", "diamond", "double")
 
-    Omitting these silently would turn a successful release into a different
-    design, particularly for faces whose sub-dials are their main content.
-    """
+
+def pod_content(item):
+    """A pod's content key; anything without a source on the watch is drawn empty."""
+    k = (item or {}).get("content", "none")
+    return k if k in PROVIDERS or k in POD_STATIC else "none"
+
+
+def validate_studio_features(spec):
+    """Reject only what cannot be drawn at all: every studio shape, finish and index style
+    has a watch version (curves the watch format lacks are approximated)."""
     unsupported = []
     pods = spec.get("pods") or {}
-    if pods and pods.get("shape") not in ("circle", "half"):
+    if pods and pods.get("shape") not in POD_SHAPES:
         unsupported.append("pods.shape")
-    if any(item.get("content") not in {"none", "moon", "battery", "steps", "heart"}
-           for item in pods.get("items", [])):
-        unsupported.append("pods.content")
-    if spec.get("dialTexture", "none") not in (None, "none", "sunburst", "grid"):
+    if spec.get("dialTexture") not in (None,) + TEXTURES:
         unsupported.append("dialTexture")
-    if spec.get("hourIndex", "line") not in (None, "line", "baton"):
+    if spec.get("hourIndex") not in (None,) + HOUR_INDEX:
         unsupported.append("hourIndex")
-    if spec.get("bothClocks"):
-        unsupported.append("bothClocks")
     if unsupported:
         raise ValueError("Studio features not yet supported by WFF generator: " + ", ".join(unsupported))
 
 
 def pod_slot_count(spec):
     p = spec.get("pods") or {}
-    return sum(item.get("content") in {"battery", "steps", "heart"}
+    return sum(pod_content(item) not in POD_STATIC
                for item in p.get("items", [])[:len(p.get("positions", []))])
 
 
 def draw_dial_finish(face):
     s = face.s
-    kind = s.get("dialTexture", "none")
+    kind = s.get("dialTexture") or "none"
     radius = max(1, 225 - face.depth - 4 * K)
     ink = argb(s.get("colors", {}).get("text", "#FFFFFF"), float(s.get("dialTextureOpacity", .1)))
     lines = []
@@ -757,6 +782,40 @@ def draw_dial_finish(face):
                 x1, x2 = 225 + lo, 225 + hi
                 y1, y2 = 225 + sign * (lo + t), 225 + sign * (hi + t)
                 lines.append(f'<Line startX="{x1:.1f}" startY="{y1:.1f}" endX="{x2:.1f}" endY="{y2:.1f}"><Stroke color="{ink}" thickness="0.8"/></Line>')
+    elif kind == "guilloche":           # engraved rings, 4 px apart
+        r = 6 * K
+        while r < radius:
+            lines.append(f'<Arc centerX="225" centerY="225" width="{2*r:.1f}" height="{2*r:.1f}" startAngle="0" endAngle="360"><Stroke color="{ink}" thickness="0.8"/></Arc>')
+            r += 4 * K
+    elif kind == "rosette":             # 36 circles round a small one, cut at the dial's edge
+        cr, off = radius * .6, radius * .35
+        for i in range(36):
+            cx, cy = pol(off, i * 10)
+            # Only the arc inside the dial: the circle reaches radius off+cr > radius.
+            d = off
+            cosv = (radius ** 2 - d ** 2 - cr ** 2) / (2 * d * cr)
+            if cosv <= -1:
+                a0, a1 = 0, 360
+            else:
+                half = math.degrees(math.acos(max(-1, min(1, cosv))))
+                # angle (clockwise from 12) of the direction pointing away from the centre
+                out = i * 10
+                a0, a1 = out + half, out + 360 - half
+            lines.append(f'<Arc centerX="{cx:.1f}" centerY="{cy:.1f}" width="{2*cr:.1f}" height="{2*cr:.1f}" startAngle="{a0:.1f}" endAngle="{a1:.1f}"><Stroke color="{ink}" thickness="0.8"/></Arc>')
+    elif kind == "waves":               # rows of half-ellipse arcs, up and down in turn
+        w, h, row = 18 * K, 10 * K, 9 * K
+        y = 225 - math.floor(radius / row) * row
+        while y <= 225 + radius:
+            x = 225 - math.ceil(radius / w) * w
+            n = 0
+            while x < 225 + radius:
+                cx = x + w / 2
+                if math.hypot(cx - 225, y - 225) + w / 2 < radius:
+                    start, end = (270, 450) if n % 2 == 0 else (90, 270)
+                    lines.append(f'<Arc centerX="{cx:.1f}" centerY="{y:.1f}" width="{w:.1f}" height="{h:.1f}" startAngle="{start}" endAngle="{end}"><Stroke color="{ink}" thickness="0.8"/></Arc>')
+                x += w
+                n += 1
+            y += row
     if s.get("innerBezel"):
         for inset, width, alpha in ((0, 2.5, .9), (5 * K, .8, .6)):
             r = max(1, radius - inset)
@@ -766,67 +825,126 @@ def draw_dial_finish(face):
         face.parts.append(active("dialFinish", '<PartDraw x="0" y="0" width="450" height="450">' + ''.join(lines) + '</PartDraw>'))
 
 
+def _moon(name, cx, cy, r, ink, back):
+    """A crescent: a lit disc with a disc of the dial's colour over most of it."""
+    return active(name, f'<PartDraw x="0" y="0" width="450" height="450">'
+                        f'<Ellipse x="{cx - r:.1f}" y="{cy - r:.1f}" width="{2*r:.1f}" height="{2*r:.1f}"><Fill color="{ink}"/></Ellipse>'
+                        f'<Ellipse x="{cx - r * .55:.1f}" y="{cy - r * 1.05:.1f}" width="{2*r:.1f}" height="{2*r:.1f}"><Fill color="{back}"/></Ellipse>'
+                        '</PartDraw>')
+
+
 def draw_pods(face, budget):
     p = face.s.get("pods") or {}
     if not p:
         return
+    shape = p.get("shape", "circle")
     radius = max(1, float(p.get("radius", 36))) * K
-    distance = float(p.get("distance", 110)) * K
     size = max(6, round(float(p.get("fontSize", 14)) * K))
     fill = argb(p.get("fill", "#000000"), float(p.get("fillOpacity", .35)))
     line, ink = argb(p.get("line", "#D9B36A")), argb(p.get("text", "#FFFFFF"))
+    accent = face.accent
+    stops = (face.s.get("backgroundGradient") or {}).get("stops") or [{"color": "#000000"}]
+    back = argb(stops[0].get("color", "#000000"))
     items = p.get("items", [])
     for i, angle in enumerate(p.get("positions", [])):
-        half = p.get("shape") == "half"
-        if half:
-            distance = math.sqrt(max(0, 225 ** 2 - radius ** 2))
-        a = math.radians(float(angle))
+        angle = float(angle)
+        a = math.radians(angle)
         ux, uy = math.sin(a), -math.cos(a)
-        x, y = pol(distance, float(angle))
-        if half:
-            tx, ty = x - ux * radius * .42, y - uy * radius * .42
-            side = max(1, round(radius * .8))
-            left, top = round(tx - side / 2), round(ty - side / 2)
+        if shape == "half":
+            # A whole circle centred on the screen's edge, as if rising from outside it:
+            # the round screen cuts it, so only its inner half shows.
+            distance = 225.0
         else:
-            left, top, side = round(x - radius), round(y - radius), round(radius * 2)
-        if left < 0 or top < 0 or left + side > 450 or top + side > 450:
+            distance = float(p.get("distance", 110)) * K
+        x, y = pol(distance, angle)
+        st = f'<Fill color="{fill}"/><Stroke color="{line}" thickness="1.6"/>'
+        if shape == "half":
+            tx, ty = x - ux * radius * .5, y - uy * radius * .5
+            side = max(1, round(radius * .9))
+            draw = f'<Ellipse x="{x - radius:.1f}" y="{y - radius:.1f}" width="{2*radius:.1f}" height="{2*radius:.1f}">{st}</Ellipse>'
+        elif shape == "square":
+            tx, ty, side = x, y, round(radius * 1.2)
+            draw = (f'<RoundRectangle x="{x - radius * 1.3:.1f}" y="{y - radius * .62:.1f}" width="{radius * 2.6:.1f}" height="{radius * 1.24:.1f}" '
+                    f'cornerRadiusX="{radius * .18:.1f}" cornerRadiusY="{radius * .18:.1f}">{st}</RoundRectangle>')
+        else:
+            tx, ty, side = x, y, round(radius * 2)
+            if shape == "circle":
+                draw = f'<Ellipse x="{x - radius:.1f}" y="{y - radius:.1f}" width="{2*radius:.1f}" height="{2*radius:.1f}">{st}</Ellipse>'
+                for m in range(12):
+                    q = m * 30
+                    (x0, y0), (x1, y1) = [(x + math.sin(math.radians(q)) * rr, y - math.cos(math.radians(q)) * rr)
+                                          for rr in (radius - 2, radius - (5 if m % 3 else 8))]
+                    draw += f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{line}" thickness="{0.8 if m % 3 else 1.6}"/></Line>'
+            else:
+                # petal: an ellipse along the radius; drop: a fuller one (the watch has no curves
+                # to draw the studio's teardrop). Both turned to point at the centre.
+                rx = radius * (.62 if shape == "petal" else .8)
+                draw = None
+                box = round(2 * radius)
+                radius = box / 2
+                face.parts.append(active(f"pod{i}",
+                                         f'<PartDraw x="{round(x - radius)}" y="{round(y - radius)}" width="{box}" height="{box}" '
+                                         f'pivotX="0.5" pivotY="0.5" angle="{angle % 360:.1f}">'
+                                         f'<Ellipse x="{radius - rx:.1f}" y="0" width="{2*rx:.1f}" height="{2*radius:.1f}">{st}</Ellipse></PartDraw>'))
+        if draw is not None:
+            face.parts.append(active(f"pod{i}", f'<PartDraw x="0" y="0" width="450" height="450">{draw}</PartDraw>'))
+        left, top = round(tx - side / 2), round(ty - side / 2)
+        if shape != "half" and (left < 0 or top < 0 or left + side > 450 or top + side > 450):
             raise ValueError(f"pod {i + 1} extends beyond the screen")
-        if half:
-            # Parallel strokes fill the inward-facing half; the chord endpoints
-            # meet the circular screen edge at any selected radius.
-            strokes = []
-            for n in range(math.ceil(radius)):
-                depth = min(radius, n + .5)
-                extent = math.sqrt(max(0, radius ** 2 - depth ** 2))
-                bx, by = x - ux * depth, y - uy * depth
-                x1, y1 = bx - uy * extent, by + ux * extent
-                x2, y2 = bx + uy * extent, by - ux * extent
-                strokes.append(f'<Line startX="{x1:.2f}" startY="{y1:.2f}" endX="{x2:.2f}" endY="{y2:.2f}"><Stroke color="{fill}" thickness="1.2"/></Line>')
-            x1, y1 = x - uy * radius, y + ux * radius
-            x2, y2 = x + uy * radius, y - ux * radius
-            start, end = (float(angle) + 90) % 360, (float(angle) + 270) % 360
-            if end <= start:
-                end += 360
-            strokes.append(f'<Arc centerX="{x:.2f}" centerY="{y:.2f}" width="{radius*2:.2f}" height="{radius*2:.2f}" startAngle="{start:.2f}" endAngle="{end:.2f}"><Stroke color="{line}" thickness="1.6"/></Arc>')
-            strokes.append(f'<Line startX="{x1:.2f}" startY="{y1:.2f}" endX="{x2:.2f}" endY="{y2:.2f}"><Stroke color="{line}" thickness="1.6"/></Line>')
-            shape = '<PartDraw x="0" y="0" width="450" height="450">' + ''.join(strokes) + '</PartDraw>'
-        else:
-            shape = (f'<PartDraw x="0" y="0" width="450" height="450">'
-                     f'<Ellipse x="{left}" y="{top}" width="{side}" height="{side}">'
-                     f'<Fill color="{fill}"/><Stroke color="{line}" thickness="1.6"/>'
-                     '</Ellipse></PartDraw>')
-        face.parts.append(active(f"pod{i}", shape))
-        content = items[i].get("content", "none") if i < len(items) else "none"
+        left, top = max(0, min(450 - side, left)), max(0, min(450 - side, top))
+        content = pod_content(items[i]) if i < len(items) else "none"
+        if content == "none":
+            continue
         if content == "moon":
-            face.parts.append(active(f"podMoon{i}", text(left, top, side, side, "☾", size, ink)))
-        elif content in ("battery", "steps", "heart"):
-            if budget.left() < 1:
-                raise ValueError("not enough complication slots for the pods")
-            default, provider, system = PROVIDERS[content]
-            body = "".join(f'<Complication type="{t}">{active(f"podText{i}{t}", text(0, 0, side, side, ("%s", ["[COMPLICATION.TEXT]"]), size, ink))}</Complication>' for t in ("SHORT_TEXT", "RANGED_VALUE"))
-            face.parts.append(slot(budget.take(), left, top, side, side, "SHORT_TEXT RANGED_VALUE", provider, default,
-                                   f'<BoundingBox x="0" y="0" width="{side}" height="{side}"/>', body,
-                                   customizable="FALSE", system=system or "EMPTY", ambient=False))
+            face.parts.append(_moon(f"podMoon{i}", tx, ty, min(radius * .45, side * .4), ink, back))
+            continue
+        # Value up top, its short name below, as the studio draws a sub-dial.
+        label = (items[i].get("label") or "").split(" ")[0]
+        with_label = shape not in ("square", "half") and radius > 24 * K and label
+        vy = top - (round(size * .15) if with_label else 0)
+        if with_label:
+            face.parts.append(active(f"podLabel{i}", text(left, round(ty + size * .55), side, max(8, round(size * .8)), label,
+                                                       max(7, round(size * .55)), ink, alpha=180)))
+        if content == "temp":
+            face.parts.append(active(f"podTemp{i}", text(left, vy, side, side, ("%s°", ["[WEATHER.TEMPERATURE]"]), size, ink)))
+            continue
+        if budget.left() < 1:
+            face.notes.append(f"pod {i + 1} ({content}) dropped: no slot left")
+            continue
+        default, provider, system = PROVIDERS[content]
+        sid = budget.take()
+        bound = f'<BoundingBox x="0" y="0" width="{side}" height="{side}"/>'
+        if content in ICONS:
+            isz = round(side * .6)
+            face.icons.add(ICONS[content])
+            body = (f'<Complication type="SMALL_IMAGE"><PartImage x="{(side - isz) // 2}" y="{(side - isz) // 2}" width="{isz}" height="{isz}">'
+                    f'<Image resource="{ICONS[content]}"/></PartImage></Complication>')
+            types = "SMALL_IMAGE"
+        elif content == "prev":
+            V = "[COMPLICATION.RANGED_VALUE_VALUE]"
+            now, before = "([HOUR_0_23] * 60 + [MINUTE])", f"floor({V} / 1440)"
+            passed = f"(({now} - {before} + 1440) % 1440)"
+            body = ('<Complication type="RANGED_VALUE">'
+                    + text(0, 0, side, side, ("%sد", [passed]), size, ink, alpha=f"(255 * {lt(passed, 60)})")
+                    + text(0, 0, side, side, ("%sس", [f"floor({passed} / 60)"]), size, ink, alpha=f"(255 * {ge(passed, 60)})")
+                    + '</Complication>')
+            types = "RANGED_VALUE"
+        else:
+            arc = ""
+            if default == "RANGED_VALUE" and shape == "circle":
+                rr = radius - 10 * K
+                cx = cy = side / 2
+                frac = ("(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / "
+                        "max(1, [COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]))")
+                arc = (f'<PartDraw x="0" y="0" width="{side}" height="{side}"><Arc centerX="{cx:.1f}" centerY="{cy:.1f}" width="{2*rr:.1f}" height="{2*rr:.1f}" startAngle="0" endAngle="0">'
+                       f'<Transform target="endAngle" value="(360 * clamp({frac}, 0, 1))"/><Stroke color="{accent}" thickness="2.5" cap="ROUND"/></Arc></PartDraw>')
+            dy = vy - top
+            body = "".join(f'<Complication type="{t}">{arc if t == "RANGED_VALUE" else ""}'
+                           f'{text(0, dy, side, side, ("%s", ["[COMPLICATION.TEXT]"]), size, ink)}</Complication>'
+                           for t in ("SHORT_TEXT", "RANGED_VALUE"))
+            types = "SHORT_TEXT RANGED_VALUE"
+        face.parts.append(slot(sid, left, top, side, side, types, provider, default, bound, body,
+                               customizable="TRUE", system=system or "EMPTY", ambient=True))
 
 
 def build(spec, module=None, folder="."):
@@ -889,6 +1007,10 @@ def build(spec, module=None, folder="."):
     inner_r = f.seconds()
     if analog:
         f.dial(inner_r)
+        if spec.get("bothClocks") and show_time:
+            # The hybrid: a small digital time under the centre, the hands over it.
+            size = round(30 * K * tsc * 1.4)
+            f.parts.append(kit.clock(y=round(ty + 34 * K * tsc - size * 0.52), size=size, when="active", height=round(size * 1.04), color=f.ink))
         f.hands()
     elif show_time:
         size = round(110 * tsc)

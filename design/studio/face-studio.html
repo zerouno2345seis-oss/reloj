@@ -338,30 +338,30 @@ FACES.petals=LUX({name:"البتلات",clock:"analog",nums:"none",ticks:false,
   sty:{gA:"#2b0f1a",gB:"#0c0306",gT:"radial",tCol:"#fff0f4",soft:"#dab3bf",acc:"#ffd6a5",sCol:"#ffd6a5",hCol:"#fff0f4",mCol:"#ffd6a5",fnt:"Reem Kufi, sans-serif",secMode:"hand",secW:1.5,tex:"waves",texOp:.06,hLen:72,hW:6,mLen:118,mW:4,hubR:6,hubCol:"#ffd6a5",bezel:true},
   pods:{shape:"petal",at:"6",r:40,d:130,f:12,rot:30,fill:"#ff8fab",op:.18,line:"#ffd6a5",txt:"#fff0f4",items:["next","battery","steps","hijri","heart","khatma"]},
   els:{date:{show:false,y:60,scale:1},pill:{show:false,y:110,scale:.85},time:{show:true,y:200,scale:.6},prayer:{show:false,y:300,scale:.8},edges:{show:false,y:219,scale:1}}});
-// نماذج مستوحاة من صور المستند: تحفظ مستقلة وقابلة للتعديل والحذف.
+// ثلاث واجهات أصلية إضافية بطابع الساعات الفاخرة: تحفظ مستقلة وقابلة للتعديل والحذف.
 const INSPIRED=[
-  ["frost","S4U Frost","chrono","#f7f7f3","#bfc2c5","#997044","#252b30","2h","sunburst"],
-  ["samsung_heritage","Samsung Heritage Classic","heritage","#252a30","#030405","#ec7b26","#f2f4f5","2v","grid"],
-  ["sporty","Samsung Sporty Classic","chrono","#20252b","#030405","#ec7b26","#f2f4f5","4","none"]
+  ["crystal","البلّور","chrono","#f7f7f3","#bfc2c5","#997044","#252b30","2h","sunburst"],
+  ["asala","الأصالة","heritage","#252a30","#030405","#ec7b26","#f2f4f5","2v","grid"],
+  ["sport","العدّاء","chrono","#20252b","#030405","#ec7b26","#f2f4f5","4","none"]
 ];
 for(const [id,label,base,gA,gB,acc,ink,at,tex] of INSPIRED){
   const face=JSON.parse(JSON.stringify(FACES[base]));
-  face.name="مستوحاة من "+label;
+  face.name=label;
   face.nums="none"; face.ticks=true;
-  Object.assign(face.sty,{gA,gB,acc,tCol:ink,soft:ink,hCol:ink,mCol:ink,sCol:acc,nCol:ink,kCol:id==="frost"?"#8d653e":ink,hubCol:acc,tex,idx:"baton",minorTicks:true,secMode:"hand"});
-  Object.assign(face.pods,{shape:"circle",at,fill:id==="frost"?"#9e7449":"#11161d",line:id==="frost"?"#9e7449":"#c8ced2",txt:ink,op:id==="frost"?.32:.65,
-    items:id==="frost"?["steps","battery"]:id==="sporty"?["moon","battery","heart","steps"]:["moon","steps"],
-    r:id==="frost"?65:id==="sporty"?36:43,d:id==="frost"?100:110,f:id==="frost"?14:21});
-  if(id==="frost"){
+  Object.assign(face.sty,{gA,gB,acc,tCol:ink,soft:ink,hCol:ink,mCol:ink,sCol:acc,nCol:ink,kCol:id==="crystal"?"#8d653e":ink,hubCol:acc,tex,idx:"baton",minorTicks:true,secMode:"hand"});
+  Object.assign(face.pods,{shape:"circle",at,fill:id==="crystal"?"#9e7449":"#11161d",line:id==="crystal"?"#9e7449":"#c8ced2",txt:ink,op:id==="crystal"?.32:.65,
+    items:id==="crystal"?["steps","battery"]:id==="sport"?["moon","battery","heart","steps"]:["moon","steps"],
+    r:id==="crystal"?65:id==="sport"?36:43,d:id==="crystal"?100:110,f:id==="crystal"?14:21});
+  if(id==="crystal"){
     Object.assign(face.sty,{hCol:"#594433",mCol:"#594433",hLen:78,mLen:140,hW:10,mW:8,tickLen:20,secW:1.5,texOp:.05});
     face.pods.fill="#b9956d"; face.pods.op=.22;
   }else{
-    Object.assign(face.sty,{hCol:"#f2f4f5",mCol:"#f2f4f5",sCol:"#ee7927",hLen:90,mLen:150,hW:7,mW:5,tickLen:15,secW:2,texOp:id==="sporty"?0:.12});
+    Object.assign(face.sty,{hCol:"#f2f4f5",mCol:"#f2f4f5",sCol:"#ee7927",hLen:90,mLen:150,hW:7,mW:5,tickLen:15,secW:2,texOp:id==="sport"?0:.12});
     face.pods.txt="#f3f4f5";
   }
   // الحقول قيَم معاينة وليست صورًا أو بيانات من الساعة.
   face.els.date.show=false; face.els.prayer.show=false; face.els.pill.show=false; face.els.edges.show=false;
-  FACES["inspired_"+id]=face;
+  FACES["lux_"+id]=face;
 }
 // القوالب التي أزيلت من الافتراضيات: تُحفظ نسخها المعدلة بدل محوها.
 const RETIRED_INSPIRED=["milan","royale","davos","assen","mystique","archeus","md313","vero","altum","chrono_hybrid","dx102","shift","rc_one","tomcat","absolut","mac1851","salatik"].map(id=>"inspired_"+id);

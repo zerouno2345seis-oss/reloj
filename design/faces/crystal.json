@@ -1,0 +1,165 @@
+{
+ "id": "crystal",
+ "face": "lux_crystal",
+ "faceName": "البلّور",
+ "isNewFace": false,
+ "basedOn": null,
+ "background": "plain",
+ "backgroundGradient": {
+  "type": "radial",
+  "angle": 180,
+  "stops": [
+   {
+    "color": "#f7f7f3",
+    "alpha": 1,
+    "pos": 0
+   },
+   {
+    "color": "#bfc2c5",
+    "alpha": 1,
+    "pos": 1
+   }
+  ],
+  "overImage": false
+ },
+ "clock": "analog",
+ "bothClocks": false,
+ "hourNumerals": "none",
+ "hourNumeralSize": 20,
+ "minuteTicks": true,
+ "minorTicks": true,
+ "tickLength": 20,
+ "showSeconds": true,
+ "pods": {
+  "shape": "circle",
+  "positions": [
+   90,
+   270
+  ],
+  "radius": 65,
+  "distance": 100,
+  "fontSize": 14,
+  "fill": "#b9956d",
+  "fillOpacity": 0.22,
+  "line": "#9e7449",
+  "text": "#252b30",
+  "items": [
+   {
+    "content": "steps",
+    "label": "الخطوات",
+    "source": "الساعة"
+   },
+   {
+    "content": "battery",
+    "label": "البطارية",
+    "source": "الساعة"
+   }
+  ]
+ },
+ "dialTexture": "sunburst",
+ "dialTextureOpacity": 0.05,
+ "hourIndex": "baton",
+ "innerBezel": true,
+ "hands": {
+  "hour": {
+   "length": 78,
+   "width": 10,
+   "color": "#594433"
+  },
+  "minute": {
+   "length": 140,
+   "width": 8,
+   "color": "#594433"
+  },
+  "second": {
+   "tail": 22
+  },
+  "hub": {
+   "radius": 7,
+   "color": "#997044"
+  }
+ },
+ "colors": {
+  "text": "#252b30",
+  "soft": "#252b30",
+  "accent": "#997044",
+  "seconds": "#997044",
+  "secondsTrack": "#ffffff",
+  "hourHand": "#594433",
+  "minuteHand": "#594433",
+  "secondHand": "#997044",
+  "numerals": "#252b30",
+  "ticks": "#8d653e"
+ },
+ "font": "Changa, sans-serif",
+ "backgroundImage": null,
+ "backgroundImageOpacity": 0.6,
+ "backgroundImageScale": 1,
+ "backgroundImageOffsetX": 0,
+ "backgroundImageOffsetY": 0,
+ "secondsOnEdge": true,
+ "seconds": {
+  "mode": "hand",
+  "position": "edge",
+  "radius": 218,
+  "width": 1.5
+ },
+ "hourNumeralStyle": "latin",
+ "hourNumeralRotation": "upright",
+ "hourNumeralWeight": 700,
+ "hourNumeralFont": "Changa, sans-serif",
+ "hourNumeralInset": 0,
+ "digitStyle": "latin",
+ "ring": {
+  "thickness": 0,
+  "thickness2": null,
+  "fontSize": 14,
+  "secondsInside": true,
+  "opacity": 1,
+  "gradient": {
+   "type": "none",
+   "stops": []
+  }
+ },
+ "segments": [],
+ "aod": {
+  "photo": true,
+  "photoOp": 0.3,
+  "ring": true,
+  "ringOp": 0.3,
+  "date": true,
+  "prayer": true,
+  "time": true,
+  "pill": false,
+  "bright": "#cfd8d3",
+  "dim": "#99aaaa"
+ },
+ "slotsUsed": 0,
+ "elements": {
+  "date": {
+   "show": false,
+   "y": 60,
+   "scale": 1
+  },
+  "pill": {
+   "show": false,
+   "y": 110,
+   "scale": 0.85
+  },
+  "time": {
+   "show": true,
+   "y": 200,
+   "scale": 0.6
+  },
+  "prayer": {
+   "show": false,
+   "y": 300,
+   "scale": 0.8
+  },
+  "edges": {
+   "show": false,
+   "y": 219,
+   "scale": 1
+  }
+ }
+}
