@@ -49,16 +49,27 @@ fun UpdateChip(modifier: Modifier = Modifier) {
                         // Faces first: installing the app restarts it, which
                         // would cut short anything still to come.
                         // All faces download first, then go to the system in one
-                        // multi-package session: one confirmation for all of them.
+                        // multi-package session: one confirmation for all of them. If the
+                        // watch refuses that, they go one after the other, each waiting
+                        // for its own confirmation before the next.
                         val n = update.faces.size
                         val files = update.faces.mapIndexed { i, face ->
                             SelfUpdater.download(context, face.url, "face-$i.apk") { p ->
                                 status = "تنزيل الواجهة ${i + 1} من $n · ${(p * 100).toInt()}٪"
                             } to face.packageName
                         }
+                        var installedFaces = 0
                         if (files.isNotEmpty()) {
                             status = "أكّد تثبيت $n واجهة على الشاشة"
-                            SelfUpdater.installAll(context, files)
+                            if (SelfUpdater.installAll(context, files)) {
+                                installedFaces = n
+                            } else if (files.size > 1) {
+                                for ((i, pair) in files.withIndex()) {
+                                    status = "أكّد تثبيت الواجهة ${i + 1} من $n"
+                                    if (SelfUpdater.install(context, pair.first, pair.second)) installedFaces++
+                                }
+                            }
+                            files.forEach { it.first.delete() }
                         }
                         val appUrl = update.apkUrl
                         if (appUrl != null) {
@@ -68,7 +79,8 @@ fun UpdateChip(modifier: Modifier = Modifier) {
                             status = "أكّد التثبيت على الشاشة"
                             SelfUpdater.install(context, apk)
                         } else {
-                            status = "ثُبّتت الواجهات"
+                            status = "ثُبّتت $installedFaces من ${update.faces.size} واجهة"
+                            available = null
                         }
                     } catch (e: Exception) {
                         status = "تعذّر التنزيل: ${e.message ?: ""}"
