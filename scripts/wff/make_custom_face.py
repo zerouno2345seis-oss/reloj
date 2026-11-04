@@ -577,7 +577,7 @@ class Face:
             for i in range(60):
                 if i % 5 and not minor:
                     continue
-                length, w = (big_len, 3) if i % 5 == 0 else (big_len * 0.4, 1.5)
+                length, w = (big_len, (7 if i % 15 == 0 else 5) if self.s.get("hourIndex") == "baton" else 3) if i % 5 == 0 else (big_len * 0.4, 1.5)
                 (x0, y0), (x1, y1) = pol(inner_r - 3, i * 6), pol(inner_r - 3 - length, i * 6)
                 out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="{w}" cap="ROUND"/></Line>')
         if out:
@@ -706,7 +706,131 @@ def element(spec, name, default_y, default_scale=1.0):
     return e.get("show", True), e.get("y", default_y) * K, e.get("scale", default_scale)
 
 
+def validate_studio_features(spec):
+    """Reject studio features this generator cannot yet carry to a watch.
+
+    Omitting these silently would turn a successful release into a different
+    design, particularly for faces whose sub-dials are their main content.
+    """
+    unsupported = []
+    pods = spec.get("pods") or {}
+    if pods and pods.get("shape") not in ("circle", "half"):
+        unsupported.append("pods.shape")
+    if any(item.get("content") not in {"none", "moon", "battery", "steps", "heart"}
+           for item in pods.get("items", [])):
+        unsupported.append("pods.content")
+    if spec.get("dialTexture", "none") not in (None, "none", "sunburst", "grid"):
+        unsupported.append("dialTexture")
+    if spec.get("hourIndex", "line") not in (None, "line", "baton"):
+        unsupported.append("hourIndex")
+    if spec.get("bothClocks"):
+        unsupported.append("bothClocks")
+    if unsupported:
+        raise ValueError("Studio features not yet supported by WFF generator: " + ", ".join(unsupported))
+
+
+def pod_slot_count(spec):
+    p = spec.get("pods") or {}
+    return sum(item.get("content") in {"battery", "steps", "heart"}
+               for item in p.get("items", [])[:len(p.get("positions", []))])
+
+
+def draw_dial_finish(face):
+    s = face.s
+    kind = s.get("dialTexture", "none")
+    radius = max(1, 225 - face.depth - 4 * K)
+    ink = argb(s.get("colors", {}).get("text", "#FFFFFF"), float(s.get("dialTextureOpacity", .1)))
+    lines = []
+    if kind == "sunburst":
+        for angle in range(0, 360, 2):
+            x, y = pol(radius, angle)
+            lines.append(f'<Line startX="225" startY="225" endX="{x:.1f}" endY="{y:.1f}"><Stroke color="{ink}" thickness="0.8"/></Line>')
+    elif kind == "grid":
+        step = 12 * K
+        for j in range(-36, 37):
+            t = j * step
+            if abs(t) >= radius * math.sqrt(2):
+                continue
+            q = math.sqrt(2 * radius * radius - t * t)
+            lo, hi = (-t - q) / 2, (-t + q) / 2
+            for sign in (-1, 1):
+                x1, x2 = 225 + lo, 225 + hi
+                y1, y2 = 225 + sign * (lo + t), 225 + sign * (hi + t)
+                lines.append(f'<Line startX="{x1:.1f}" startY="{y1:.1f}" endX="{x2:.1f}" endY="{y2:.1f}"><Stroke color="{ink}" thickness="0.8"/></Line>')
+    if s.get("innerBezel"):
+        for inset, width, alpha in ((0, 2.5, .9), (5 * K, .8, .6)):
+            r = max(1, radius - inset)
+            color = argb(s.get("colors", {}).get("accent", "#D9B36A"), alpha)
+            lines.append(f'<Arc centerX="225" centerY="225" width="{2*r:.1f}" height="{2*r:.1f}" startAngle="0" endAngle="360"><Stroke color="{color}" thickness="{width}"/></Arc>')
+    if lines:
+        face.parts.append(active("dialFinish", '<PartDraw x="0" y="0" width="450" height="450">' + ''.join(lines) + '</PartDraw>'))
+
+
+def draw_pods(face, budget):
+    p = face.s.get("pods") or {}
+    if not p:
+        return
+    radius = max(1, float(p.get("radius", 36))) * K
+    distance = float(p.get("distance", 110)) * K
+    size = max(6, round(float(p.get("fontSize", 14)) * K))
+    fill = argb(p.get("fill", "#000000"), float(p.get("fillOpacity", .35)))
+    line, ink = argb(p.get("line", "#D9B36A")), argb(p.get("text", "#FFFFFF"))
+    items = p.get("items", [])
+    for i, angle in enumerate(p.get("positions", [])):
+        half = p.get("shape") == "half"
+        if half:
+            distance = math.sqrt(max(0, 225 ** 2 - radius ** 2))
+        a = math.radians(float(angle))
+        ux, uy = math.sin(a), -math.cos(a)
+        x, y = pol(distance, float(angle))
+        if half:
+            tx, ty = x - ux * radius * .42, y - uy * radius * .42
+            side = max(1, round(radius * .8))
+            left, top = round(tx - side / 2), round(ty - side / 2)
+        else:
+            left, top, side = round(x - radius), round(y - radius), round(radius * 2)
+        if left < 0 or top < 0 or left + side > 450 or top + side > 450:
+            raise ValueError(f"pod {i + 1} extends beyond the screen")
+        if half:
+            # Parallel strokes fill the inward-facing half; the chord endpoints
+            # meet the circular screen edge at any selected radius.
+            strokes = []
+            for n in range(math.ceil(radius)):
+                depth = min(radius, n + .5)
+                extent = math.sqrt(max(0, radius ** 2 - depth ** 2))
+                bx, by = x - ux * depth, y - uy * depth
+                x1, y1 = bx - uy * extent, by + ux * extent
+                x2, y2 = bx + uy * extent, by - ux * extent
+                strokes.append(f'<Line startX="{x1:.2f}" startY="{y1:.2f}" endX="{x2:.2f}" endY="{y2:.2f}"><Stroke color="{fill}" thickness="1.2"/></Line>')
+            x1, y1 = x - uy * radius, y + ux * radius
+            x2, y2 = x + uy * radius, y - ux * radius
+            start, end = (float(angle) + 90) % 360, (float(angle) + 270) % 360
+            if end <= start:
+                end += 360
+            strokes.append(f'<Arc centerX="{x:.2f}" centerY="{y:.2f}" width="{radius*2:.2f}" height="{radius*2:.2f}" startAngle="{start:.2f}" endAngle="{end:.2f}"><Stroke color="{line}" thickness="1.6"/></Arc>')
+            strokes.append(f'<Line startX="{x1:.2f}" startY="{y1:.2f}" endX="{x2:.2f}" endY="{y2:.2f}"><Stroke color="{line}" thickness="1.6"/></Line>')
+            shape = '<PartDraw x="0" y="0" width="450" height="450">' + ''.join(strokes) + '</PartDraw>'
+        else:
+            shape = (f'<PartDraw x="0" y="0" width="450" height="450">'
+                     f'<Ellipse x="{left}" y="{top}" width="{side}" height="{side}">'
+                     f'<Fill color="{fill}"/><Stroke color="{line}" thickness="1.6"/>'
+                     '</Ellipse></PartDraw>')
+        face.parts.append(active(f"pod{i}", shape))
+        content = items[i].get("content", "none") if i < len(items) else "none"
+        if content == "moon":
+            face.parts.append(active(f"podMoon{i}", text(left, top, side, side, "☾", size, ink)))
+        elif content in ("battery", "steps", "heart"):
+            if budget.left() < 1:
+                raise ValueError("not enough complication slots for the pods")
+            default, provider, system = PROVIDERS[content]
+            body = "".join(f'<Complication type="{t}">{active(f"podText{i}{t}", text(0, 0, side, side, ("%s", ["[COMPLICATION.TEXT]"]), size, ink))}</Complication>' for t in ("SHORT_TEXT", "RANGED_VALUE"))
+            face.parts.append(slot(budget.take(), left, top, side, side, "SHORT_TEXT RANGED_VALUE", provider, default,
+                                   f'<BoundingBox x="0" y="0" width="{side}" height="{side}"/>', body,
+                                   customizable="FALSE", system=system or "EMPTY", ambient=False))
+
+
 def build(spec, module=None, folder="."):
+    validate_studio_features(spec)
     if spec.get("backgroundImage") and module:
         name, im = user_background(spec, folder, module)
         spec["background"] = "user"
@@ -724,9 +848,13 @@ def build(spec, module=None, folder="."):
 
     # Plan the eight slots: the date, reading place, prayer row and data segments come first;
     # then the edge icons, the tap on the time and the always-on copy of the prayer row.
+    pod_slots = pod_slot_count(spec)
+    element_slots = int(show_date) + int(show_pill) + int(show_prayer)
+    if pod_slots + element_slots > 8:
+        raise ValueError("not enough complication slots for the pods and face elements")
     ring_slots = ring_slot_count(spec) if f.T > 0 else 0
-    ring_slots = min(ring_slots, 8 - int(show_date) - int(show_pill) - int(show_prayer))
-    base = int(show_date) + int(show_pill) + int(show_prayer) + ring_slots
+    ring_slots = min(ring_slots, 8 - element_slots - pod_slots)
+    base = element_slots + ring_slots + pod_slots
     free = 8 - base
     want_edges = show_edges and free >= 2
     free -= 2 if want_edges else 0
@@ -750,8 +878,11 @@ def build(spec, module=None, folder="."):
 
     budget = Budget()
     f.background()
-    budget.limit = 8 - (int(show_date) + int(show_pill) + int(show_prayer))   # those come first
+    draw_dial_finish(f)
+    budget.limit = 8 - element_slots - pod_slots   # reserve element and pod slots
     f.ring(budget)
+    budget.limit = 8 - element_slots
+    draw_pods(f, budget)
     budget.limit = 8
     if module:
         copy_icons(f.icons, module)
@@ -837,6 +968,7 @@ def ensure_module(module, face_name):
 
 def build_file(path):
     spec = json.load(open(path, encoding="utf-8"))
+    validate_studio_features(spec)
     module = module_for(spec)
     name = spec.get("faceName", "واجهتي")
     ensure_module(module, name)
