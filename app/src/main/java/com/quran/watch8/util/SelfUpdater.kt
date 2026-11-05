@@ -133,84 +133,123 @@ object SelfUpdater {
         }
 
     /**
-     * Hands the APK to the system installer. The system then asks the wearer
-     * to confirm -- and, the first time, to allow installs from this app --
-     * through [InstallStatusReceiver].
+     * Abandons every install session this app left open, except those still being waited
+     * for. Android allows an app only 50 open sessions; failed and unanswered ones were
+     * never closed, piled up, and every later install failed with "Too many active
+     * sessions" (2026-11-05). Called before each new session and at each update press.
      */
-    /**
-     * Installs several packages (the watch faces) as ONE multi-package session, so
-     * Android asks for a single confirmation instead of one per face. Each face is
-     * its own package (Wear OS allows one face per package), hence the children.
-     */
-    suspend fun installAll(context: Context, apks: List<Pair<File, String>>) = withContext(Dispatchers.IO) {
-        if (apks.isEmpty()) return@withContext true
-        if (apks.size == 1) return@withContext install(context, apks[0].first, apks[0].second)
+    fun clearStaleSessions(context: Context): Int {
         val installer = context.packageManager.packageInstaller
-        val parentParams = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setMultiPackage()
-            if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        var n = 0
+        for (info in installer.mySessions) {
+            if (pending.containsKey(info.sessionId)) continue
+            try { installer.abandonSession(info.sessionId); n++ } catch (e: Exception) { Log.w(TAG, "abandon ${info.sessionId}", e) }
         }
-        val parentId = installer.createSession(parentParams)
-        val done = CompletableDeferred<Boolean>()
-        pending[parentId] = done
-        installer.openSession(parentId).use { parent ->
-            for ((apk, pkg) in apks) {
-                val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-                    setAppPackageName(pkg)
-                    if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-                }
-                val childId = installer.createSession(params)
-                installer.openSession(childId).use { child ->
-                    child.openWrite("base.apk", 0, apk.length()).use { out ->
-                        apk.inputStream().use { it.copyTo(out) }
-                        child.fsync(out)
-                    }
-                }
-                parent.addChildSessionId(childId)
-            }
-            val intent = Intent(context, InstallStatusReceiver::class.java).setAction(ACTION_INSTALL_STATUS)
-            val status = PendingIntent.getBroadcast(
-                context, parentId, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-            parent.commit(status.intentSender)
-        }
-        // false when the watch refuses a multi-package install: the caller then
-        // installs the faces one at a time.
-        val ok = withTimeoutOrNull(INSTALL_WAIT_MS) { done.await() } ?: false
-        this@SelfUpdater.pending.remove(parentId)
-        ok
+        if (n > 0) Log.i(TAG, "abandoned $n stale install sessions")
+        return n
     }
 
-    suspend fun install(context: Context, apk: File, packageName: String = context.packageName) = withContext(Dispatchers.IO) {
-        val installer = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(packageName)
-            if (Build.VERSION.SDK_INT >= 31) {
-                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-            }
-        }
-        val sessionId = installer.createSession(params)
-        val done = CompletableDeferred<Boolean>()
-        pending[sessionId] = done
-        installer.openSession(sessionId).use { session ->
+    private fun abandon(installer: PackageInstaller, id: Int) {
+        try { installer.abandonSession(id) } catch (_: Exception) { }
+    }
+
+    private fun writeApk(installer: PackageInstaller, id: Int, apk: File) {
+        installer.openSession(id).use { session ->
             session.openWrite("base.apk", 0, apk.length()).use { out ->
                 apk.inputStream().use { it.copyTo(out) }
                 session.fsync(out)
             }
+        }
+    }
+
+    private fun params(packageName: String?) =
+        PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            if (packageName != null) setAppPackageName(packageName) else setMultiPackage()
+            if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        }
+
+    /** Commits [id] and waits for its result; on failure or no answer the session is abandoned. */
+    private suspend fun commitAndWait(context: Context, installer: PackageInstaller, id: Int, done: CompletableDeferred<Boolean>): Boolean {
+        try {
             val intent = Intent(context, InstallStatusReceiver::class.java).setAction(ACTION_INSTALL_STATUS)
             val status = PendingIntent.getBroadcast(
-                context, sessionId, intent,
+                context, id, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
-            session.commit(status.intentSender)
+            installer.openSession(id).use { it.commit(status.intentSender) }
+            // Wait for this one to finish (the wearer may first confirm it) before the next
+            // is handed over: started together, each confirmation screen replaced the one
+            // before, and only one face went in per press.
+            val ok = withTimeoutOrNull(INSTALL_WAIT_MS) { done.await() } ?: false
+            if (!ok) abandon(installer, id)
+            return ok
+        } catch (e: Exception) {
+            Log.w(TAG, "install session $id failed", e)
+            abandon(installer, id)
+            return false
+        } finally {
+            pending.remove(id)
         }
-        // Wait for this one to finish (the wearer may first confirm it) before the next
-        // is handed over: started together, each confirmation screen replaced the one
-        // before, and only one face went in per press.
-        val ok = withTimeoutOrNull(INSTALL_WAIT_MS) { done.await() } ?: false
-        this@SelfUpdater.pending.remove(sessionId)
+    }
+
+    /**
+     * Installs several packages (the watch faces) as ONE multi-package session, so
+     * Android asks for a single confirmation instead of one per face. Each face is
+     * its own package (Wear OS allows one face per package), hence the children.
+     * false when the watch refuses it: the caller then installs them one at a time.
+     */
+    suspend fun installAll(context: Context, apks: List<Pair<File, String>>): Boolean = withContext(Dispatchers.IO) {
+        if (apks.isEmpty()) return@withContext true
+        if (apks.size == 1) return@withContext install(context, apks[0].first, apks[0].second)
+        val installer = context.packageManager.packageInstaller
+        clearStaleSessions(context)
+        val children = mutableListOf<Int>()
+        var parentId = -1
+        try {
+            parentId = installer.createSession(params(null))
+            for ((apk, pkg) in apks) {
+                val childId = installer.createSession(params(pkg))
+                children += childId
+                writeApk(installer, childId, apk)
+                installer.openSession(parentId).use { it.addChildSessionId(childId) }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "multi-package install refused", e)
+            if (parentId >= 0) abandon(installer, parentId)
+            children.forEach { abandon(installer, it) }
+            return@withContext false
+        }
+        val done = CompletableDeferred<Boolean>()
+        pending[parentId] = done
+        val ok = commitAndWait(context, installer, parentId, done)
+        if (!ok) children.forEach { abandon(installer, it) }
         ok
+    }
+
+    /**
+     * Hands the APK to the system installer. The system then asks the wearer
+     * to confirm -- and, the first time, to allow installs from this app --
+     * through [InstallStatusReceiver]. Returns once it is installed (true) or failed.
+     */
+    suspend fun install(context: Context, apk: File, packageName: String = context.packageName): Boolean = withContext(Dispatchers.IO) {
+        val installer = context.packageManager.packageInstaller
+        clearStaleSessions(context)
+        val sessionId = try {
+            installer.createSession(params(packageName))
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "createSession", e)
+            return@withContext false
+        }
+        try {
+            writeApk(installer, sessionId, apk)
+        } catch (e: Exception) {
+            Log.w(TAG, "write $sessionId", e)
+            abandon(installer, sessionId)
+            return@withContext false
+        }
+        val done = CompletableDeferred<Boolean>()
+        pending[sessionId] = done
+        commitAndWait(context, installer, sessionId, done)
     }
 
     /** How long one install may wait for the wearer to confirm it. */
