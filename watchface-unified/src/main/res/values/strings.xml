@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="face_name">القرآن الكريم</string>
+    <string name="design_label">التصميم</string>
+    <string name="design_chrono">كرونوغراف</string>
+    <string name="design_heritage">التراث</string>
+    <string name="design_halfs">أنصاف الدوائر</string>
+    <string name="design_lcd">هجين رقمي</string>
+    <string name="design_dash">لوحة المعلومات</string>
+    <string name="design_petals">البتلات</string>
+    <string name="design_crystal">البلّور</string>
+    <string name="design_asala">الأصالة</string>
+    <string name="design_sport">العدّاء</string>
+</resources>
