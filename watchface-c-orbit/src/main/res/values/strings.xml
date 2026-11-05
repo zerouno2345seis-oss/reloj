@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="face_name">القرآن الكريم · المدار</string>
+    <string name="accent_label">اللون</string>
+    <string name="hands_label">لون العقارب</string>
+    <string name="back_label">الخلفية</string>
+    <string name="fade_label">وضوح الخلفية</string>
+    <string name="accent_green">أخضر</string>
+    <string name="accent_gold">ذهبي</string>
+    <string name="accent_blue">أزرق</string>
+    <string name="accent_coral">مرجاني</string>
+    <string name="accent_violet">بنفسجي</string>
+    <string name="accent_white">أبيض</string>
+    <string name="hands_white">أبيض</string>
+    <string name="hands_gold">ذهبي</string>
+    <string name="hands_silver">فضي</string>
+    <string name="hands_green">أخضر</string>
+    <string name="hands_blue">أزرق</string>
+    <string name="back_none">بلا صورة</string>
+    <string name="back_mosques">المسجد</string>
+    <string name="back_ba">مسجد بوينس آيرس</string>
+    <string name="back_pattern">الزخرفة</string>
+    <string name="back_haram">المسجد الحرام</string>
+    <string name="back_nabawi">المسجد النبوي</string>
+    <string name="back_kaaba">الكعبة</string>
+    <string name="fade_f15">خفيفة</string>
+    <string name="fade_f25">متوسطة</string>
+    <string name="fade_f35">أوضح</string>
+</resources>
