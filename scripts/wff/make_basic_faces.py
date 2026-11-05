@@ -5,6 +5,7 @@
   watchface-c-stack   «السطران»          digital, hours over minutes
   watchface-c-four    «الأرقام الأربعة»  hands, large 12 / 3 / 6 / 9
   watchface-c-twelve  «العدّادان»        hands, twelve numerals, battery and date sub-dials
+  watchface-c-times   «حلقة الأوقات»     digital, the six prayer times on one ring round the rim
 
 Each shows the prayer row (passed | next prayer | left), where reading stopped, the
 battery, today's date, and taps to the bookmarks and the surah index. Every data slot
@@ -35,6 +36,7 @@ FACES = {
     "stack": ("السطران", "DIGITAL", "#FF101418", "gold"),
     "four": ("الأرقام الأربعة", "ANALOG", "#FF0D0F12", "gold"),
     "twelve": ("العدّادان", "ANALOG", "#FF0F1210", "green"),
+    "times": ("حلقة الأوقات", "DIGITAL", "#FF0B0F0D", "gold"),
 }
 
 
@@ -263,7 +265,69 @@ def face_twelve():
     return p
 
 
-BUILD = {"big": face_big, "stack": face_stack, "four": face_four, "twelve": face_twelve}
+SIX = ("الفجر", "الشروق", "الظهر", "العصر", "المغرب", "العشاء")
+
+
+def six_ring(sid, r_band=214, r_text=193):
+    """The six times on one thin ring at the rim: six equal sections (the dawn prayer at 12),
+    each with its name and start time along it, upright in the lower half too. The running
+    one is in the accent colour and a little thicker; the others are dim."""
+    V = "[COMPLICATION.RANGED_VALUE_VALUE]"
+    index = f"floor({V} / 2073600)"
+    d, dt = 2 * r_band, 2 * r_text
+    out = ""
+    for i, name in enumerate(SIX):
+        a0, a1 = i * 60 - 30 + 2.5, i * 60 + 30 - 2.5
+        if a0 < 0:
+            a0, a1 = a0 + 360, a1 + 360
+        running = f"(1 - clamp(abs({index} - {i}), 0, 1))"
+        out += draw(f'<Arc centerX="225" centerY="225" width="{d}" height="{d}" startAngle="{a0}" endAngle="{a1}"><Stroke color="#FF3A4541" thickness="6" cap="ROUND"/></Arc>')
+        out += (f'<Group name="six{i}" x="0" y="0" width="450" height="450"><Transform target="alpha" value="(255 * {running})"/>'
+                + draw(f'<Arc centerX="225" centerY="225" width="{d}" height="{d}" startAngle="{a0}" endAngle="{a1}"><Stroke color="{A}" thickness="11" cap="ROUND"/></Arc>')
+                + '</Group>')
+        mid = (a0 + a1) / 2
+        bottom = 90 < mid % 360 < 270
+        s0, s1, direction = (a1 - 4, a0 + 4, "COUNTER_CLOCKWISE") if bottom else (a0 + 4, a1 - 4, "CLOCKWISE")
+        # In the lower half the text runs the other way round, and sits a little further
+        # in so its letters (now upright) stay the same distance from the band.
+        dd = dt - 22 if bottom else dt
+        body = f'<Template>{name} %s<Parameter expression="subText([COMPLICATION.TEXT], {i * 6}, {i * 6 + 5})"/></Template>'
+        for color, alpha in ((A, running), ("#FFB4BEB9", f"(1 - {running})")):
+            out += (f'<PartText x="0" y="0" width="450" height="450"><Transform target="alpha" value="(255 * {alpha})"/>'
+                    f'<TextCircular centerX="225" centerY="225" width="{dd}" height="{dd}" startAngle="{s0:.1f}" endAngle="{s1:.1f}" '
+                    f'direction="{direction}" align="CENTER"><Font family="{SEMI}" size="15" color="{color}">{body}</Font></TextCircular></PartText>')
+    body = f'<Complication type="RANGED_VALUE">{out}</Complication>'
+    # The watch draws a slot only inside its bounding shape: the band reaches in far
+    # enough to hold the names too (which also makes them a tap on the prayer table).
+    bound = f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="0" endAngle="359.9" thickness="60"/>'
+    return slot(sid, 0, 0, 450, 450, "RANGED_VALUE", "PrayerRingComplicationService", "RANGED_VALUE", bound, body,
+                customizable="FALSE")
+
+
+def icon_tap(sid, cx, cy, provider, s=38):
+    """A tap drawn as its own icon (the bookmarks, the surah index)."""
+    x, y = round(cx - s / 2), round(cy - s / 2)
+    body = (f'<Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="{s}" height="{s}"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>'
+            f'<Complication type="SHORT_TEXT">{text(-20, 0, s + 40, s, ("%s", ["[COMPLICATION.TEXT]"]), 12, A, SEMI)}</Complication>')
+    return slot(sid, x, y, s, s, "SMALL_IMAGE SHORT_TEXT", provider, "SMALL_IMAGE",
+                f'<BoundingOval x="0" y="0" width="{s}" height="{s}"/>', body)
+
+
+def face_six():
+    p = [background(FACES["times"][2]), six_ring(1),
+         short_slot(2, (120, 76, 102, 28), "GregorianDateComplicationService", 18, "#FFAABBC0"),
+         short_slot(3, (228, 76, 102, 28), "HijriDateComplicationService", 18, "#FFAABBC0"),
+         short_slot(4, (175, 106, 100, 22), None, 15, "#FFCCDDD5", system="WATCH_BATTERY", types="SHORT_TEXT RANGED_VALUE"),
+         digital(0, 132, 450, 106, "hh:mm", 100, WHITE, "active", "time"),
+         digital(0, 132, 450, 106, "hh:mm", 96, "#FFCCCCCC", "ambient", "time"),
+         prayer(5, (80, 244, 290, 78)),
+         reading_pill(6, (140, 330, 170, 36), 15),
+         icon_tap(7, 82, 225, "BookmarksShortcutComplicationService", 32),
+         icon_tap(8, 368, 225, "SurahIndexShortcutComplicationService", 32)]
+    return p
+
+
+BUILD = {"big": face_big, "stack": face_stack, "four": face_four, "twelve": face_twelve, "times": face_six}
 
 
 def config(default):
@@ -274,6 +338,9 @@ def config(default):
 def write(fid):
     name, kind, _, default = FACES[fid]
     module = f"watchface-c-{fid}"
+    existing = os.path.join(kit.ROOT, module, "src/main/res/raw/watchface.xml")
+    # Never write over another face's module (watchface-c-six is «الأوقات الستة»).
+    assert not os.path.exists(existing) or "make_basic_faces.py" in open(existing, encoding="utf-8").read(), module
     mcf.ensure_module(module, name)
     root = os.path.join(kit.ROOT, module)
     shutil.copy(os.path.join(mcf.FONT_DIR, KUFI + ".ttf"), os.path.join(root, "src/main/res/font", KUFI + ".ttf"))
