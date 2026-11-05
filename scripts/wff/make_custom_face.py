@@ -186,15 +186,14 @@ def apply_auto_colours(spec, im):
             i += 1
 
 
-def use_fonts(spec, module, parts, keep=False):
-    """Copies the chosen fonts into the face and points the time and the text at them.
-    keep: leave fonts already copied (the unified face adds one design's at a time)."""
+def use_fonts(spec, module, parts):
+    """Copies the chosen fonts into the face and points the time and the text at them."""
     import shutil
     f = spec.get("fonts", {})
     one = spec.get("font")
     time_font, text_font = font_file(f.get("time", one)), font_file(f.get("text", one))
     font_dir = os.path.join(kit.ROOT, module, "src/main/res/font")
-    for name in ([] if keep else os.listdir(font_dir)):   # only what this face uses, beside the defaults
+    for name in os.listdir(font_dir):          # only what this face uses, beside the defaults
         if name not in ("plex_bold.ttf", "plex_semibold.ttf"):
             os.remove(os.path.join(font_dir, name))
     out = []
