@@ -9,7 +9,9 @@ import android.os.Build
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
@@ -135,6 +137,51 @@ object SelfUpdater {
      * to confirm -- and, the first time, to allow installs from this app --
      * through [InstallStatusReceiver].
      */
+    /**
+     * Installs several packages (the watch faces) as ONE multi-package session, so
+     * Android asks for a single confirmation instead of one per face. Each face is
+     * its own package (Wear OS allows one face per package), hence the children.
+     */
+    suspend fun installAll(context: Context, apks: List<Pair<File, String>>) = withContext(Dispatchers.IO) {
+        if (apks.isEmpty()) return@withContext true
+        if (apks.size == 1) return@withContext install(context, apks[0].first, apks[0].second)
+        val installer = context.packageManager.packageInstaller
+        val parentParams = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setMultiPackage()
+            if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        }
+        val parentId = installer.createSession(parentParams)
+        val done = CompletableDeferred<Boolean>()
+        pending[parentId] = done
+        installer.openSession(parentId).use { parent ->
+            for ((apk, pkg) in apks) {
+                val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+                    setAppPackageName(pkg)
+                    if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+                }
+                val childId = installer.createSession(params)
+                installer.openSession(childId).use { child ->
+                    child.openWrite("base.apk", 0, apk.length()).use { out ->
+                        apk.inputStream().use { it.copyTo(out) }
+                        child.fsync(out)
+                    }
+                }
+                parent.addChildSessionId(childId)
+            }
+            val intent = Intent(context, InstallStatusReceiver::class.java).setAction(ACTION_INSTALL_STATUS)
+            val status = PendingIntent.getBroadcast(
+                context, parentId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+            parent.commit(status.intentSender)
+        }
+        // false when the watch refuses a multi-package install: the caller then
+        // installs the faces one at a time.
+        val ok = withTimeoutOrNull(INSTALL_WAIT_MS) { done.await() } ?: false
+        this@SelfUpdater.pending.remove(parentId)
+        ok
+    }
+
     suspend fun install(context: Context, apk: File, packageName: String = context.packageName) = withContext(Dispatchers.IO) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
@@ -144,35 +191,56 @@ object SelfUpdater {
             }
         }
         val sessionId = installer.createSession(params)
+        val done = CompletableDeferred<Boolean>()
+        pending[sessionId] = done
         installer.openSession(sessionId).use { session ->
             session.openWrite("base.apk", 0, apk.length()).use { out ->
                 apk.inputStream().use { it.copyTo(out) }
                 session.fsync(out)
             }
             val intent = Intent(context, InstallStatusReceiver::class.java).setAction(ACTION_INSTALL_STATUS)
-            val pending = PendingIntent.getBroadcast(
+            val status = PendingIntent.getBroadcast(
                 context, sessionId, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
-            session.commit(pending.intentSender)
+            session.commit(status.intentSender)
         }
+        // Wait for this one to finish (the wearer may first confirm it) before the next
+        // is handed over: started together, each confirmation screen replaced the one
+        // before, and only one face went in per press.
+        val ok = withTimeoutOrNull(INSTALL_WAIT_MS) { done.await() } ?: false
+        this@SelfUpdater.pending.remove(sessionId)
+        ok
     }
+
+    /** How long one install may wait for the wearer to confirm it. */
+    private const val INSTALL_WAIT_MS = 5 * 60 * 1000L
+
+    /** Installs in progress, by session id, completed by [InstallStatusReceiver]. */
+    internal val pending = java.util.concurrent.ConcurrentHashMap<Int, CompletableDeferred<Boolean>>()
 }
 
 /** Receives the installer's answer; shows its confirmation screen when it asks for one. */
 class InstallStatusReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1)
         when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 @Suppress("DEPRECATION")
                 val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: return
                 context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            PackageInstaller.STATUS_SUCCESS -> Log.i("SelfUpdater", "update installed")
-            else -> Log.w(
-                "SelfUpdater",
-                "install failed ($status): ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}"
-            )
+            PackageInstaller.STATUS_SUCCESS -> {
+                Log.i("SelfUpdater", "update installed")
+                SelfUpdater.pending[sessionId]?.complete(true)
+            }
+            else -> {
+                Log.w(
+                    "SelfUpdater",
+                    "install failed ($status): ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}"
+                )
+                SelfUpdater.pending[sessionId]?.complete(false)
+            }
         }
     }
 }
