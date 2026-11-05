@@ -815,8 +815,12 @@ private fun LineReader(
     val lastIndex = max(0, lines.size - 1)
     val pos = remember { Animatable(doc.lineOf(anchorIndex).coerceAtLeast(0).toFloat()) }
     val scope = rememberCoroutineScope()
-    // A finger resting on the glass holds the line where it is.
-    var touching by remember { mutableStateOf(false) }
+    // A single tap holds the line where it is, and another lets it go on (zaher,
+    // 2026-11-05: a finger resting on the glass used to hold it, which fought with
+    // the long press that opens the menu). A small sign shows which, for a second.
+    var held by remember { mutableStateOf(false) }
+    var sign by remember { mutableStateOf<Boolean?>(null) }   // true: held, false: going on
+    LaunchedEffect(sign) { if (sign != null) { delay(1000); sign = null } }
 
     fun current() = pos.targetValue.roundToInt()
     /** How much line [i] is shrunk when the middle of the screen is at [p]. */
@@ -839,10 +843,11 @@ private fun LineReader(
     }
 
     // Moving on by itself, at the chosen pace; at the end, into the next surah.
-    // A touch stops it at once, even halfway through a step; on lift it
-    // settles on the nearest line and waits a whole line before going on.
-    LaunchedEffect(doc, auto, seconds, touching, paused) {
-        if (!auto || touching || paused) return@LaunchedEffect
+    // A tap stops it at once, even halfway through a step; the next tap
+    // settles it on the nearest line and it waits a whole line before going on.
+    // The long-press menu holds it too, while it is open.
+    LaunchedEffect(doc, auto, seconds, held, paused) {
+        if (!auto || held || paused) return@LaunchedEffect
         // The bezel or a drag may take the line from under this loop; that
         // only cuts the step short, it must not end the loop.
         suspend fun glide(to: Float, ms: Int) {
@@ -886,17 +891,6 @@ private fun LineReader(
             }
             .focusRequester(focusRequester)
             .focusable()
-            .pointerInput(Unit) {
-                // Watches the finger without taking the touch from the gestures below.
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    touching = true
-                    do {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                    } while (event.changes.any { it.pressed })
-                    touching = false
-                }
-            }
             .pointerInput(doc) {
                 var dragged = 0f
                 detectVerticalDragGestures(
@@ -915,7 +909,10 @@ private fun LineReader(
                     val line = lines.getOrNull(i) ?: return null
                     return line to (p.x - size.width / 2f) / lineScale(i, pos.value)
                 }
+                // With onDoubleTap set, onTap waits out the double-tap time, so the
+                // first tap of a double tap (the bookmark) never holds the line.
                 detectTapGestures(
+                    onTap = { if (auto && !paused) { held = !held; sign = held } },
                     onDoubleTap = { p -> hit(p)?.let { (line, x) -> gestures.doubleTap(line, x) } },
                     onLongPress = { p -> hit(p)?.let { (line, x) -> gestures.onLongPress(line.ayahAt(x)) } }
                 )
@@ -932,6 +929,21 @@ private fun LineReader(
                 val alpha = sideAlpha + (centreAlpha - sideAlpha) * near
                 val paint = if (abs(d) < 0.5f) centrePaint else textPaint
                 lines[i].draw(native, size.width / 2f, r + d * lh, lineScale(i, p), alpha, paint, markPaint, checked)
+            }
+        }
+        // ⏸ / ▶ in a small disc near the top, for a second after a tap.
+        sign?.let { isHeld ->
+            val c = Offset(size.width / 2f, size.height * 0.16f)
+            val u = size.minDimension * 0.035f
+            drawCircle(Color(0xB3000000), radius = u * 2.2f, center = c)
+            if (isHeld) {
+                drawRect(Color.White, topLeft = Offset(c.x - u * 0.9f, c.y - u), size = androidx.compose.ui.geometry.Size(u * 0.6f, u * 2f))
+                drawRect(Color.White, topLeft = Offset(c.x + u * 0.3f, c.y - u), size = androidx.compose.ui.geometry.Size(u * 0.6f, u * 2f))
+            } else {
+                val tri = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(c.x - u * 0.7f, c.y - u); lineTo(c.x + u, c.y); lineTo(c.x - u * 0.7f, c.y + u); close()
+                }
+                drawPath(tri, Color.White)
             }
         }
     }
