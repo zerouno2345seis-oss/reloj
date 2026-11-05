@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="face_name">القرآن الكريم · العدّادان</string>
+    <string name="accent_label">اللون</string>
+    <string name="accent_green">أخضر</string>
+    <string name="accent_gold">ذهبي</string>
+    <string name="accent_blue">أزرق</string>
+    <string name="accent_coral">مرجاني</string>
+    <string name="accent_white">أبيض</string>
+</resources>

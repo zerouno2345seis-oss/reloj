@@ -380,6 +380,8 @@ abstract class ShortcutComplicationService(
 class QuranShortcutComplicationService : ShortcutComplicationService("resume", "المصحف", R.drawable.img_quran)
 class SettingsShortcutComplicationService : ShortcutComplicationService("settings", "الإعدادات", R.drawable.img_settings)
 class BookmarksShortcutComplicationService : ShortcutComplicationService("bookmarks", "الإشارات", R.drawable.img_bookmark)
+// "quran": the surah index.
+class SurahIndexShortcutComplicationService : ShortcutComplicationService("quran", "السور", R.drawable.img_quran)
 
 /** Where reading stopped, as a place in the 604-page mushaf; null the first time. */
 private suspend fun Context.readingPlace(): MushafDivisions.Place? =
