@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -269,7 +270,7 @@ fun QuranReaderScreen(
         }
 
         val nextSurah = SurahMetadata.getSurah(surahNumber + 1).takeIf { surahNumber < 114 }
-        val openNext: () -> Unit = { onOpenSurah(surahNumber + 1) }
+        val openNext: () -> Unit = { AutoScroll.carry = AutoScroll.on; onOpenSurah(surahNumber + 1) }
         // Backing out of the first page opens the surah before, on its last
         // verse, so the Quran reads as one long page in both directions.
         val openPrev: (() -> Unit)? = if (surahNumber > 1) {
@@ -321,21 +322,30 @@ fun QuranReaderScreen(
 
         // The auto scroll: on or off for the whole reading, so it runs on into
         // the next surah; held while the long-press menu is open.
+        LaunchedEffect(surahNumber) {
+            if (!AutoScroll.carry) AutoScroll.end()
+            AutoScroll.carry = false
+        }
         val autoOn = AutoScroll.on
-        val running = autoOn && selectedAyahForAction == null
+        val running = autoOn && !AutoScroll.paused && selectedAyahForAction == null
         var sign by remember { mutableStateOf<Boolean?>(null) }   // true: ▶, false: ⏸
         LaunchedEffect(sign) { if (sign != null) { delay(1000); sign = null } }
         val gestures = ReaderGestures(
             running = running,
-            onTap = {
-                AutoScroll.on = !AutoScroll.on
-                sign = AutoScroll.on
-                if (!AutoScroll.on) ayahs.getOrNull(readingIndex)?.let {
-                    doubleTapInfoText = "$surahName ${ReaderTypography.arabicDigits(it.verse)}"
+            canAdvance = autoOn && AutoScroll.paused,
+            onTap = { index ->
+                if (AutoScroll.on) {
+                    // In the scroll: hold, or go on.
+                    AutoScroll.paused = !AutoScroll.paused
+                    sign = !AutoScroll.paused
+                } else {
+                    // Plain reading: the surah and verse, two seconds.
+                    val ayah = ayahs.getOrNull(index ?: readingIndex)
+                    if (ayah != null) doubleTapInfoText = "$surahName ${ReaderTypography.arabicDigits(ayah.verse)}"
                 }
             },
             // With the menu open, the bezel sets the pace: clockwise is faster.
-            menuPace = if (autoOn && selectedAyahForAction != null) paceStep else null,
+            menuPace = if (selectedAyahForAction != null) paceStep else null,
             seconds = lineSeconds,
             onDoubleTap = { index, onMark ->
                 val ayah = ayahs.getOrNull(index)
@@ -345,8 +355,6 @@ fun QuranReaderScreen(
                     if (existing != null) viewModel.removeBookmark(existing.id)
                     else viewModel.addBookmark(surahNumber, ayah.verse, ayah.text)
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                } else if (ayah != null) {
-                    doubleTapInfoText = "$surahName ${ReaderTypography.arabicDigits(ayah.verse)}"
                 }
             },
             onLongPress = { index -> selectedAyahForAction = ayahs.getOrNull(index) },
@@ -405,76 +413,77 @@ fun QuranReaderScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .pointerInput(ayah) { detectTapGestures { selectedAyahForAction = null } },
-                    contentAlignment = Alignment.Center
+                        .background(Color(0x59000000))
+                        .pointerInput(ayah) { detectTapGestures { selectedAyahForAction = null } }
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        // Tighter when the juz row is there too, to stay inside the circle.
-                        verticalArrangement = Arrangement.spacedBy(if (autoOn) 6.dp else 10.dp)
-                    ) {
+                    // A ring around the play button (design «ب», zaher 2026-11-06):
+                    // the previous surah and «السور» above, the font size at the
+                    // sides, the pace under it and settings at the bottom.
+                    fun at(x: Float, y: Float) = Modifier.align(BiasAbsoluteAlignment(x, y))
                     // The surah before this one in the mushaf; the only way back
                     // a surah, so the swipes stay for the list and the place.
                     if (surahNumber > 1) {
                         val previousName = SurahMetadata.getSurah(surahNumber - 1)?.nameAr
-                        ReaderPill(previousName?.let { "السابقة · $it" } ?: "السابقة") {
-                            selectedAyahForAction = null
-                            onOpenSurah(surahNumber - 1)
+                        Box(at(0f, -0.76f)) {
+                            ReaderPill(previousName?.let { "السابقة · $it" } ?: "السابقة") {
+                                selectedAyahForAction = null
+                                onOpenSurah(surahNumber - 1)
+                            }
                         }
                     }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ReaderIconButton(onClick = {
-                            menuTouches++
-                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f))
-                        }) { Text("−", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
-                        ReaderIconButton(size = 50, onClick = {
+                    Box(at(0f, -0.36f)) {
+                        ReaderIconButton(size = 40, onClick = {
                             selectedAyahForAction = null
                             onOpenIndex()
-                        }) {
-                            WatchIcons.SurahList(modifier = Modifier.size(26.dp), color = Color.White)
-                        }
+                        }) { WatchIcons.SurahList(modifier = Modifier.size(22.dp), color = Color.White) }
+                    }
+                    Box(at(-0.68f, 0f)) {
                         ReaderIconButton(onClick = {
                             menuTouches++
                             viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
-                        }) { Text("+", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
+                        }) { Text("أ+", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Bold) }
                     }
-                    // While the scroll is on: its pace. The bezel sets it (clockwise
-                    // is faster), or the two buttons; a step is about an eighth.
-                    if (autoOn) {
-                        val laid = doc
-                        val juz = remember(surahNumber, ayah.verse) { viewModel.juzLength(surahNumber, ayah.verse) }
-                        // Letters to a line, from this surah as it is laid out now.
-                        val perLine = remember(laid, ayahs) {
-                            val n = laid?.let { it.lines.size + it.pages.sumOf { p -> p.lines.size } } ?: 0
-                            if (n == 0) 0f else ayahs.sumOf { it.text.length }.toFloat() / n
-                        }
-                        val minutes = LinePace.juzMinutes(juz.second, perLine, lineSeconds)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            ReaderPill("أبطأ") { paceStep(true) }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    LinePace.secondsText(lineSeconds) + " للسطر",
-                                    fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "الجزء ${ReaderTypography.arabicDigits(juz.first)} ≈ ${ReaderTypography.arabicDigits(minutes)} د",
-                                    fontSize = 9.sp, color = Color(0xFFD1D5DB)
-                                )
-                            }
-                            ReaderPill("أسرع") { paceStep(false) }
-                        }
+                    Box(at(0.68f, 0f)) {
+                        ReaderIconButton(onClick = {
+                            menuTouches++
+                            viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f))
+                        }) { Text("أ−", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Bold) }
                     }
-                    // Settings, centred under «السور».
-                    ReaderIconButton(onClick = {
-                        selectedAyahForAction = null
-                        onOpenSettings()
-                    }) { Text("⚙", fontSize = 19.sp, color = Color.White) }
+                    // Play starts the auto scroll; while it is on, ■ ends it.
+                    Box(at(0f, 0f)) {
+                        ReaderIconButton(size = 56, shade = AccentGold, onClick = {
+                            selectedAyahForAction = null
+                            if (AutoScroll.on) AutoScroll.end()
+                            else { AutoScroll.on = true; AutoScroll.paused = false; sign = true }
+                        }) { Text(if (autoOn) "■" else "▶", fontSize = 22.sp, color = Color(0xFF111111)) }
+                    }
+                    // The pace: the bezel sets it too while this is open (clockwise
+                    // is faster); a step is about an eighth.
+                    val laid = doc
+                    val juz = remember(surahNumber, ayah.verse) { viewModel.juzLength(surahNumber, ayah.verse) }
+                    val perLine = remember(laid, ayahs) {
+                        val n = laid?.let { it.lines.size + it.pages.sumOf { p -> p.lines.size } } ?: 0
+                        if (n == 0) 0f else ayahs.sumOf { it.text.length }.toFloat() / n
+                    }
+                    val minutes = LinePace.juzMinutes(juz.second, perLine, lineSeconds)
+                    Box(at(-0.6f, 0.34f)) {
+                        ReaderIconButton(size = 38, onClick = { paceStep(false) }) { Text("⏩", fontSize = 14.sp, color = Color.White) }
+                    }
+                    Box(at(0.6f, 0.34f)) {
+                        ReaderIconButton(size = 38, onClick = { paceStep(true) }) { Text("⏪", fontSize = 14.sp, color = Color.White) }
+                    }
+                    Column(at(0f, 0.42f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(LinePace.secondsText(lineSeconds) + " للسطر", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            "الجزء ${ReaderTypography.arabicDigits(juz.first)} ≈ ${ReaderTypography.arabicDigits(minutes)} د",
+                            fontSize = 9.sp, color = Color(0xFFD1D5DB)
+                        )
+                    }
+                    Box(at(0f, 0.8f)) {
+                        ReaderIconButton(size = 38, onClick = {
+                            selectedAyahForAction = null
+                            onOpenSettings()
+                        }) { Text("⚙", fontSize = 17.sp, color = Color.White) }
                     }
                 }
             }
@@ -487,9 +496,17 @@ fun QuranReaderScreen(
 private const val READING_AWAKE_MS = 3 * 60_000L
 private const val USAGE_TICK_MS = 30_000L
 
-/** Whether the reader scrolls by itself; kept across surahs, so it runs on. */
+/**
+ * The auto scroll, started and ended only from the long-press menu (zaher,
+ * 2026-11-06); while it is on, a single tap holds and lets go. It runs on into
+ * the next surah ([carry]) and ends when the reader is left any other way.
+ */
 private object AutoScroll {
     var on by mutableStateOf(false)
+    var paused by mutableStateOf(false)
+    /** Set just before the next surah opens by itself, so the scroll goes on. */
+    var carry = false
+    fun end() { on = false; paused = false }
 }
 
 /** How long (ms) a hand on the bezel or the glass holds the auto scroll. */
@@ -502,7 +519,10 @@ private const val AUTO_RESUME_MS = 2000L
  */
 private class ReaderGestures(
     val running: Boolean,
-    val onTap: () -> Unit,
+    /** Stopped inside the auto scroll: a double tap moves one screen on. */
+    val canAdvance: Boolean,
+    /** A single tap; the verse under it, when there is one. */
+    val onTap: (index: Int?) -> Unit,
     val menuPace: ((slower: Boolean) -> Unit)?,
     /** Seconds per line of the auto scroll. */
     val seconds: Float,
@@ -519,8 +539,7 @@ private fun ReaderGestures.doubleTap(line: ReaderLines.Line?, x: Float, advance:
     val mark = line?.markAt(x) ?: -1
     when {
         mark >= 0 -> onDoubleTap(mark, true)
-        !running -> advance()
-        line != null -> onDoubleTap(line.ayahAt(x), false)
+        canAdvance -> advance()
     }
 }
 
@@ -676,7 +695,7 @@ private fun PagedReader(
                     // With onDoubleTap set, onTap waits out the double-tap time, so
                     // the first tap of a double tap never starts the scroll.
                     detectTapGestures(
-                        onTap = { g.onTap() },
+                        onTap = { pos -> g.onTap(lineAt(pos)?.ayahAt(pos.x - size.width / 2f)) },
                         onDoubleTap = { g.doubleTap(lineAt(it), it.x - size.width / 2f, ::nextScreen) },
                         onLongPress = { pos -> lineAt(pos)?.let { g.onLongPress(it.ayahAt(pos.x - size.width / 2f)) } }
                     )
@@ -843,7 +862,7 @@ private fun FlowReader(
                     return lines[i] to (pos.x - size.width / 2f) / scaleAt(yOf(i))
                 }
                 detectTapGestures(
-                    onTap = { g.onTap() },
+                    onTap = { pos -> g.onTap(hit(pos)?.let { (line, x) -> line.ayahAt(x) }) },
                     onDoubleTap = { pos -> val h = hit(pos); g.doubleTap(h?.first, h?.second ?: 0f, nextScreen) },
                     onLongPress = { pos -> hit(pos)?.let { (line, x) -> g.onLongPress(line.ayahAt(x)) } }
                 )
@@ -907,12 +926,12 @@ private fun ReaderPill(label: String, onClick: () -> Unit) {
 
 /** A round icon with just enough shade to read over the verse behind it. */
 @Composable
-private fun ReaderIconButton(size: Int = 42, onClick: () -> Unit, content: @Composable () -> Unit) {
+private fun ReaderIconButton(size: Int = 42, shade: Color = Color(0xB3000000), onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(size.dp)
             .clip(CircleShape)
-            .background(Color(0xB3000000))
+            .background(shade)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { content() }
