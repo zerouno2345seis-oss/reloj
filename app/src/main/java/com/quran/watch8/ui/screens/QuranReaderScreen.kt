@@ -1,10 +1,10 @@
 package com.quran.watch8.ui.screens
 
 import android.graphics.Paint
+import android.os.SystemClock
 import android.text.TextPaint
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.*
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -12,10 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
@@ -37,7 +34,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -63,10 +59,7 @@ import com.quran.watch8.ui.components.RepeatOnResumed
 import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -76,7 +69,6 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 /** A surah laid out for one display style. */
 private class ReaderDoc(
@@ -116,19 +108,24 @@ private const val UTHMANI_BASMALA = "بِسۡمِ ٱللَّهِ ٱلرَّحۡ�
  *    bottom shrink and fade, as lists do on the watch.
  *  - "fill" (the default): continuous, and every line meets the edge of the
  *    circle wherever it is; a light tick in the wrist at each new verse.
- *  - "line": a large bright line in the middle, the rest dim; it moves on by
- *    itself at the chosen speed, stops while a finger rests on the glass and
- *    goes on when it lifts.
+ *
+ * Any of the three can scroll by itself (zaher, 2026-11-06, in place of the old
+ * «سطر في الوسط» style): a single tap starts and stops it, at the pace set in
+ * seconds per line. The bezel or a drag moves the text by hand and the scroll
+ * goes on two seconds later. The long-press menu holds it while it is open and
+ * sets the pace.
  *
  * Lines come from [ReaderLines]: whole words, stretched to their width.
  *
  * The app opens here, where reading stopped, with the surah list behind it:
  * a swipe to the right goes to the list, and back from the list leaves.
  *
- *  - A single tap does nothing, so a touch while reading never covers the text.
+ *  - A single tap: the scroll starts, or stops (⏸ / ▶ for a second; on a stop,
+ *    the surah and verse show for two seconds).
  *  - Double tap on a verse number: bookmark it at once (a red tick shows on
  *    the number); again, and the bookmark goes.
- *  - Double tap elsewhere on a verse: a small badge with the surah and verse, 2 s.
+ *  - Double tap elsewhere, while stopped: on by one screen, and still stopped.
+ *    While scrolling: a small badge with the surah and verse, 2 s.
  *  - Long press on a verse: − «السور» + and settings, with the previous surah above.
  */
 @Composable
@@ -152,10 +149,7 @@ fun QuranReaderScreen(
     val customReaderBgColorHex by viewModel.customReaderBgColor.collectAsState()
     val customReaderTextColorHex by viewModel.customReaderTextColor.collectAsState()
     val mode by viewModel.readerMode.collectAsState()
-    val lineAuto by viewModel.lineAuto.collectAsState()
     val lineSeconds by viewModel.lineSeconds.collectAsState()
-    val lineSideAlpha by viewModel.lineSideAlpha.collectAsState()
-    val lineClarity by viewModel.lineClarity.collectAsState()
 
     // Keyed on the text having loaded: opening the reader before the 1.6 MB
     // text finished parsing used to leave the page empty.
@@ -230,9 +224,7 @@ fun QuranReaderScreen(
         // ── Paints ───────────────────────────────────────────────────────────
         val typeface = remember(fontFamilyName) { ReaderTypography.typeface(context, fontFamilyName) }
         val numberTypeface = remember { ReaderTypography.quranTypeface(context) }
-        // The middle line of the "line" style is a quarter larger.
-        val scaleUp = if (mode == "line") 1.25f else 1f
-        val fontPx = with(density) { fontSize.sp.toPx() } * scaleUp
+        val fontPx = with(density) { fontSize.sp.toPx() }
         val textPaint = remember(typeface, fontPx, quranTextColor) {
             TextPaint(Paint.ANTI_ALIAS_FLAG).apply { this.typeface = typeface; textSize = fontPx; color = quranTextColor.toArgb() }
         }
@@ -240,7 +232,7 @@ fun QuranReaderScreen(
             TextPaint(Paint.ANTI_ALIAS_FLAG).apply { this.typeface = numberTypeface; textSize = fontPx; color = ayahNumberColor.toArgb() }
         }
         val marginPx = with(density) { 6.dp.toPx() }
-        val lineHeight = fontPx * ReaderTypography.LINE_HEIGHT_FACTOR * (if (mode == "line") 1.05f else 1f)
+        val lineHeight = fontPx * ReaderTypography.LINE_HEIGHT_FACTOR
 
         // ── Laying the surah out, off the main thread ────────────────────────
         val cacheKey = "$surahNumber|$mode|$fontPx|$diameterPx|$fontFamilyName|$useSimple|${quranTextColor.toArgb()}|${ayahNumberColor.toArgb()}"
@@ -271,7 +263,6 @@ fun QuranReaderScreen(
                         ReaderDoc(pages, emptyList(), lineHeight)
                     }
                     "river" -> ReaderDoc(emptyList(), engine.layoutAll(words, diameterPx * 0.8f), lineHeight)
-                    "line" -> ReaderDoc(emptyList(), engine.layoutAll(words, diameterPx * 0.84f), lineHeight)
                     else -> ReaderDoc(emptyList(), engine.layoutAll(words, diameterPx - 2 * marginPx), lineHeight)
                 }
             }.also { DocCache.put(cacheKey, it) }
@@ -328,7 +319,24 @@ fun QuranReaderScreen(
         }
         DisposableEffect(view) { onDispose { view.keepScreenOn = false } }
 
+        // The auto scroll: on or off for the whole reading, so it runs on into
+        // the next surah; held while the long-press menu is open.
+        val autoOn = AutoScroll.on
+        val running = autoOn && selectedAyahForAction == null
+        var sign by remember { mutableStateOf<Boolean?>(null) }   // true: ▶, false: ⏸
+        LaunchedEffect(sign) { if (sign != null) { delay(1000); sign = null } }
         val gestures = ReaderGestures(
+            running = running,
+            onTap = {
+                AutoScroll.on = !AutoScroll.on
+                sign = AutoScroll.on
+                if (!AutoScroll.on) ayahs.getOrNull(readingIndex)?.let {
+                    doubleTapInfoText = "$surahName ${ReaderTypography.arabicDigits(it.verse)}"
+                }
+            },
+            // With the menu open, the bezel sets the pace: clockwise is faster.
+            menuPace = if (autoOn && selectedAyahForAction != null) paceStep else null,
+            seconds = lineSeconds,
             onDoubleTap = { index, onMark ->
                 val ayah = ayahs.getOrNull(index)
                 if (ayah != null && onMark) {
@@ -360,13 +368,12 @@ fun QuranReaderScreen(
                 key(cacheKey) {
                     when (mode) {
                         "pages" -> PagedReader(d, anchorIndex, textPaint, markPaint, quranTextColor, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
-                        "line" -> LineReader(d, anchorIndex, diameterPx, textPaint, markPaint, lineAuto, lineSeconds,
-                            paused = selectedAyahForAction != null, nextSurah?.nameAr, openNext, openPrev, paceStep, onAt, gestures, checked,
-                            sideAlpha = lineSideAlpha, clarity = lineClarity)
                         else -> FlowReader(d, anchorIndex, diameterPx, fill = mode != "river", tickPerVerse = mode != "river", textPaint, markPaint, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
                     }
                 }
             }
+
+            PlaySign(sign, Modifier.align(Alignment.TopCenter).padding(top = 22.dp))
 
             // ── Double tap: surah and verse, small, for two seconds ───────────
             AnimatedVisibility(
@@ -404,7 +411,7 @@ fun QuranReaderScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         // Tighter when the juz row is there too, to stay inside the circle.
-                        verticalArrangement = Arrangement.spacedBy(if (mode == "line" && lineAuto) 6.dp else 10.dp)
+                        verticalArrangement = Arrangement.spacedBy(if (autoOn) 6.dp else 10.dp)
                     ) {
                     // The surah before this one in the mushaf; the only way back
                     // a surah, so the swipes stay for the list and the place.
@@ -434,15 +441,15 @@ fun QuranReaderScreen(
                             viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize + 2f))
                         }) { Text("+", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold) }
                     }
-                    // «سطر في الوسط»: the pace. The bezel sets it (clockwise is
-                    // faster), or the two buttons; a step is about an eighth, with
-                    // no floor or ceiling beyond what nobody would read at.
-                    if (mode == "line" && lineAuto) {
+                    // While the scroll is on: its pace. The bezel sets it (clockwise
+                    // is faster), or the two buttons; a step is about an eighth.
+                    if (autoOn) {
                         val laid = doc
                         val juz = remember(surahNumber, ayah.verse) { viewModel.juzLength(surahNumber, ayah.verse) }
                         // Letters to a line, from this surah as it is laid out now.
                         val perLine = remember(laid, ayahs) {
-                            if (laid == null || laid.lines.isEmpty()) 0f else ayahs.sumOf { it.text.length }.toFloat() / laid.lines.size
+                            val n = laid?.let { it.lines.size + it.pages.sumOf { p -> p.lines.size } } ?: 0
+                            if (n == 0) 0f else ayahs.sumOf { it.text.length }.toFloat() / n
                         }
                         val minutes = LinePace.juzMinutes(juz.second, perLine, lineSeconds)
                         Row(
@@ -480,21 +487,61 @@ fun QuranReaderScreen(
 private const val READING_AWAKE_MS = 3 * 60_000L
 private const val USAGE_TICK_MS = 30_000L
 
+/** Whether the reader scrolls by itself; kept across surahs, so it runs on. */
+private object AutoScroll {
+    var on by mutableStateOf(false)
+}
+
+/** How long (ms) a hand on the bezel or the glass holds the auto scroll. */
+private const val AUTO_RESUME_MS = 2000L
+
 /**
- * What a double tap and a long press on a verse do; the verse is its index.
- * [onDoubleTap] is told whether the tap was on the verse's number. A single
- * tap does nothing.
+ * What the touches on a verse do; the verse is its index. [onDoubleTap] is
+ * told whether the tap was on the verse's number. [running]: the auto scroll
+ * is moving. [menuPace]: set while the menu is open with the scroll on.
  */
 private class ReaderGestures(
+    val running: Boolean,
+    val onTap: () -> Unit,
+    val menuPace: ((slower: Boolean) -> Unit)?,
+    /** Seconds per line of the auto scroll. */
+    val seconds: Float,
     val onDoubleTap: (index: Int, onMark: Boolean) -> Unit,
     val onLongPress: (Int) -> Unit,
 )
 
-/** The verse under a touch on [line] at [x] (from the line's centre, unscaled). */
-private fun ReaderGestures.doubleTap(line: ReaderLines.Line?, x: Float) {
-    if (line == null) return
-    val mark = line.markAt(x)
-    if (mark >= 0) onDoubleTap(mark, true) else onDoubleTap(line.ayahAt(x), false)
+/**
+ * A double tap on [line] at [x] (from the line's centre, unscaled): on a verse
+ * number, the bookmark; elsewhere, while stopped, [advance] one screen;
+ * while scrolling, the badge.
+ */
+private fun ReaderGestures.doubleTap(line: ReaderLines.Line?, x: Float, advance: () -> Unit) {
+    val mark = line?.markAt(x) ?: -1
+    when {
+        mark >= 0 -> onDoubleTap(mark, true)
+        !running -> advance()
+        line != null -> onDoubleTap(line.ayahAt(x), false)
+    }
+}
+
+/** ⏸ / ▶ in a small disc, for a second after a tap. */
+@Composable
+private fun PlaySign(playing: Boolean?, modifier: Modifier) {
+    if (playing == null) return
+    Canvas(modifier.size(30.dp)) {
+        val c = center
+        val u = size.minDimension * 0.16f
+        drawCircle(Color(0xB3000000), radius = size.minDimension / 2f, center = c)
+        if (!playing) {
+            drawRect(Color.White, topLeft = Offset(c.x - u * 0.9f, c.y - u), size = androidx.compose.ui.geometry.Size(u * 0.6f, u * 2f))
+            drawRect(Color.White, topLeft = Offset(c.x + u * 0.3f, c.y - u), size = androidx.compose.ui.geometry.Size(u * 0.6f, u * 2f))
+        } else {
+            val tri = androidx.compose.ui.graphics.Path().apply {
+                moveTo(c.x - u * 0.7f, c.y - u); lineTo(c.x + u, c.y); lineTo(c.x - u * 0.7f, c.y + u); close()
+            }
+            drawPath(tri, Color.White)
+        }
+    }
 }
 
 
@@ -522,6 +569,7 @@ private fun PagedReader(
     gestures: ReaderGestures,
     checked: (Int) -> Boolean,
 ) {
+    val g by rememberUpdatedState(gestures)
     val screenCount = doc.pages.size
     // Past the last screen: a divider with the next surah's name and the
     // basmala; resting on it opens that surah, so reading runs on.
@@ -560,6 +608,19 @@ private fun PagedReader(
         }
     }
 
+    // ── Auto scroll: a screen after its lines' time; a page turned by hand
+    // starts the count again.
+    fun nextScreen() {
+        val to = (pagerState.currentPage + 1).coerceAtMost(pageCount - 1)
+        if (to != pagerState.currentPage) scope.launch { pagerState.animateScrollToPage(to, animationSpec = tween(420)) }
+    }
+    LaunchedEffect(pagerState.settledPage, gestures.running, gestures.seconds) {
+        if (!gestures.running) return@LaunchedEffect
+        val n = doc.pages.getOrNull(pagerState.settledPage)?.lines?.size ?: return@LaunchedEffect
+        delay((gestures.seconds * 1000 * n).toLong())
+        nextScreen()
+    }
+
     // ── Bezel: one screen per detent ──────────────────────────────────────
     // A detent arrives as one event of about scaledVerticalScrollFactor
     // pixels; half of that moves on, and what is left of the event is
@@ -582,7 +643,10 @@ private fun PagedReader(
             .nestedScroll(pullBack)
             .onRotaryScrollEvent { event ->
                 rotaryAcc += event.verticalScrollPixels
-                if (abs(rotaryAcc) >= detentPx / 2f && pageCount > 0) {
+                val pace = g.menuPace
+                if (pace != null) {
+                    if (abs(rotaryAcc) >= detentPx / 2f) { pace(rotaryAcc < 0); rotaryAcc = 0f }
+                } else if (abs(rotaryAcc) >= detentPx / 2f && pageCount > 0) {
                     val step = if (rotaryAcc > 0) 1 else -1
                     rotaryAcc = 0f
                     val from = if (pagerState.isScrollInProgress) pagerState.targetPage else pagerState.currentPage
@@ -609,9 +673,12 @@ private fun PagedReader(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(screen) {
+                    // With onDoubleTap set, onTap waits out the double-tap time, so
+                    // the first tap of a double tap never starts the scroll.
                     detectTapGestures(
-                        onDoubleTap = { gestures.doubleTap(lineAt(it), it.x - size.width / 2f) },
-                        onLongPress = { pos -> lineAt(pos)?.let { gestures.onLongPress(it.ayahAt(pos.x - size.width / 2f)) } }
+                        onTap = { g.onTap() },
+                        onDoubleTap = { g.doubleTap(lineAt(it), it.x - size.width / 2f, ::nextScreen) },
+                        onLongPress = { pos -> lineAt(pos)?.let { g.onLongPress(it.ayahAt(pos.x - size.width / 2f)) } }
                     )
                 }
         ) {
@@ -644,6 +711,7 @@ private fun FlowReader(
     gestures: ReaderGestures,
     checked: (Int) -> Boolean,
 ) {
+    val g by rememberUpdatedState(gestures)
     val lines = doc.lines
     val lh = doc.lineHeight
     val r = diameter / 2f
@@ -661,7 +729,10 @@ private fun FlowReader(
     var leaving by remember { mutableStateOf(false) }
     var pulled by remember { mutableFloatStateOf(0f) }
     fun leaveBack() { if (!leaving && openPrev != null) { leaving = true; openPrev() } }
+    // When a hand last moved the text; the auto scroll waits after it.
+    var handAt by remember { mutableLongStateOf(0L) }
     val scrollState = rememberScrollableState { delta ->
+        handAt = SystemClock.uptimeMillis()
         val old = offset
         offset = (offset - delta).coerceIn(0f, maxOffset)
         // Pulled down past the first line: on into the surah before.
@@ -714,6 +785,25 @@ private fun FlowReader(
     val focusRequester = remember { FocusRequester() }
     val detentPx = rememberDetentPx()
     var rotaryTarget by remember { mutableStateOf<Float?>(null) }
+    var paceAcc by remember { mutableFloatStateOf(0f) }
+
+    // ── Auto scroll: a steady glide, a line every [seconds] ───────────────
+    LaunchedEffect(doc, gestures.running, gestures.seconds) {
+        if (!gestures.running) return@LaunchedEffect
+        val perMs = lh / (gestures.seconds * 1000f)
+        var last = 0L
+        while (true) {
+            withFrameMillis { now ->
+                val idle = SystemClock.uptimeMillis() - handAt > AUTO_RESUME_MS && rotaryTarget == null
+                if (last != 0L && idle) offset = (offset + (now - last) * perMs).coerceAtMost(maxOffset)
+                last = now
+            }
+        }
+    }
+    // A double tap while stopped: on by the height of the text, one screen.
+    val nextScreen: () -> Unit = {
+        scope.launch { scrollState.animateScrollBy(-(diameter - topPad - bottomPad), tween(420)) }
+    }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     val dividerPaint = remember(textPaint) {
@@ -727,6 +817,11 @@ private fun FlowReader(
         modifier = Modifier
             .fillMaxSize()
             .onRotaryScrollEvent { event ->
+                g.menuPace?.let { pace ->
+                    paceAcc += event.verticalScrollPixels
+                    if (abs(paceAcc) >= detentPx / 2f) { pace(paceAcc < 0); paceAcc = 0f }
+                    return@onRotaryScrollEvent true
+                }
                 val step = event.verticalScrollPixels / detentPx * lh * 1.5f
                 if (step < 0f && (rotaryTarget ?: offset) <= 1f) leaveBack()
                 val target = ((rotaryTarget ?: offset) + step).coerceIn(0f, maxOffset)
@@ -748,8 +843,9 @@ private fun FlowReader(
                     return lines[i] to (pos.x - size.width / 2f) / scaleAt(yOf(i))
                 }
                 detectTapGestures(
-                    onDoubleTap = { pos -> hit(pos)?.let { (line, x) -> gestures.doubleTap(line, x) } },
-                    onLongPress = { pos -> hit(pos)?.let { (line, x) -> gestures.onLongPress(line.ayahAt(x)) } }
+                    onTap = { g.onTap() },
+                    onDoubleTap = { pos -> val h = hit(pos); g.doubleTap(h?.first, h?.second ?: 0f, nextScreen) },
+                    onLongPress = { pos -> hit(pos)?.let { (line, x) -> g.onLongPress(line.ayahAt(x)) } }
                 )
             }
     ) {
@@ -768,182 +864,6 @@ private fun FlowReader(
                     native.drawText("سورة $nextName", size.width / 2f, y, dividerPaint)
                     if (nextHasBasmala) native.drawText(UTHMANI_BASMALA, size.width / 2f, y + lh * 1.1f, basmalaPaint)
                 }
-            }
-        }
-    }
-}
-
-// ── 3. One line in the middle ────────────────────────────────────────────────
-
-@Composable
-private fun LineReader(
-    doc: ReaderDoc,
-    anchorIndex: Int,
-    diameter: Float,
-    textPaint: TextPaint,
-    markPaint: TextPaint,
-    auto: Boolean,
-    /** Seconds each line rests in the middle. */
-    seconds: Float,
-    /** Held still from outside, e.g. while the long-press menu is open. */
-    paused: Boolean,
-    nextName: String?,
-    openNext: () -> Unit,
-    openPrev: (() -> Unit)?,
-    /** One step slower (true) or faster, while the long-press menu is open. */
-    onPaceStep: (Boolean) -> Unit,
-    onAt: (Int) -> Unit,
-    gestures: ReaderGestures,
-    checked: (Int) -> Boolean,
-    /** Opacity of the lines around the middle one. */
-    sideAlpha: Float,
-    /** How clear the middle line is, see [LinePace.lineCentre]. */
-    clarity: Int,
-) {
-    val lines = doc.lines
-    val lh = doc.lineHeight
-    val r = diameter / 2f
-    val (centreAlpha, centreStroke) = LinePace.lineCentre(clarity)
-    // The middle line, drawn with a stroke around its letters when asked for.
-    val centrePaint = remember(textPaint, centreStroke) {
-        if (centreStroke <= 0f) textPaint else TextPaint(textPaint).apply {
-            style = Paint.Style.FILL_AND_STROKE
-            strokeWidth = textSize * centreStroke
-            strokeJoin = Paint.Join.ROUND
-        }
-    }
-    val lastIndex = max(0, lines.size - 1)
-    val pos = remember { Animatable(doc.lineOf(anchorIndex).coerceAtLeast(0).toFloat()) }
-    val scope = rememberCoroutineScope()
-    // A single tap holds the line where it is, and another lets it go on (zaher,
-    // 2026-11-05: a finger resting on the glass used to hold it, which fought with
-    // the long press that opens the menu). A small sign shows which, for a second.
-    var held by remember { mutableStateOf(false) }
-    var sign by remember { mutableStateOf<Boolean?>(null) }   // true: held, false: going on
-    LaunchedEffect(sign) { if (sign != null) { delay(1000); sign = null } }
-
-    fun current() = pos.targetValue.roundToInt()
-    /** How much line [i] is shrunk when the middle of the screen is at [p]. */
-    fun lineScale(i: Int, p: Float): Float {
-        val d = i - p
-        val near = max(0f, 1f - abs(d))
-        val fit = ((ReaderLines.chord(r + d * lh, diameter) - diameter * 0.04f) / lines[i].width.coerceAtLeast(1f)).coerceAtMost(1f)
-        return max(0.35f, min(fit, 0.78f + 0.22f * near))
-    }
-    var leaving by remember { mutableStateOf(false) }
-    fun leaveBack() { if (!leaving && openPrev != null) { leaving = true; openPrev() } }
-    fun goTo(index: Int) {
-        if (index < 0 && current() <= 0) { leaveBack(); return }
-        val to = index.coerceIn(0, lastIndex)
-        scope.launch { pos.animateTo(to.toFloat(), tween(420)) }
-    }
-
-    LaunchedEffect(doc) {
-        snapshotFlow { pos.value.roundToInt() }.distinctUntilChanged().collect { onAt(lines.getOrNull(it)?.placeAyah ?: -1) }
-    }
-
-    // Moving on by itself, at the chosen pace; at the end, into the next surah.
-    // A tap stops it at once, even halfway through a step; the next tap
-    // settles it on the nearest line and it waits a whole line before going on.
-    // The long-press menu holds it too, while it is open.
-    LaunchedEffect(doc, auto, seconds, held, paused) {
-        if (!auto || held || paused) return@LaunchedEffect
-        // The bezel or a drag may take the line from under this loop; that
-        // only cuts the step short, it must not end the loop.
-        suspend fun glide(to: Float, ms: Int) {
-            try {
-                pos.animateTo(to, tween(ms))
-            } catch (e: CancellationException) {
-                currentCoroutineContext().ensureActive()
-            }
-        }
-        if (!pos.isRunning) {
-            val rest = pos.value.roundToInt().coerceIn(0, lastIndex).toFloat()
-            if (pos.value != rest || pos.targetValue != rest) glide(rest, 200)
-        }
-        while (true) {
-            delay((seconds * 1000).toLong())
-            if (current() >= lastIndex) {
-                if (nextName != null) openNext()
-                break
-            }
-            glide(current() + 1f, 520)
-        }
-    }
-
-    val focusRequester = remember { FocusRequester() }
-    val detentPx = rememberDetentPx()
-    var rotaryAcc by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            .onRotaryScrollEvent { event ->
-                rotaryAcc += event.verticalScrollPixels
-                if (abs(rotaryAcc) >= detentPx / 2f) {
-                    // With the menu open the bezel sets the pace: clockwise is faster.
-                    if (paused && auto) onPaceStep(rotaryAcc < 0)
-                    else if (!paused) goTo(current() + if (rotaryAcc > 0) 1 else -1)
-                    rotaryAcc = 0f
-                }
-                true
-            }
-            .focusRequester(focusRequester)
-            .focusable()
-            .pointerInput(doc) {
-                var dragged = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { dragged = 0f },
-                    onDragEnd = {
-                        val steps = (-dragged / lh).roundToInt()
-                        if (steps != 0) goTo(current() + steps)
-                    },
-                    onVerticalDrag = { change, amount -> change.consume(); dragged += amount }
-                )
-            }
-            .pointerInput(doc) {
-                // The line under a touch, and the touch's x on it before scaling.
-                fun hit(p: Offset): Pair<ReaderLines.Line, Float>? {
-                    val i = (pos.value + (p.y - r) / lh).roundToInt().coerceIn(0, lastIndex)
-                    val line = lines.getOrNull(i) ?: return null
-                    return line to (p.x - size.width / 2f) / lineScale(i, pos.value)
-                }
-                // With onDoubleTap set, onTap waits out the double-tap time, so the
-                // first tap of a double tap (the bookmark) never holds the line.
-                detectTapGestures(
-                    onTap = { if (auto && !paused) { held = !held; sign = held } },
-                    onDoubleTap = { p -> hit(p)?.let { (line, x) -> gestures.doubleTap(line, x) } },
-                    onLongPress = { p -> hit(p)?.let { (line, x) -> gestures.onLongPress(line.ayahAt(x)) } }
-                )
-            }
-    ) {
-        drawIntoCanvas { canvas ->
-            val native = canvas.nativeCanvas
-            val p = pos.value
-            val first = max(0, floor(p - r / lh).toInt() - 1)
-            val last = min(lastIndex, floor(p + r / lh).toInt() + 1)
-            for (i in first..last) {
-                val d = i - p
-                val near = max(0f, 1f - abs(d))
-                val alpha = sideAlpha + (centreAlpha - sideAlpha) * near
-                val paint = if (abs(d) < 0.5f) centrePaint else textPaint
-                lines[i].draw(native, size.width / 2f, r + d * lh, lineScale(i, p), alpha, paint, markPaint, checked)
-            }
-        }
-        // ⏸ / ▶ in a small disc near the top, for a second after a tap.
-        sign?.let { isHeld ->
-            val c = Offset(size.width / 2f, size.height * 0.16f)
-            val u = size.minDimension * 0.035f
-            drawCircle(Color(0xB3000000), radius = u * 2.2f, center = c)
-            if (isHeld) {
-                drawRect(Color.White, topLeft = Offset(c.x - u * 0.9f, c.y - u), size = androidx.compose.ui.geometry.Size(u * 0.6f, u * 2f))
-                drawRect(Color.White, topLeft = Offset(c.x + u * 0.3f, c.y - u), size = androidx.compose.ui.geometry.Size(u * 0.6f, u * 2f))
-            } else {
-                val tri = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(c.x - u * 0.7f, c.y - u); lineTo(c.x + u, c.y); lineTo(c.x - u * 0.7f, c.y + u); close()
-                }
-                drawPath(tri, Color.White)
             }
         }
     }

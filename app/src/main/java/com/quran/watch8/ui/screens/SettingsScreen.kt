@@ -65,10 +65,7 @@ fun SettingsScreen(
     val locationName by viewModel.selectedLocationName.collectAsState()
     val method by viewModel.calculationMethod.collectAsState()
     val readerMode by viewModel.readerMode.collectAsState()
-    val lineAuto by viewModel.lineAuto.collectAsState()
     val lineSeconds by viewModel.lineSeconds.collectAsState()
-    val lineSideAlpha by viewModel.lineSideAlpha.collectAsState()
-    val lineClarity by viewModel.lineClarity.collectAsState()
     val usageJson by viewModel.readingUsage.collectAsState()
     val mostUsed = remember(usageJson) { ReadingUsage.top(usageJson, java.time.LocalDate.now()) }
 
@@ -147,7 +144,7 @@ fun SettingsScreen(
                 }
             }
 
-            // How the reader lays the text out: four styles to try for a while.
+            // How the reader lays the text out: three styles to try for a while.
             item { SectionLabel("طريقة العرض") }
             item {
                 Column(modifier = width, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -195,48 +192,16 @@ fun SettingsScreen(
                 }
             }
 
-            // The "line in the middle" style moves on by itself; a finger on the glass holds it.
-            item { SectionLabel("سطر في الوسط") }
-            item {
-                ToggleChip(
-                    checked = lineAuto,
-                    onCheckedChange = { viewModel.setLineAuto(it) },
-                    label = { Text("يتقدّم السطر وحده", fontSize = 12.sp) },
-                    secondaryLabel = { Text("في «سطر في الوسط»", fontSize = 10.sp) },
-                    toggleControl = { Switch(checked = lineAuto, onCheckedChange = null) },
-                    modifier = width
-                )
-            }
-            if (lineAuto) {
-                // Seconds each line rests, half a second a step; the long press
-                // in the reader sets it from a juz's reading time instead.
-                item {
-                    Stepper(
-                        value = LinePace.secondsText(lineSeconds),
-                        label = "لكل سطر",
-                        modifier = width,
-                        onMore = { viewModel.setLineSeconds(LinePace.step(lineSeconds, slower = true)) },
-                        onLess = { viewModel.setLineSeconds(LinePace.step(lineSeconds, slower = false)) }
-                    )
-                }
-            }
-            // How the middle line and the lines around it show in «سطر في الوسط».
+            // The auto scroll of every style: a single tap in the reader starts
+            // and stops it; here, how long each line takes.
+            item { SectionLabel("التمرير التلقائي") }
             item {
                 Stepper(
-                    value = ReaderTypography.arabicDigits(Math.round(lineSideAlpha * 100)) + "٪",
-                    label = "ظهور السطور المجاورة",
+                    value = LinePace.secondsText(lineSeconds),
+                    label = "لكل سطر",
                     modifier = width,
-                    onMore = { viewModel.setLineSideAlpha(lineSideAlpha + 0.05f) },
-                    onLess = { viewModel.setLineSideAlpha(lineSideAlpha - 0.05f) }
-                )
-            }
-            item {
-                Stepper(
-                    value = LinePace.clarityName(lineClarity),
-                    label = "وضوح السطر الأوسط",
-                    modifier = width,
-                    onMore = { viewModel.setLineClarity(lineClarity + 1) },
-                    onLess = { viewModel.setLineClarity(lineClarity - 1) }
+                    onMore = { viewModel.setLineSeconds(LinePace.step(lineSeconds, slower = true)) },
+                    onLess = { viewModel.setLineSeconds(LinePace.step(lineSeconds, slower = false)) }
                 )
             }
 
@@ -318,7 +283,6 @@ fun SettingsScreen(
 private val READER_MODES = listOf(
     "pages" to "صفحات",
     "river" to "نهر",
-    "line" to "سطر في الوسط",
     "fill" to "نهر ممتلئ",
 )
 

@@ -43,7 +43,7 @@ class PreferencesRepository(private val context: Context) {
         private val PERMISSIONS_REQUESTED = booleanPreferencesKey("permissions_requested")
         private val FONT_FAMILY = stringPreferencesKey("font_family")  // "default", "uthmani", "kufi", "sansserif", "serif"
         private val HOME_STYLE = stringPreferencesKey("home_style")    // "metro", "dashboard"
-        private val READER_MODE = stringPreferencesKey("reader_mode")  // "pages", "river", "line", "fill"
+        private val READER_MODE = stringPreferencesKey("reader_mode")  // "pages", "river", "fill"
         private val LINE_AUTO = booleanPreferencesKey("reader_line_auto")
         private val LINE_SPEED = stringPreferencesKey("reader_line_speed") // "slow", "medium", "fast"; read only as the default for LINE_SECONDS
         private val LINE_SECONDS = floatPreferencesKey("reader_line_seconds")
@@ -73,7 +73,10 @@ class PreferencesRepository(private val context: Context) {
     val customReaderTextColor: Flow<String> = context.dataStore.data.map { it[CUSTOM_READER_TEXT_COLOR] ?: "#FFFFFF" }
     val fontFamily: Flow<String> = context.dataStore.data.map { it[FONT_FAMILY] ?: "default" }
     val homeStyle: Flow<String> = context.dataStore.data.map { it[HOME_STYLE] ?: "metro" }
-    val readerMode: Flow<String> = context.dataStore.data.map { it[READER_MODE] ?: "fill" }
+    val readerMode: Flow<String> = context.dataStore.data.map { prefs ->
+        // «سطر في الوسط» became the auto scroll of the other three (2026-11-06).
+        prefs[READER_MODE]?.takeIf { it != "line" } ?: "fill"
+    }
     val lineAuto: Flow<Boolean> = context.dataStore.data.map { it[LINE_AUTO] ?: true }
     /** Seconds each line rests in the middle; before this setting, the old three speeds. */
     val lineSeconds: Flow<Float> = context.dataStore.data.map {
