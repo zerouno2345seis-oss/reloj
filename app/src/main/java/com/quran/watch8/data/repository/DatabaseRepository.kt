@@ -28,8 +28,10 @@ class DatabaseRepository(
 
     // ─────────────────────────────── Bookmarks ───────────────────────────────
 
+    // One card per verse: the list comes newest first, so the newest copy of a
+    // verse saved twice by an older build is the one kept.
     val bookmarks: Flow<List<Bookmark>> = bookmarkDao.getAllFlow().map { list ->
-        list.map { e ->
+        list.distinctBy { it.surah to it.ayah }.map { e ->
             Bookmark(
                 id = e.id,
                 surah = e.surah,
@@ -42,6 +44,8 @@ class DatabaseRepository(
     }
 
     suspend fun addBookmark(bookmark: Bookmark) {
+        // Any older copy of this verse goes first, so a verse is never listed twice.
+        bookmarkDao.deleteAt(bookmark.surah, bookmark.ayah)
         bookmarkDao.insert(
             BookmarkEntity(
                 id = bookmark.id,
@@ -55,6 +59,8 @@ class DatabaseRepository(
     }
 
     suspend fun removeBookmark(id: String) = bookmarkDao.deleteById(id)
+
+    suspend fun removeBookmarkAt(surah: Int, ayah: Int) = bookmarkDao.deleteAt(surah, ayah)
 
     // ─────────────────────────────── Locations ───────────────────────────────
 

@@ -38,18 +38,18 @@
    180,
    270
   ],
-  "radius": 36,
-  "distance": 110,
-  "fontSize": 21,
+  "radius": 48,
+  "distance": 104,
+  "fontSize": 22,
   "fill": "#11161d",
   "fillOpacity": 0.65,
   "line": "#c8ced2",
   "text": "#f3f4f5",
   "items": [
    {
-    "content": "moon",
-    "label": "قمر زخرفي (غير حي)",
-    "source": "عام"
+    "content": "next",
+    "label": "الصلاة القادمة",
+    "source": "الصلاة"
    },
    {
     "content": "battery",
@@ -173,5 +173,10 @@
    "y": 219,
    "scale": 1
   }
+ },
+ "numberTaps": {
+  "r": 190,
+  "w": 56,
+  "h": 50
  }
 }

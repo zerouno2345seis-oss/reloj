@@ -81,16 +81,24 @@ fun BookmarksScreen(
             }
 
             if (bookmarks.size > 1) {
+                // Two choices side by side, the chosen one filled: by surah order or by date.
                 item {
-                    Text(
-                        text = if (sortByQuranOrder) "حسب المصحف" else "الأحدث أولًا",
-                        color = Color(0xFF9CA3AF),
-                        fontSize = 11.sp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { sortByQuranOrder = !sortByQuranOrder }
-                            .padding(horizontal = 10.dp, vertical = 3.dp)
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(true to "حسب السور", false to "حسب التاريخ").forEach { (quranOrder, label) ->
+                            val on = sortByQuranOrder == quranOrder
+                            Text(
+                                text = label,
+                                color = if (on) Color.Black else Color(0xFFD1D5DB),
+                                fontSize = 12.sp,
+                                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (on) AccentGold else Color(0xFF1F2933))
+                                    .clickable { sortByQuranOrder = quranOrder }
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -110,7 +118,7 @@ fun BookmarksScreen(
                         bookmark = bookmark,
                         modifier = Modifier.fillMaxWidth(WatchSafeInsets.contentWidthFraction + 0.06f),
                         onOpen = { onOpenAyah(bookmark.surah, bookmark.ayah) },
-                        onDelete = { viewModel.removeBookmark(bookmark.id) }
+                        onDelete = { viewModel.removeBookmarkAt(bookmark.surah, bookmark.ayah) }
                     )
                 }
             }

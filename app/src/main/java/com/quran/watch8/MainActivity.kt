@@ -214,7 +214,14 @@ class MainActivity : ComponentActivity() {
                     // page, so back from it returns to the face.
                     LaunchedEffect(pendingRoute) {
                         // "resume" (the face's mushaf icon and its time): where reading stopped.
-                        val route = pendingRoute?.let { if (it == "resume") viewModel.resumeRoute() else it }
+                        // "index@85": the surah list, opened at that surah (a tap on a watch face's 6).
+                        val route = pendingRoute?.let {
+                            when {
+                                it == "resume" -> viewModel.resumeRoute()
+                                it.startsWith("index@") -> { viewModel.indexJump = it.substringAfter('@').toIntOrNull(); "quran" }
+                                else -> it
+                            }
+                        }
                         if (!route.isNullOrBlank()) {
                             openFirst(route)
                             pendingRoute = null

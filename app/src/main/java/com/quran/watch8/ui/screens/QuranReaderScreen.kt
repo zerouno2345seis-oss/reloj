@@ -352,7 +352,7 @@ fun QuranReaderScreen(
                 if (ayah != null && onMark) {
                     // On the number: the bookmark, at once, with no menu.
                     val existing = markedVerses[ayah.verse]
-                    if (existing != null) viewModel.removeBookmark(existing.id)
+                    if (existing != null) viewModel.removeBookmarkAt(surahNumber, ayah.verse)
                     else viewModel.addBookmark(surahNumber, ayah.verse, ayah.text)
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 }

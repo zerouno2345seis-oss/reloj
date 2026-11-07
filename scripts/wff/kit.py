@@ -198,3 +198,57 @@ def write(module, title, clock_type, parts, preview="16:40:24"):
     ids = [int(s.split('"')[0]) for s in xml.split('slotId="')[1:]]
     assert len(ids) == len(set(ids)), ids
     print(f"wrote {out} ({slots} slots)")
+
+
+def tap_zone(sid, x, y, w, h, provider):
+    """An area that opens part of the app when touched. Draws nothing.
+    (The face format has no double tap: a slot answers a single touch.)"""
+    return slot(sid, round(x), round(y), round(w), round(h), "SMALL_IMAGE", provider, "SMALL_IMAGE",
+                f'<BoundingBox x="0" y="0" width="{round(w)}" height="{round(h)}"/>',
+                '<Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="1" height="1" alpha="0">'
+                '<Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>',
+                customizable="FALSE")
+
+
+# zaher, 2026-11-07: on every face with hands, the figures open parts of the app.
+NUMBER_TAPS = ((0, "SurahStartShortcutComplicationService"),      # 12: the surah list from al-Fatiha
+               (90, "BookmarksShortcutComplicationService"),      # 3: the bookmarks
+               (180, "BurujShortcutComplicationService"),         # 6: the surah list at al-Buruj
+               (270, "SettingsShortcutComplicationService"))      # 9: the settings
+
+
+def number_taps(first_sid, r=180, w=70, h=60):
+    """Four touch areas centred on 12, 3, 6 and 9 at radius r: four slots."""
+    import math
+    out = ""
+    for i, (deg, provider) in enumerate(NUMBER_TAPS):
+        a = math.radians(deg - 90)
+        cx, cy = 225 + r * math.cos(a), 225 + r * math.sin(a)
+        out += tap_zone(first_sid + i, cx - w / 2, cy - h / 2, w, h, provider)
+    return out
+
+
+def digit_taps(first_sid, x, y, w, h):
+    """On a digital face: the hours open the surah list, the minutes open it at al-Buruj.
+    The time reads left to right, so the hours are the left half."""
+    return (tap_zone(first_sid, x, y, w / 2, h, "SurahStartShortcutComplicationService")
+            + tap_zone(first_sid + 1, x + w / 2, y, w / 2, h, "BurujShortcutComplicationService"))
+
+
+HOUR_ANGLE = "([HOUR_0_23] % 12) * 30 + [MINUTE] * 0.5"
+MINUTE_ANGLE = "[MINUTE] * 6 + [SECOND] * 0.1"
+SECOND_ANGLE = "[SECOND] * 6"
+
+
+def lasers(r_in=208, r_out=222, hour="#FF7DFFB0", minute="#FF7DFFB0", second="#FFFF6A5A", seconds=True):
+    """A glowing mark on the rim facing each hand: the hour and minute green, the seconds red.
+    Each mark is three strokes, the wider ones faint, for the glow. Hidden on always-on."""
+    def mark(name, angle, width, color):
+        glow = "#33" + color[3:]
+        line = lambda w, c: (f'<Line startX="225" startY="{225 - r_in:.1f}" endX="225" endY="{225 - r_out:.1f}">'
+                             f'<Stroke color="{c}" thickness="{w:.1f}" cap="ROUND"/></Line>')
+        return (f'<Group name="{name}" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">{HIDE_IN_AMBIENT}'
+                f'<Transform target="angle" value="{angle}"/><PartDraw x="0" y="0" width="450" height="450">'
+                + line(width * 3, glow) + line(width * 1.8, glow) + line(width, color) + '</PartDraw></Group>')
+    return (mark("laserH", HOUR_ANGLE, 5, hour) + mark("laserM", MINUTE_ANGLE, 4, minute)
+            + (mark("laserS", SECOND_ANGLE, 2.5, second) if seconds else ""))

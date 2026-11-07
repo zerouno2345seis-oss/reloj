@@ -21,6 +21,10 @@ interface BookmarkDao {
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    /** Every bookmark on one verse: older builds could save the same verse twice. */
+    @Query("DELETE FROM bookmarks WHERE surah = :surah AND ayah = :ayah")
+    suspend fun deleteAt(surah: Int, ayah: Int)
+
     @Query("DELETE FROM bookmarks")
     suspend fun deleteAll()
 }

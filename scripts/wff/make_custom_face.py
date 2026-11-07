@@ -306,7 +306,8 @@ class Face:
     # ── background ──────────────────────────────────────────────────────────
     def background(self):
         bg = self.s.get("background", "none")
-        image = {"photo": "bg_photo", "mosques": "bg_mosques", "pattern": "bg_pattern", "user": "bg_user"}.get(bg)
+        image = {"photo": "bg_photo", "mosques": "bg_mosques", "pattern": "bg_pattern", "user": "bg_user",
+                 "haram": "bg_haram", "kaaba": "bg_kaaba"}.get(bg)
         g = self.s.get("backgroundGradient", {})
         grad = gradient_xml(g)
         alpha = round(255 * float(self.s.get("backgroundImageOpacity", 1))) if bg == "user" else 255
@@ -968,11 +969,15 @@ def build(spec, module=None, folder="."):
     # then the edge icons, the tap on the time and the always-on copy of the prayer row.
     pod_slots = pod_slot_count(spec)
     element_slots = int(show_date) + int(show_pill) + int(show_prayer)
-    if pod_slots + element_slots > 8:
+    # "numberTaps" (zaher, 2026-11-07): touching 12, 3, 6 or 9 opens the surah list, the
+    # bookmarks, the list at al-Buruj or the settings. Four slots, before any other tap.
+    taps = spec.get("numberTaps") or {}
+    tap_slots = 4 if taps else 0
+    if pod_slots + element_slots + tap_slots > 8:
         raise ValueError("not enough complication slots for the pods and face elements")
     ring_slots = ring_slot_count(spec) if f.T > 0 else 0
-    ring_slots = min(ring_slots, 8 - element_slots - pod_slots)
-    base = element_slots + ring_slots + pod_slots
+    ring_slots = min(ring_slots, 8 - element_slots - pod_slots - tap_slots)
+    base = element_slots + ring_slots + pod_slots + tap_slots
     free = 8 - base
     want_edges = show_edges and free >= 2
     free -= 2 if want_edges else 0
@@ -997,9 +1002,9 @@ def build(spec, module=None, folder="."):
     budget = Budget()
     f.background()
     draw_dial_finish(f)
-    budget.limit = 8 - element_slots - pod_slots   # reserve element and pod slots
+    budget.limit = 8 - element_slots - pod_slots - tap_slots   # reserve element, pod and tap slots
     f.ring(budget)
-    budget.limit = 8 - element_slots
+    budget.limit = 8 - element_slots - tap_slots
     draw_pods(f, budget)
     budget.limit = 8
     if module:
@@ -1007,6 +1012,9 @@ def build(spec, module=None, folder="."):
     inner_r = f.seconds()
     if analog:
         f.dial(inner_r)
+        if spec.get("lasers"):
+            # A glowing mark on the rim facing each hand (zaher, 2026-11-07).
+            f.parts.append(kit.lasers(r_in=inner_r - 16, r_out=inner_r - 2))
         if spec.get("bothClocks") and show_time:
             # The hybrid: a small digital time under the centre, the hands over it.
             size = round(30 * K * tsc * 1.4)
@@ -1058,6 +1066,11 @@ def build(spec, module=None, folder="."):
                                 f'<BoundingBox x="0" y="0" width="{size}" height="{size}"/>', body, customizable="FALSE"))
     if want_aod_prayer:
         f.parts.append(kit.prayer_row(budget.take(), when="ambient", ink=f.ink, soft=f.soft))
+    if taps:
+        first = budget.next
+        for _ in range(4):
+            budget.take()
+        f.parts.append(kit.number_taps(first, r=float(taps.get("r", 175)), w=float(taps.get("w", 64)), h=float(taps.get("h", 56))))
     return f
 
 
@@ -1097,6 +1110,11 @@ def build_file(path):
     user_bg = os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi/bg_user.webp")
     if not spec.get("backgroundImage") and os.path.exists(user_bg):
         os.remove(user_bg)
+    for name_ in ("haram", "kaaba"):        # the drawn Mecca pictures (design/assets/CREDITS.md)
+        if spec.get("background") == name_:
+            import shutil
+            shutil.copy(os.path.join(kit.ROOT, "design/assets", f"bg_{name_}.png"),
+                        os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi", f"bg_{name_}.png"))
     f = build(spec, module, os.path.dirname(os.path.abspath(path)))
     kit.write(module, f"«{name}», from the face editor", "ANALOG" if spec.get("clock") == "analog" else "DIGITAL",
               use_fonts(spec, module, f.parts))

@@ -304,6 +304,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Removes a verse's bookmark, every copy of it. */
+    fun removeBookmarkAt(surah: Int, ayah: Int) {
+        viewModelScope.launch {
+            db.removeBookmarkAt(surah, ayah)
+        }
+    }
+
+    /**
+     * A surah the index should open at, asked for by a watch face (the 12 opens
+     * the list at al-Fatiha, the 6 at al-Buruj). Read once by the index.
+     */
+    var indexJump by mutableStateOf<Int?>(null)
+
 
     // ═══════════════════════════ Reading Position (Room) ══════════
 
