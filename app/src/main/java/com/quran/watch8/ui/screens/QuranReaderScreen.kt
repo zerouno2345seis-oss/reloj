@@ -111,8 +111,8 @@ private const val UTHMANI_BASMALA = "بِسۡمِ ٱللَّهِ ٱلرَّحۡ�
  *    circle wherever it is; a light tick in the wrist at each new verse.
  *
  * Any of the three can scroll by itself (zaher, 2026-11-06, in place of the old
- * «سطر في الوسط» style): a single tap starts and stops it, at the pace set in
- * seconds per line. The bezel or a drag moves the text by hand and the scroll
+ * «سطر في الوسط» style), started and ended only from the long-press menu, at
+ * the pace set in seconds per line. The bezel or a drag moves the text by hand and the scroll
  * goes on two seconds later. The long-press menu holds it while it is open and
  * sets the pace.
  *
@@ -121,12 +121,11 @@ private const val UTHMANI_BASMALA = "بِسۡمِ ٱللَّهِ ٱلرَّحۡ�
  * The app opens here, where reading stopped, with the surah list behind it:
  * a swipe to the right goes to the list, and back from the list leaves.
  *
- *  - A single tap: the scroll starts, or stops (⏸ / ▶ for a second; on a stop,
- *    the surah and verse show for two seconds).
+ *  - A single tap: in plain reading, the surah and verse for two seconds; in
+ *    the auto scroll, hold or go on (⏸ / ▶ for a second).
  *  - Double tap on a verse number: bookmark it at once (a red tick shows on
  *    the number); again, and the bookmark goes.
- *  - Double tap elsewhere, while stopped: on by one screen, and still stopped.
- *    While scrolling: a small badge with the surah and verse, 2 s.
+ *  - Double tap elsewhere: on by one whole screen, always (held stays held).
  *  - Long press on a verse: − «السور» + and settings, with the previous surah above.
  */
 @Composable
@@ -332,7 +331,8 @@ fun QuranReaderScreen(
         LaunchedEffect(sign) { if (sign != null) { delay(1000); sign = null } }
         val gestures = ReaderGestures(
             running = running,
-            canAdvance = autoOn && AutoScroll.paused,
+            // Always, in plain reading too (zaher, 2026-11-07).
+            canAdvance = true,
             onTap = { index ->
                 if (AutoScroll.on) {
                     // In the scroll: hold, or go on.
@@ -519,7 +519,7 @@ private const val AUTO_RESUME_MS = 2000L
  */
 private class ReaderGestures(
     val running: Boolean,
-    /** Stopped inside the auto scroll: a double tap moves one screen on. */
+    /** A double tap off a verse number moves one screen on. */
     val canAdvance: Boolean,
     /** A single tap; the verse under it, when there is one. */
     val onTap: (index: Int?) -> Unit,
