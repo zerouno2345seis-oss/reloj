@@ -71,6 +71,11 @@ def background():
             + '<PartImage x="0" y="0" width="450" height="450"><Image resource="bg_mosques"/></PartImage></Group>')
 
 
+# zaher, 2026-11-07: the hour hand unlike the minute hand, and each rim mark in its
+# own hand's colour (the seconds mark in the gold of the seconds ring).
+HOUR, MINUTE, SECOND = "#FF7FC3B0", "#FFFFFFFF", "#FFE8BC3E"
+
+
 def hands():
     """Hour and minute hands, short enough to stay in the clear middle."""
     def hand(name, length, width, color, angle):
@@ -79,8 +84,8 @@ def hands():
                 f'<PartDraw x="0" y="0" width="450" height="450"><Line startX="225" startY="225" endX="225" endY="{225 - length}">'
                 f'<Stroke color="{color}" thickness="{width}" cap="ROUND"/></Line></PartDraw></Group>')
     return ('<Group name="hands" x="0" y="0" width="450" height="450">' + kit.HIDE_IN_AMBIENT
-            + hand("hour", 70, 9, "#FFFFFFFF", "([HOUR_0_23] % 12) * 30 + [MINUTE] * 0.5")
-            + hand("minute", 112, 6, "#FFE8EEEA", "[MINUTE] * 6 + [SECOND] * 0.1")
+            + hand("hour", 70, 10, HOUR, "([HOUR_0_23] % 12) * 30 + [MINUTE] * 0.5")
+            + hand("minute", 112, 6, MINUTE, "[MINUTE] * 6 + [SECOND] * 0.1")
             + '<PartDraw x="0" y="0" width="450" height="450"><Ellipse x="216" y="216" width="18" height="18"><Fill color="#FFE8BC3E"/></Ellipse>'
             + '<Ellipse x="221" y="221" width="8" height="8"><Fill color="#FF000000"/></Ellipse></PartDraw></Group>')
 
@@ -102,7 +107,7 @@ def main():
         seconds(),
         ticks(),
         numerals(),
-        kit.lasers(r_in=196, r_out=214),
+        kit.lasers(r_in=196, r_out=214, hour=HOUR, minute=MINUTE, second=SECOND),
         hands(),                       # before the panels, which are drawn over them
         kit.ambient_clock(),
         kit.ambient_ring(),

@@ -38,8 +38,8 @@
    180,
    270
   ],
-  "radius": 48,
-  "distance": 104,
+  "radius": 54,
+  "distance": 96,
   "fontSize": 22,
   "fill": "#11161d",
   "fillOpacity": 0.65,
@@ -47,9 +47,9 @@
   "text": "#f3f4f5",
   "items": [
    {
-    "content": "next",
-    "label": "الصلاة القادمة",
-    "source": "الصلاة"
+    "content": "heart",
+    "label": "النبض",
+    "source": "الساعة"
    },
    {
     "content": "battery",
@@ -57,9 +57,9 @@
     "source": "الساعة"
    },
    {
-    "content": "heart",
-    "label": "النبض",
-    "source": "الساعة"
+    "content": "prayer",
+    "label": "الصلاة القادمة",
+    "source": "الصلاة"
    },
    {
     "content": "steps",
@@ -76,7 +76,7 @@
   "hour": {
    "length": 90,
    "width": 7,
-   "color": "#f2f4f5"
+   "color": "#ec7b26"
   },
   "minute": {
    "length": 150,
@@ -97,7 +97,7 @@
   "accent": "#ec7b26",
   "seconds": "#ee7927",
   "secondsTrack": "#ffffff",
-  "hourHand": "#f2f4f5",
+  "hourHand": "#ec7b26",
   "minuteHand": "#f2f4f5",
   "secondHand": "#ee7927",
   "numerals": "#f2f4f5",
@@ -178,5 +178,8 @@
   "r": 190,
   "w": 56,
   "h": 50
- }
+ },
+ "lasers": true,
+ "minuteNumbers": true,
+ "minuteNumberSize": 15
 }

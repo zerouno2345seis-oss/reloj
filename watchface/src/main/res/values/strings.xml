@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="face_name">القرآن الكريم · الحلقة</string>
+    <string name="ring_label">لون الحلقة</string>
+    <string name="ring_teal">فيروزي</string>
+    <string name="ring_blue">أزرق</string>
+    <string name="ring_green">أخضر</string>
+    <string name="ring_violet">بنفسجي</string>
+    <string name="ring_coral">مرجاني</string>
+    <string name="ring_silver">فضي</string>
 </resources>

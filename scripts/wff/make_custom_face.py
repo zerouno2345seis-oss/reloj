@@ -79,6 +79,9 @@ PROVIDERS = {
     "mushaf": ("SMALL_IMAGE", "QuranShortcutComplicationService", None),
     "hijri": ("SHORT_TEXT", "HijriDateComplicationService", None),
     "prev": ("RANGED_VALUE", "PrayerWindowComplicationService", None),
+    # The next prayer and its time, from the prayer row's source, so the face's
+    # always-on prayer row has its data (kit.unify_aod).
+    "prayer": ("RANGED_VALUE", "PrayerWindowComplicationService", None),
     "settings": ("SMALL_IMAGE", "SettingsShortcutComplicationService", None),
     "times6": ("RANGED_VALUE", "PrayerRingComplicationService", None),
 }
@@ -604,6 +607,17 @@ class Face:
                 out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="{w}" cap="{cap}"/></Line>')
         if out:
             self.parts.append(active("ticks", f'<PartDraw x="0" y="0" width="450" height="450">{"".join(out)}</PartDraw>'))
+        if self.s.get("minuteNumbers"):
+            # zaher, 2026-11-07: the minutes written at the marks, 5 to 55.
+            size = round(self.s.get("minuteNumberSize", 14) * K)
+            r = inner_r - 3 - ((float(self.s.get("tickLength", 10)) * K * 1.6 + 4) if self.s.get("minuteTicks") else 4) - size * 0.6
+            nums = argb(c.get("numerals", "#D3DAD6"))
+            texts = []
+            for m in range(5, 60, 5):
+                x, y = pol(r, m * 6)
+                w = size * 2
+                texts.append(text(round(x - w / 2), round(y - size * 0.75), w, round(size * 1.5), str(m), size, nums, "plex_bold"))
+            self.parts.append(active("minuteNumbers", "".join(texts)))
         which = self.s.get("hourNumerals", "none")
         if which != "none":
             hours = (12, 3, 6, 9) if which == "4" else range(1, 13)
@@ -930,6 +944,14 @@ def draw_pods(face, budget):
                     + text(0, 0, side, side, ("%sس", [f"floor({passed} / 60)"]), size, ink, alpha=f"(255 * {ge(passed, 60)})")
                     + '</Complication>')
             types = "RANGED_VALUE"
+        elif content == "prayer":
+            nxt = "([COMPLICATION.RANGED_VALUE_VALUE] % 1440)"
+            hhmm = ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"])
+            body = ('<Complication type="RANGED_VALUE">'
+                    + text(0, vy - top - round(size * .55), side, side, ("%s", ["[COMPLICATION.TEXT]"]), round(size * .85), ink)
+                    + text(0, vy - top + round(size * .45), side, side, hhmm, size, ink)
+                    + '</Complication>')
+            types = "RANGED_VALUE"
         else:
             arc = ""
             if default == "RANGED_VALUE" and shape == "circle":
@@ -1014,7 +1036,10 @@ def build(spec, module=None, folder="."):
         f.dial(inner_r)
         if spec.get("lasers"):
             # A glowing mark on the rim facing each hand (zaher, 2026-11-07).
-            f.parts.append(kit.lasers(r_in=inner_r - 16, r_out=inner_r - 2))
+            # Each mark in its own hand's colour (zaher, 2026-11-07, second round).
+            c = spec.get("colors", {})
+            f.parts.append(kit.lasers(r_in=inner_r - 16, r_out=inner_r - 2, hour=argb(c.get("hourHand", "#FFFFFF")),
+                                      minute=argb(c.get("minuteHand", "#E8EEEA")), second=f.sec))
         if spec.get("bothClocks") and show_time:
             # The hybrid: a small digital time under the centre, the hands over it.
             size = round(30 * K * tsc * 1.4)
