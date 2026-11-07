@@ -33,18 +33,24 @@
  "pods": {
   "shape": "circle",
   "positions": [
+   0,
    90,
    180,
    270
   ],
-  "radius": 40,
-  "distance": 100,
-  "fontSize": 13,
+  "radius": 50,
+  "distance": 90,
+  "fontSize": 16,
   "fill": "#000000",
   "fillOpacity": 0.35,
   "line": "#e8bc3e",
   "text": "#ffffff",
   "items": [
+   {
+    "content": "surah",
+    "label": "متابعة القراءة",
+    "source": "القرآن"
+   },
    {
     "content": "battery",
     "label": "البطارية",
@@ -167,5 +173,10 @@
    "y": 219,
    "scale": 1
   }
+ },
+ "numberTaps": {
+  "r": 186,
+  "w": 60,
+  "h": 54
  }
 }

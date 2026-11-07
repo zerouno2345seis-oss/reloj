@@ -40,6 +40,16 @@ fun QuranScreen(
     val lastReading by viewModel.lastReadingPosition.collectAsState()
     val listState = rememberScalingLazyListState()
     var showSearchResults by remember { mutableStateOf(false) }
+    // Opened from a watch face at one surah: centre that surah's row once.
+    // Rows before the list: the title, voice search, «متابعة القراءة» when
+    // there is a place to go back to, and the bookmarks.
+    val jump = viewModel.indexJump
+    LaunchedEffect(jump, lastReading != null) {
+        val surah = jump ?: return@LaunchedEffect
+        val before = if (lastReading != null) 4 else 3
+        listState.scrollToItem(before + (surah - 1).coerceIn(0, 113))
+        viewModel.indexJump = null
+    }
     val searchResults by remember { derivedStateOf { viewModel.searchResults } }
     val surahResults by remember { derivedStateOf { viewModel.surahSearchResults } }
 

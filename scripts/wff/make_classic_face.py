@@ -51,7 +51,8 @@ def main():
         kit.ambient_ring(),
         kit.date_slot(34, y=49),
         kit.reading_slot(35, 80, 95, 290, 70),
-        kit.time_tap(36, 60, 160, 330, 112),
+        # zaher, 2026-11-07: the hours open the surah list, the minutes open it at al-Buruj.
+        kit.digit_taps(40, 60, 160, 330, 112),
         # The design's row (centre y 334, ×0.85) narrowed and raised a little to stay inside the seconds ring.
         kit.prayer_row(37, box=(100, 292, 250, 82), when="active"),
         kit.prayer_row(38, when="ambient"),

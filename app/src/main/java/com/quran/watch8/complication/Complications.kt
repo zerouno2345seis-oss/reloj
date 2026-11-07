@@ -382,6 +382,10 @@ class SettingsShortcutComplicationService : ShortcutComplicationService("setting
 class BookmarksShortcutComplicationService : ShortcutComplicationService("bookmarks", "الإشارات", R.drawable.img_bookmark)
 // "quran": the surah index.
 class SurahIndexShortcutComplicationService : ShortcutComplicationService("quran", "السور", R.drawable.img_quran)
+// The taps on a watch face's 12 and 6: the surah list from its start, and the
+// list opened at al-Buruj, where the short surahs begin.
+class SurahStartShortcutComplicationService : ShortcutComplicationService("index@1", "الفاتحة", R.drawable.img_quran)
+class BurujShortcutComplicationService : ShortcutComplicationService("index@85", "البروج", R.drawable.img_quran)
 
 /** Where reading stopped, as a place in the 604-page mushaf; null the first time. */
 private suspend fun Context.readingPlace(): MushafDivisions.Place? =

@@ -4,7 +4,7 @@
  "faceName": "هجين رقمي",
  "isNewFace": false,
  "basedOn": null,
- "background": "plain",
+ "background": "haram",
  "backgroundGradient": {
   "type": "radial",
   "angle": 180,
@@ -23,33 +23,14 @@
   "overImage": false
  },
  "clock": "analog",
- "bothClocks": true,
- "hourNumerals": "4",
+ "bothClocks": false,
+ "hourNumerals": "12",
  "hourNumeralSize": 26,
  "minuteTicks": true,
  "minorTicks": true,
  "tickLength": 12,
  "showSeconds": true,
- "pods": {
-  "shape": "square",
-  "positions": [
-   180
-  ],
-  "radius": 38,
-  "distance": 95,
-  "fontSize": 16,
-  "fill": "#7fe0ff",
-  "fillOpacity": 0.12,
-  "line": "#7fe0ff",
-  "text": "#7fe0ff",
-  "items": [
-   {
-    "content": "next",
-    "label": "الصلاة القادمة",
-    "source": "الصلاة"
-   }
-  ]
- },
+ "pods": null,
  "dialTexture": "grid",
  "dialTextureOpacity": 0.06,
  "hourIndex": "baton",
@@ -132,13 +113,13 @@
  "elements": {
   "date": {
    "show": true,
-   "y": 118,
+   "y": 154,
    "scale": 0.6
   },
   "pill": {
-   "show": false,
-   "y": 110,
-   "scale": 0.85
+   "show": true,
+   "y": 112,
+   "scale": 0.8
   },
   "time": {
    "show": true,
@@ -146,14 +127,20 @@
    "scale": 0.8
   },
   "prayer": {
-   "show": false,
+   "show": true,
    "y": 300,
-   "scale": 0.8
+   "scale": 0.78
   },
   "edges": {
    "show": false,
    "y": 219,
    "scale": 1
   }
+ },
+ "lasers": true,
+ "numberTaps": {
+  "r": 172,
+  "w": 58,
+  "h": 52
  }
 }

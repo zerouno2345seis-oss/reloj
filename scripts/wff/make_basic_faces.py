@@ -33,10 +33,8 @@ KUFI = "reem_kufi_bold"
 HIDE = kit.HIDE_IN_AMBIENT
 FACES = {
     "big": ("الساعة الكبيرة", "DIGITAL", "#FF0B0F0D", "green"),
-    "stack": ("السطران", "DIGITAL", "#FF101418", "gold"),
     "four": ("الأرقام الأربعة", "ANALOG", "#FF0D0F12", "gold"),
     "twelve": ("العدّادان", "ANALOG", "#FF0F1210", "green"),
-    "times": ("حلقة الأوقات", "DIGITAL", "#FF0B0F0D", "gold"),
 }
 
 
@@ -95,21 +93,24 @@ def tap_label(sid, box, provider, size=15):
                 f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', body)
 
 
-def chord(sid, right, provider):
-    """A band on the side of the rim with its name along it: surahs right, bookmarks left."""
-    a0, a1 = (68, 112) if right else (248, 292)
+def chord(sid, right, provider, thick=30, size=15, span=None, r=None):
+    """A band on the side of the rim with its name along it: surahs right, bookmarks left.
+    `span` moves it from the 3 and 9 to other angles (a0, a1)."""
+    a0, a1 = span or ((68, 112) if right else (248, 292))
     mid = (a0 + a1) / 2
-    band = (f'<PartDraw x="0" y="0" width="450" height="450" alpha="46"><Arc centerX="225" centerY="225" width="420" height="420" '
-            f'startAngle="{a0}" endAngle="{a1}"><Stroke color="{A}" thickness="30" cap="BUTT"/></Arc></PartDraw>')
-    cx, cy = pol(210, mid)
-    name = label(round(cx - 50), round(cy - 12), 100, 24, ("%s", ["[COMPLICATION.TEXT]"]), 15, A, SEMI, angle=90 if right else -90)
+    r = r or (225 - thick / 2)
+    band = (f'<PartDraw x="0" y="0" width="450" height="450" alpha="46"><Arc centerX="225" centerY="225" width="{2 * r:.0f}" height="{2 * r:.0f}" '
+            f'startAngle="{a0}" endAngle="{a1}"><Stroke color="{A}" thickness="{thick}" cap="BUTT"/></Arc></PartDraw>')
+    cx, cy = pol(r, mid)
+    turn = mid - 180 if 100 < mid < 260 else (mid if mid < 180 else mid - 360)   # upright in the lower half
+    name = label(round(cx - 60), round(cy - size * 0.8), 120, round(size * 1.6), ("%s", ["[COMPLICATION.TEXT]"]), size, A, SEMI, angle=round(turn))
     body = f'<Complication type="SHORT_TEXT">{band}{name}</Complication>'
     body += f'<Complication type="SMALL_IMAGE">{band}<PartImage x="{round(cx - 13)}" y="{round(cy - 13)}" width="26" height="26"><Image resource="[COMPLICATION.SMALL_IMAGE]"/></PartImage></Complication>'
-    bound = f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{a0}" endAngle="{a1}" thickness="40"/>'
+    bound = f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{a0}" endAngle="{a1}" thickness="{max(40, thick + 10)}"/>'
     return slot(sid, 0, 0, 450, 450, "SHORT_TEXT SMALL_IMAGE", provider, "SHORT_TEXT", bound, body)
 
 
-def battery_rim(sid, a0=-60, a1=60, r=208):
+def battery_rim(sid, a0=-60, a1=60, r=208, size=16):
     """The battery as an arc on the rim at the top, its level in the accent colour."""
     frac = ("clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / "
             "([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)")
@@ -117,7 +118,7 @@ def battery_rim(sid, a0=-60, a1=60, r=208):
     track = f'<Arc centerX="225" centerY="225" width="{d}" height="{d}" startAngle="{a0}" endAngle="{a1}"><Stroke color="{DIM}" thickness="8" cap="ROUND"/></Arc>'
     level = (f'<Arc centerX="225" centerY="225" width="{d}" height="{d}" startAngle="{a0}" endAngle="{a0}">'
              f'<Transform target="endAngle" value="({a0} + ({a1} - {a0}) * {frac})"/><Stroke color="{A}" thickness="8" cap="ROUND"/></Arc>')
-    txt = text(150, 50, 150, 24, ("%s", ["[COMPLICATION.TEXT]"]), 16, "#FFCCDDD5", SEMI)
+    txt = text(150, 46, 150, round(size * 1.5), ("%s", ["[COMPLICATION.TEXT]"]), size, "#FFCCDDD5", SEMI)
     body = (f'<Complication type="RANGED_VALUE">{draw(track + level)}{txt}</Complication>'
             f'<Complication type="SHORT_TEXT">{draw(track)}{txt}</Complication>')
     bound = f'<BoundingArc centerX="225" centerY="225" width="450" height="450" startAngle="{a0}" endAngle="{a1}" thickness="40"/>'
@@ -208,18 +209,39 @@ def prayer(sid, box, tint=False):
     return back + kit.prayer_row(sid, box=box, when="always")
 
 
+def native_date(box, size, color="#FFAABBC0"):
+    """Today's date (7/11) drawn by the face itself: no slot, so a slot is free for a tap."""
+    x, y, w, h = box
+    return text(x, y, w, h, ("%s/%s", ["[DAY]", "[MONTH]"]), size, color, SEMI)
+
+
+def reading_big(sid, box, title=21, words=16):
+    """Where reading stopped, on two lines: the place («البقرة · 42») and how the verse begins."""
+    x, y, w, h = box
+    back = (f'<PartDraw x="0" y="0" width="{w}" height="{h}" alpha="41"><RoundRectangle x="0" y="0" width="{w}" height="{h}" '
+            f'cornerRadiusX="{h / 2.4:.0f}" cornerRadiusY="{h / 2.4:.0f}"><Fill color="{A}"/></RoundRectangle></PartDraw>')
+    t1, t2 = round(h * .48), round(h * .42)
+    long_ = (f'<Complication type="LONG_TEXT">{back}{text(10, 3, w - 20, t1, ("%s", ["[COMPLICATION.TITLE]"]), title, WHITE, SEMI)}'
+             f'{text(14, t1, w - 28, t2, ("%s", ["[COMPLICATION.TEXT]"]), words, "#FFCCDDD5", SEMI)}</Complication>')
+    short = f'<Complication type="SHORT_TEXT">{back}{text(0, 0, w, h, ("%s", ["[COMPLICATION.TEXT]"]), title, WHITE, SEMI)}</Complication>'
+    return slot(sid, x, y, w, h, "LONG_TEXT SHORT_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
+                f'<BoundingBox x="0" y="0" width="{w}" height="{h}"/>', long_ + short)
+
+
 # ── the four faces ───────────────────────────────────────────────────────────
 def face_big():
-    p = [background(FACES["big"][2]), battery_rim(1),
-         short_slot(2, (92, 92, 130, 30), "GregorianDateComplicationService", 19, "#FFAABBC0"),
-         short_slot(3, (228, 92, 130, 30), "HijriDateComplicationService", 19, "#FFAABBC0"),
-         digital(0, 128, 450, 126, "hh:mm", 121, WHITE, "active", "time"),
-         digital(0, 128, 450, 126, "hh:mm", 112, "#FFCCCCCC", "ambient", "time"),
-         prayer(4, (66, 258, 318, 84)),
-         reading_pill(5, (122, 350, 206, 41)),
-         chord(6, True, "SurahIndexShortcutComplicationService"),
-         chord(7, False, "BookmarksShortcutComplicationService"),
-         kit.time_tap(8, 70, 132, 310, 118)]
+    # zaher, 2026-11-07: larger dates, battery, side bands and reading place; the
+    # hours open the surah list and the minutes open it at al-Buruj.
+    p = [background(FACES["big"][2]), battery_rim(1, size=22),
+         native_date((66, 84, 160, 36), 25),
+         short_slot(2, (226, 84, 170, 36), "HijriDateComplicationService", 24, "#FFAABBC0"),
+         digital(0, 124, 450, 126, "hh:mm", 121, WHITE, "active", "time"),
+         digital(0, 124, 450, 126, "hh:mm", 112, "#FFCCCCCC", "ambient", "time"),
+         prayer(3, (70, 250, 310, 82)),
+         reading_big(4, (98, 336, 254, 66)),
+         chord(5, True, "SurahIndexShortcutComplicationService", thick=44, size=21),
+         chord(6, False, "BookmarksShortcutComplicationService", thick=44, size=21),
+         kit.digit_taps(7, 70, 128, 310, 118)]
     return p
 
 
@@ -238,30 +260,59 @@ def face_stack():
     return p
 
 
+def status_row(y, size, color="#FFAABBC0"):
+    """Date, battery and temperature in one line, drawn by the face itself (no slots):
+    the slots go to the taps on the figures."""
+    w = 86
+    return active("status",
+                  native_date((225 + w // 2 + 4, y, w, round(size * 1.5)), size, color)
+                  + text(225 - w // 2, y, w, round(size * 1.5), ("%s٪", ["[BATTERY_PERCENT]"]), size, color, SEMI)
+                  + text(225 - w * 3 // 2 - 4, y, w, round(size * 1.5), ("%s°", ["[WEATHER.TEMPERATURE]"]), size, color, SEMI,
+                         alpha="(255 * [WEATHER.IS_AVAILABLE])"))
+
+
 def face_four():
+    # zaher, 2026-11-07: larger bands, date, battery and temperature; a glowing mark on
+    # the rim at each hand; the 12, 3, 6 and 9 open the surah list, the bookmarks, the
+    # list at al-Buruj and the settings, so the bands move down from the 3 and the 9.
     nums = active("numerals", numeral(225, 74, "12", 66) + numeral(382, 230, "3", 66) + numeral(68, 230, "9", 66) + numeral(225, 392, "6", 41))
-    p = [background(FACES["four"][2]), ticks(), nums,
-         short_slot(1, (128, 126, 100, 26), "GregorianDateComplicationService", 17, "#FFAABBC0"),
-         short_slot(2, (232, 126, 90, 26), None, 17, "#FFAABBC0", system="WATCH_BATTERY", types="SHORT_TEXT RANGED_VALUE"),
-         reading_pill(3, (138, 158, 174, 41)),
-         prayer(4, (82, 276, 286, 78), tint=True),
-         chord(5, True, "SurahIndexShortcutComplicationService"),
-         chord(6, False, "BookmarksShortcutComplicationService"),
-         kit.time_tap(7, 160, 200, 130, 60),
-         hands()]
+    p = [background(FACES["four"][2]), ticks(), nums, status_row(116, 22),
+         reading_pill(1, (128, 156, 194, 44), 18),
+         prayer(2, (82, 270, 286, 78), tint=True),
+         chord(3, True, "SurahIndexShortcutComplicationService", thick=40, size=19, span=(118, 154)),
+         chord(4, False, "BookmarksShortcutComplicationService", thick=40, size=19, span=(206, 242)),
+         kit.number_taps(5, r=158, w=84, h=74),
+         kit.lasers(), hands()]
     return p
 
 
+def native_dial(cx, cy, body, size, r=46, level=None):
+    """A sub-dial drawn by the face itself: a ring, a value in the middle and, for
+    `level` (an expression 0..1), the ring filled that far."""
+    s = 2 * r + 8
+    x, y = round(cx - s / 2), round(cy - s / 2)
+    ring = (f'<PartDraw x="{x}" y="{y}" width="{s}" height="{s}"><Arc centerX="{s / 2}" centerY="{s / 2}" width="{2 * r}" height="{2 * r}" startAngle="0" endAngle="360">'
+            f'<Stroke color="{DIM}" thickness="{6 if level else 2}"/></Arc></PartDraw>')
+    if level:
+        ring += (f'<PartDraw x="{x}" y="{y}" width="{s}" height="{s}"><Arc centerX="{s / 2}" centerY="{s / 2}" width="{2 * r}" height="{2 * r}" startAngle="0" endAngle="0">'
+                 f'<Transform target="endAngle" value="(360 * {level})"/><Stroke color="{A}" thickness="6" cap="ROUND"/></Arc></PartDraw>')
+    return ring + text(x, y, s, s, body, size, WHITE, SEMI)
+
+
 def face_twelve():
-    nums = "".join(numeral(*pol(186, h * 30), str(h), 41) for h in range(1, 13))
-    p = [background(FACES["twelve"][2]), active("numerals", nums),
-         battery_dial(1, 134, 225), date_dial(2, 316, 225),
-         reading_pill(3, (160, 104, 130, 28), 14, pill=False),
-         prayer(4, (100, 278, 250, 66)),
-         tap_label(5, (122, 362, 84, 28), "BookmarksShortcutComplicationService", 14),
-         tap_label(6, (244, 362, 84, 28), "SurahIndexShortcutComplicationService", 14),
-         kit.time_tap(7, 180, 150, 90, 50),
-         hands()]
+    # zaher, 2026-11-07: a glowing mark at each hand and the seconds marks on the rim; a
+    # larger reading place; «السور» and «الإشارات» moved up beside it; the 12, 3, 6, 9
+    # open the surah list, the bookmarks, the list at al-Buruj and the settings.
+    nums = "".join(numeral(*pol(184, h * 30), str(h), 41) for h in range(1, 13))
+    p = [background(FACES["twelve"][2]), ticks(222), active("numerals", nums),
+         active("dials", native_dial(134, 225, ("%s٪", ["[BATTERY_PERCENT]"]), 21, level="([BATTERY_PERCENT] / 100)")
+                + native_dial(316, 225, ("%s/%s", ["[DAY]", "[MONTH]"]), 24)),
+         reading_pill(1, (118, 96, 214, 40), 20, pill=False),
+         prayer(2, (100, 278, 250, 66)),
+         tap_label(3, (96, 142, 96, 30), "BookmarksShortcutComplicationService", 18),
+         tap_label(4, (258, 142, 96, 30), "SurahIndexShortcutComplicationService", 18),
+         kit.number_taps(5, r=184, w=66, h=58),
+         kit.lasers(), hands()]
     return p
 
 
@@ -327,7 +378,9 @@ def face_six():
     return p
 
 
-BUILD = {"big": face_big, "stack": face_stack, "four": face_four, "twelve": face_twelve, "times": face_six}
+# «السطران» and «حلقة الأوقات» were removed at zaher's request (2026-11-07); their
+# functions stay here for reference.
+BUILD = {"big": face_big, "four": face_four, "twelve": face_twelve}
 
 
 def config(default):
