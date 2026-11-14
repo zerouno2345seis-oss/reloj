@@ -109,7 +109,8 @@ test('a bookmark on the watch can be opened or deleted, and shows no timestamp',
   const bookmarks = await readFile(new URL('app/src/main/java/com/quran/watch8/ui/screens/BookmarksScreen.kt', root), 'utf8');
   // A tap opens the verse; a sideways swipe uncovers the delete.
   assert.match(bookmarks, /onOpen = \{ onOpenAyah\(bookmark\.surah, bookmark\.ayah\) \}/);
-  assert.match(bookmarks, /onDelete = \{ viewModel\.removeBookmark\(bookmark\.id\) \}/);
+  // Deleting removes every copy of the verse (older builds could save one twice).
+  assert.match(bookmarks, /onDelete = \{ viewModel\.removeBookmarkAt\(bookmark\.surah, bookmark\.ayah\) \}/);
   assert.match(bookmarks, /detectHorizontalDragGestures/);
   assert.doesNotMatch(bookmarks, /SimpleDateFormat|dateFormat/);
   // The timestamp still exists -- it is what "by time added" sorts on.
@@ -213,14 +214,18 @@ test('reader offers four display styles over one line engine', async () => {
 // the official schema before it builds (an invalid face sent the watch into a
 // reboot loop), and every provider it names must exist in the app.
 test('watch faces are WFF, validated before build, and name only real services', async () => {
-  for (const dir of ['watchface', 'watchface-hands', 'watchface-mihrab', 'watchface-custom']) {
+  const { readdirSync, existsSync } = await import('node:fs');
+  const dirs = readdirSync(root).filter((d) => d.startsWith('watchface') && existsSync(new URL(`${d}/build.gradle.kts`, root)));
+  assert.ok(dirs.length >= 4);
+  for (const dir of dirs) {
     const faceManifest = await readFile(new URL(`${dir}/src/main/AndroidManifest.xml`, root), 'utf8');
     const face = await readFile(new URL(`${dir}/src/main/res/raw/watchface.xml`, root), 'utf8');
     const faceGradle = await readFile(new URL(`${dir}/build.gradle.kts`, root), 'utf8');
     assert.match(faceManifest, /android:hasCode="false"/);
     assert.match(faceManifest, /com\.google\.wear\.watchface\.format\.version/);
     assert.match(faceGradle, /validate-watchface\.sh/);
-    assert.doesNotMatch(face, /<ListConfiguration/);
+    // A slot inside a ListOption sent the watch into a reboot loop; options hold pictures only.
+    for (const opt of face.matchAll(/<ListOption[^/]*?>[\s\S]*?<\/ListOption>/g)) assert.doesNotMatch(opt[0], /<ComplicationSlot/, dir);
     const providers = [...face.matchAll(/primaryProvider="com\.quran\.watch8\/com\.quran\.watch8\.complication\.(\w+)"/g)].map((m) => m[1]);
     assert.ok(providers.length >= 4);
     for (const p of new Set(providers)) assert.match(manifest, new RegExp(`\\.complication\\.${p}"`));

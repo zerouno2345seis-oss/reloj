@@ -33,25 +33,31 @@
  "pods": {
   "shape": "circle",
   "positions": [
+   0,
    90,
    180,
    270
   ],
-  "radius": 40,
-  "distance": 100,
-  "fontSize": 13,
+  "radius": 56,
+  "distance": 90,
+  "fontSize": 18,
   "fill": "#000000",
   "fillOpacity": 0.35,
   "line": "#e8bc3e",
   "text": "#ffffff",
   "items": [
    {
+    "content": "surah",
+    "label": "متابعة القراءة",
+    "source": "القرآن"
+   },
+   {
     "content": "battery",
     "label": "البطارية",
     "source": "الساعة"
    },
    {
-    "content": "next",
+    "content": "prayer",
     "label": "الصلاة القادمة",
     "source": "الصلاة"
    },
@@ -70,7 +76,7 @@
   "hour": {
    "length": 82,
    "width": 8,
-   "color": "#f2f5fa"
+   "color": "#e8bc3e"
   },
   "minute": {
    "length": 140,
@@ -91,7 +97,7 @@
   "accent": "#e8bc3e",
   "seconds": "#ff5a4f",
   "secondsTrack": "#ffffff",
-  "hourHand": "#f2f5fa",
+  "hourHand": "#e8bc3e",
   "minuteHand": "#f2f5fa",
   "secondHand": "#ff5a4f",
   "numerals": "#f2f5fa",
@@ -167,5 +173,13 @@
    "y": 219,
    "scale": 1
   }
- }
+ },
+ "numberTaps": {
+  "r": 186,
+  "w": 60,
+  "h": 54
+ },
+ "lasers": true,
+ "minuteNumbers": true,
+ "minuteNumberSize": 15
 }

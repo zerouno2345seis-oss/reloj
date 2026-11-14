@@ -26,7 +26,7 @@
  "bothClocks": false,
  "hourNumerals": "12",
  "hourNumeralSize": 30,
- "minuteTicks": false,
+ "minuteTicks": true,
  "colors": {
   "text": "#fcf8f2",
   "soft": "#e6dccc",
@@ -84,5 +84,13 @@
    "y": 219,
    "scale": 0.65
   }
+ },
+ "lasers": true,
+ "minorTicks": true,
+ "tickLength": 10,
+ "numberTaps": {
+  "r": 168,
+  "w": 62,
+  "h": 56
  }
 }

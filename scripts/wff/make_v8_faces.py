@@ -39,6 +39,7 @@ HIDE = kit.HIDE_IN_AMBIENT
 NUM = "changa_bold"                  # Latin digits, a little condensed
 A = "[CONFIGURATION.accent.0]"
 H = "[CONFIGURATION.hands.0]"
+RED = "#FFFF5A4E"                        # the seconds hand and its mark
 ACCENTS = [("green", "أخضر", "#FF2FBF7F"), ("gold", "ذهبي", "#FFE0B252"), ("blue", "أزرق", "#FF5AA9E6"),
            ("coral", "مرجاني", "#FFEF7A6B"), ("violet", "بنفسجي", "#FFB59CFF"), ("white", "أبيض", "#FFF2F2F2")]
 HANDS = [("white", "أبيض", "#FFFFFFFF"), ("gold", "ذهبي", "#FFE0B252"), ("silver", "فضي", "#FFB8C2BD"),
@@ -237,26 +238,21 @@ def digital_time(y, size, weight_font=NUM):
 
 
 def hands():
-    """Hour and minute hands in the chosen colour, the seconds in the accent, and on the
-    rim a glowing mark at each: green for the hour and minute, red for the seconds."""
+    """The hour hand in the accent, the minute hand in the chosen hands colour, the
+    seconds red, and on the rim a glowing mark at each in that hand's own colour
+    (zaher, 2026-11-07: the hour hand unlike the minute hand)."""
     def hand(name, length, width, color, angle, tail=0, hide=False):
         return (f'<Group name="{name}" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">{HIDE if hide else ""}'
                 f'<Transform target="angle" value="{angle}"/>' + draw(
                     f'<Line startX="225" startY="{225 + tail:.1f}" endX="225" endY="{225 - length:.1f}"><Stroke color="{color}" thickness="{width}" cap="ROUND"/></Line>')
                 + '</Group>')
 
-    def laser(name, angle, width, color, glow):
-        r1, r2 = k(203), k(217)
-        line = lambda w, c: f'<Line startX="225" startY="{225 - r1:.1f}" endX="225" endY="{225 - r2:.1f}"><Stroke color="{c}" thickness="{w}" cap="ROUND"/></Line>'
-        return (f'<Group name="{name}" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5">{HIDE}'
-                f'<Transform target="angle" value="{angle}"/>' + draw(line(width * 3, glow) + line(width * 1.8, glow) + line(width, color)) + '</Group>')
     hour = "([HOUR_0_23] % 12) * 30 + [MINUTE] * 0.5"
     minute = "[MINUTE] * 6 + [SECOND] * 0.1"
     sec = "[SECOND] * 6"
-    return (laser("laserH", hour, 5, "#FF7DFFB0", "#337DFFB0") + laser("laserM", minute, 4, "#FF7DFFB0", "#337DFFB0")
-            + laser("laserS", sec, 2.5, "#FFFF6A5A", "#33FF6A5A")
-            + hand("hour", k(100), 11, H, hour) + hand("minute", k(160), 6, H, minute)
-            + hand("second", k(175), 2.5, A, sec, tail=k(30), hide=True)
+    return (kit.lasers(r_in=k(203), r_out=k(217), hour=A, minute=H, second=RED)
+            + hand("hour", k(100), 11, A, hour) + hand("minute", k(160), 6, H, minute)
+            + hand("second", k(175), 2.5, RED, sec, tail=k(30), hide=True)
             + '<Group name="hub" x="0" y="0" width="450" height="450">'
             + draw(f'<Ellipse x="{225 - k(8):.1f}" y="{225 - k(8):.1f}" width="{k(16):.1f}" height="{k(16):.1f}"><Fill color="{A}"/></Ellipse>'
                    f'<Ellipse x="{225 - k(3):.1f}" y="{225 - k(3):.1f}" width="{k(6):.1f}" height="{k(6):.1f}"><Fill color="#FF000000"/></Ellipse>') + '</Group>')
@@ -382,10 +378,34 @@ def f_orbit():
             digital_time(212, 96), prow(4, 232, .95), reading(5, 322), taps(6, 382))
 
 
+def reading_text(sid, y, w=250, size=21, words=15):
+    """Where reading stopped, written on the face with no pill: the place, and under it
+    how the verse begins. A tap opens the mushaf there."""
+    W, Hh = round(k(w)), round(k(size * 1.45 + words * 1.4))
+    t1 = round(k(size * 1.45))
+    body = (f'<Complication type="LONG_TEXT">{text(0, 0, W, t1, ("%s", ["[COMPLICATION.TITLE]"]), round(k(size)), "#FFFFFFFF", SEMI, shadow=True)}'
+            f'{text(0, t1, W, Hh - t1, ("%s", ["[COMPLICATION.TEXT]"]), round(k(words)), "#FFC9D2CD", SEMI, shadow=True)}</Complication>'
+            f'<Complication type="SHORT_TEXT">{text(0, 0, W, t1, ("%s", ["[COMPLICATION.TEXT]"]), round(k(size)), "#FFFFFFFF", SEMI, shadow=True)}</Complication>')
+    return slot(sid, round(C - W / 2), round(k(y)), W, Hh, "LONG_TEXT SHORT_TEXT", "ContinueReadingComplicationService", "LONG_TEXT",
+                f'<BoundingBox x="0" y="0" width="{W}" height="{Hh}"/>', body)
+
+
+def native_date(y, size, color="#FFFFFFFF"):
+    """Today's date (7/11) drawn by the face itself, with no slot."""
+    s_ = round(k(size))
+    w, h = round(k(110)), round(s_ * 1.35)
+    return text(round(C - w / 2), round(k(y) - s_ * 1.0), w, h, ("%s/%s", ["[DAY]", "[MONTH]"]), s_, color, NUM)
+
+
 def f_crescent():
+    # zaher, 2026-11-07: the reading place at the top under a small date, the prayer row
+    # written with no squares, larger battery and temperature; the figures 12, 3, 6, 9
+    # open the surah list, the bookmarks, the list at al-Buruj and the settings.
     return (background("#FF0C0E12", True), ticks(), numerals(178, lambda h: 30 if h % 3 else 42),
-            date_slot(1, 146, 26), status_line(2, 226, 15, x=(k(312) - k(35), k(126) - k(35)), sep=False),
-            prow(3, 244, .82), reading(4, 318), taps(5, 376, label=False, dx=48), hands())
+            native_date(100, 15, SOFT), reading_text(1, 104),
+            status_line(2, 228, 22, x=(k(316) - k(35), k(122) - k(35)), sep=False),
+            kit.prayer_row(3, box=(round(k(76)), round(k(262)), round(k(286)), round(k(90))), when="always"),
+            kit.number_taps(5, r=k(178), w=k(66), h=k(60)), hands())
 
 
 def f_waves():
@@ -394,11 +414,25 @@ def f_waves():
             status_line(3, 70), date_slot(4, 116, 28), digital_time(212, 96), prow(5, 232, .95), reading(6, 322), taps(7, 382))
 
 
+def hijri_line(sid, y, size, w=150, x=None):
+    s_ = round(k(size))
+    W, h = round(k(w)), round(s_ * 1.4)
+    body = f'<Complication type="SHORT_TEXT">{text(0, 0, W, h, ("%s", ["[COMPLICATION.TEXT]"]), s_, "#FFFFFFFF", SEMI)}</Complication>'
+    return slot(sid, round(C - W / 2) if x is None else round(x), round(k(y) - s_), W, h, "SHORT_TEXT", "HijriDateComplicationService", "SHORT_TEXT",
+                f'<BoundingBox x="0" y="0" width="{W}" height="{h}"/>', body, ambient=False)
+
+
 def f_dials():
-    xs, ys = (306, 219, 132), (192, 272, 192)
+    # zaher, 2026-11-07: no icons at the bottom, the prayer row as on «الأرقام الأربعة»,
+    # larger dates, temperature and reading place; the figures open parts of the app.
+    box = (round(k(80)), round(k(258)), round(k(278)), round(k(80)))
+    tint = active("prayerBox", draw(f'<RoundRectangle x="{box[0]}" y="{box[1]}" width="{box[2]}" height="{box[3]}" cornerRadiusX="16" cornerRadiusY="16"><Fill color="{A}"/></RoundRectangle>')
+                  ).replace("<PartDraw ", '<PartDraw alpha="26" ', 1)
     return (background("#FF0F1210", False), numerals(184, lambda h: 36),
-            prayer_squares(1, tuple(C + k(x - 219) for x in xs), tuple(k(y) for y in ys), (88 / 86, 80 / 76), 1.0),
-            date_slot(2, 112, 22), status_line(3, 138, 17), reading(4, 150, 118, 26, 12), taps(5, 375, label=False, dx=50), hands())
+            native_date(96, 20), hijri_line(1, 120, 19, w=170),
+            status_line(2, 148, 19), reading(3, 162, 196, 34, 18),
+            tint, kit.prayer_row(4, box=box, when="always"),
+            kit.number_taps(5, r=k(184), w=k(62), h=k(56)), hands())
 
 
 def f_horizon():
@@ -429,15 +463,11 @@ def f_squares():
             digital_time(206, 104), prow(3, 226, 1.15), reading(4, 328, 210, 38, 16), taps(5, 386))
 
 
+# «المدار», «الموجتان», «الأفق», «البسيطة», «المزولة» and «المربعات الثلاثة» were removed
+# at zaher's request (2026-11-07); their functions stay here for reference.
 FACES = {
-    "orbit": ("المدار", "DIGITAL", f_orbit, 0, False),
     "crescent": ("الهلال", "ANALOG", f_crescent, 1, True),
-    "waves": ("الموجتان", "DIGITAL", f_waves, 2, False),
     "dials": ("الثلاثة عدادات", "ANALOG", f_dials, 3, True),
-    "horizon": ("الأفق", "ANALOG", f_horizon, 4, True),
-    "calm": ("البسيطة", "DIGITAL", f_calm, 5, False),
-    "sundial": ("المزولة", "ANALOG", f_sundial, 0, True),
-    "squares": ("المربعات الثلاثة", "DIGITAL", f_squares, 1, False),
 }
 
 
@@ -482,7 +512,7 @@ def write(fid):
            f'<!-- «{name}». Generated by scripts/wff/make_v8_faces.py: edit the script, not this. -->\n'
            '<WatchFace width="450" height="450" clipShape="CIRCLE">\n'
            f'<Metadata key="CLOCK_TYPE" value="{kind}"/>\n<Metadata key="PREVIEW_TIME" value="10:08:36"/>\n'
-           + config(accent, analog, picture) + '\n<Scene backgroundColor="#FF000000">\n' + "\n".join(parts) + "\n</Scene>\n</WatchFace>\n")
+           + config(accent, analog, picture) + '\n<Scene backgroundColor="#FF000000">\n' + kit.unify_aod("\n".join(parts), analog=(kind == "ANALOG")) + "\n</Scene>\n</WatchFace>\n")
     open(existing, "w", encoding="utf-8").write(xml)
     n = xml.count("<ComplicationSlot ")
     ids = [s.split('"')[0] for s in xml.split('slotId="')[1:]]

@@ -11,3 +11,4 @@ app/build/
 .cxx/
 .restore-points/
 watchface*/build/
+__pycache__/

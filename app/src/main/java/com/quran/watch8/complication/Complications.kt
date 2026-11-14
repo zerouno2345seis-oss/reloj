@@ -369,7 +369,8 @@ class KhatmaProgressComplicationService : SuspendingComplicationDataSourceServic
 abstract class ShortcutComplicationService(
     private val route: String,
     private val label: String,
-    private val iconRes: Int
+    private val iconRes: Int,
+    private val doubleTap: Boolean = false
 ) : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? = build(type)
@@ -378,7 +379,7 @@ abstract class ShortcutComplicationService(
         build(request.complicationType)
 
     private fun build(type: ComplicationType): ComplicationData? {
-        val tap = openRoute(route)
+        val tap = if (doubleTap) openRouteOnDoubleTap(route) else openRoute(route)
         val icon = Icon.createWithResource(this, iconRes)
         return when (type) {
             ComplicationType.SHORT_TEXT ->
@@ -399,6 +400,16 @@ class SettingsShortcutComplicationService : ShortcutComplicationService("setting
 class BookmarksShortcutComplicationService : ShortcutComplicationService("bookmarks", "الإشارات", R.drawable.img_bookmark)
 // "quran": the surah index.
 class SurahIndexShortcutComplicationService : ShortcutComplicationService("quran", "السور", R.drawable.img_quran)
+// The taps on a watch face's 12 and 6: the surah list from its start, and the
+// list opened at al-Buruj, where the short surahs begin.
+class SurahStartShortcutComplicationService : ShortcutComplicationService("index@1", "الفاتحة", R.drawable.img_quran)
+class BurujShortcutComplicationService : ShortcutComplicationService("index@85", "البروج", R.drawable.img_quran)
+// The same four taps on the figures 12, 3, 6 and 9 (and the digital hour and
+// minute), each needing two taps: see TapGateActivity.
+class GateSurahStartComplicationService : ShortcutComplicationService("index@1", "الفاتحة", R.drawable.img_quran, true)
+class GateBookmarksComplicationService : ShortcutComplicationService("bookmarks", "الإشارات", R.drawable.img_bookmark, true)
+class GateBurujComplicationService : ShortcutComplicationService("index@85", "البروج", R.drawable.img_quran, true)
+class GateSettingsComplicationService : ShortcutComplicationService("settings", "الإعدادات", R.drawable.img_settings, true)
 
 /** Where reading stopped, as a place in the 604-page mushaf; null the first time. */
 private suspend fun Context.readingPlace(): MushafDivisions.Place? =

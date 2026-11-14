@@ -79,6 +79,9 @@ PROVIDERS = {
     "mushaf": ("SMALL_IMAGE", "QuranShortcutComplicationService", None),
     "hijri": ("SHORT_TEXT", "HijriDateComplicationService", None),
     "prev": ("RANGED_VALUE", "PrayerWindowComplicationService", None),
+    # The next prayer and its time, from the prayer row's source, so the face's
+    # always-on prayer row has its data (kit.unify_aod).
+    "prayer": ("RANGED_VALUE", "PrayerWindowComplicationService", None),
     "settings": ("SMALL_IMAGE", "SettingsShortcutComplicationService", None),
     "times6": ("RANGED_VALUE", "PrayerRingComplicationService", None),
 }
@@ -306,7 +309,8 @@ class Face:
     # ── background ──────────────────────────────────────────────────────────
     def background(self):
         bg = self.s.get("background", "none")
-        image = {"photo": "bg_photo", "mosques": "bg_mosques", "pattern": "bg_pattern", "user": "bg_user"}.get(bg)
+        image = {"photo": "bg_photo", "mosques": "bg_mosques", "pattern": "bg_pattern", "user": "bg_user",
+                 "haram": "bg_haram", "kaaba": "bg_kaaba"}.get(bg)
         g = self.s.get("backgroundGradient", {})
         grad = gradient_xml(g)
         alpha = round(255 * float(self.s.get("backgroundImageOpacity", 1))) if bg == "user" else 255
@@ -603,6 +607,17 @@ class Face:
                 out.append(f'<Line startX="{x0:.1f}" startY="{y0:.1f}" endX="{x1:.1f}" endY="{y1:.1f}"><Stroke color="{tick}" thickness="{w}" cap="{cap}"/></Line>')
         if out:
             self.parts.append(active("ticks", f'<PartDraw x="0" y="0" width="450" height="450">{"".join(out)}</PartDraw>'))
+        if self.s.get("minuteNumbers"):
+            # zaher, 2026-11-07: the minutes written at the marks, 5 to 55.
+            size = round(self.s.get("minuteNumberSize", 14) * K)
+            r = inner_r - 3 - ((float(self.s.get("tickLength", 10)) * K * 1.6 + 4) if self.s.get("minuteTicks") else 4) - size * 0.6
+            nums = argb(c.get("numerals", "#D3DAD6"))
+            texts = []
+            for m in range(5, 60, 5):
+                x, y = pol(r, m * 6)
+                w = size * 2
+                texts.append(text(round(x - w / 2), round(y - size * 0.75), w, round(size * 1.5), str(m), size, nums, "plex_bold"))
+            self.parts.append(active("minuteNumbers", "".join(texts)))
         which = self.s.get("hourNumerals", "none")
         if which != "none":
             hours = (12, 3, 6, 9) if which == "4" else range(1, 13)
@@ -929,6 +944,14 @@ def draw_pods(face, budget):
                     + text(0, 0, side, side, ("%sس", [f"floor({passed} / 60)"]), size, ink, alpha=f"(255 * {ge(passed, 60)})")
                     + '</Complication>')
             types = "RANGED_VALUE"
+        elif content == "prayer":
+            nxt = "([COMPLICATION.RANGED_VALUE_VALUE] % 1440)"
+            hhmm = ("%s%s:%s%s", [f"floor({nxt} / 600)", f"(floor({nxt} / 60) % 10)", f"floor(({nxt} % 60) / 10)", f"({nxt} % 10)"])
+            body = ('<Complication type="RANGED_VALUE">'
+                    + text(0, vy - top - round(size * .55), side, side, ("%s", ["[COMPLICATION.TEXT]"]), round(size * .85), ink)
+                    + text(0, vy - top + round(size * .45), side, side, hhmm, size, ink)
+                    + '</Complication>')
+            types = "RANGED_VALUE"
         else:
             arc = ""
             if default == "RANGED_VALUE" and shape == "circle":
@@ -968,11 +991,15 @@ def build(spec, module=None, folder="."):
     # then the edge icons, the tap on the time and the always-on copy of the prayer row.
     pod_slots = pod_slot_count(spec)
     element_slots = int(show_date) + int(show_pill) + int(show_prayer)
-    if pod_slots + element_slots > 8:
+    # "numberTaps" (zaher, 2026-11-07): touching 12, 3, 6 or 9 opens the surah list, the
+    # bookmarks, the list at al-Buruj or the settings. Four slots, before any other tap.
+    taps = spec.get("numberTaps") or {}
+    tap_slots = 4 if taps else 0
+    if pod_slots + element_slots + tap_slots > 8:
         raise ValueError("not enough complication slots for the pods and face elements")
     ring_slots = ring_slot_count(spec) if f.T > 0 else 0
-    ring_slots = min(ring_slots, 8 - element_slots - pod_slots)
-    base = element_slots + ring_slots + pod_slots
+    ring_slots = min(ring_slots, 8 - element_slots - pod_slots - tap_slots)
+    base = element_slots + ring_slots + pod_slots + tap_slots
     free = 8 - base
     want_edges = show_edges and free >= 2
     free -= 2 if want_edges else 0
@@ -997,9 +1024,9 @@ def build(spec, module=None, folder="."):
     budget = Budget()
     f.background()
     draw_dial_finish(f)
-    budget.limit = 8 - element_slots - pod_slots   # reserve element and pod slots
+    budget.limit = 8 - element_slots - pod_slots - tap_slots   # reserve element, pod and tap slots
     f.ring(budget)
-    budget.limit = 8 - element_slots
+    budget.limit = 8 - element_slots - tap_slots
     draw_pods(f, budget)
     budget.limit = 8
     if module:
@@ -1007,6 +1034,12 @@ def build(spec, module=None, folder="."):
     inner_r = f.seconds()
     if analog:
         f.dial(inner_r)
+        if spec.get("lasers"):
+            # A glowing mark on the rim facing each hand (zaher, 2026-11-07).
+            # Each mark in its own hand's colour (zaher, 2026-11-07, second round).
+            c = spec.get("colors", {})
+            f.parts.append(kit.lasers(r_in=inner_r - 16, r_out=inner_r - 2, hour=argb(c.get("hourHand", "#FFFFFF")),
+                                      minute=argb(c.get("minuteHand", "#E8EEEA")), second=f.sec))
         if spec.get("bothClocks") and show_time:
             # The hybrid: a small digital time under the centre, the hands over it.
             size = round(30 * K * tsc * 1.4)
@@ -1058,6 +1091,11 @@ def build(spec, module=None, folder="."):
                                 f'<BoundingBox x="0" y="0" width="{size}" height="{size}"/>', body, customizable="FALSE"))
     if want_aod_prayer:
         f.parts.append(kit.prayer_row(budget.take(), when="ambient", ink=f.ink, soft=f.soft))
+    if taps:
+        first = budget.next
+        for _ in range(4):
+            budget.take()
+        f.parts.append(kit.number_taps(first, r=float(taps.get("r", 175)), w=float(taps.get("w", 64)), h=float(taps.get("h", 56))))
     return f
 
 
@@ -1097,6 +1135,11 @@ def build_file(path):
     user_bg = os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi/bg_user.webp")
     if not spec.get("backgroundImage") and os.path.exists(user_bg):
         os.remove(user_bg)
+    for name_ in ("haram", "kaaba"):        # the drawn Mecca pictures (design/assets/CREDITS.md)
+        if spec.get("background") == name_:
+            import shutil
+            shutil.copy(os.path.join(kit.ROOT, "design/assets", f"bg_{name_}.png"),
+                        os.path.join(kit.ROOT, module, "src/main/res/drawable-nodpi", f"bg_{name_}.png"))
     f = build(spec, module, os.path.dirname(os.path.abspath(path)))
     kit.write(module, f"«{name}», from the face editor", "ANALOG" if spec.get("clock") == "analog" else "DIGITAL",
               use_fonts(spec, module, f.parts))
