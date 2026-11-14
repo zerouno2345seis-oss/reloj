@@ -20,6 +20,8 @@ class QuranWatchApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Whatever started the process, the faces get taps that work (see there).
+        com.quran.watch8.complication.refreshAllComplications(this)
 
         com.quran.watch8.ui.components.ReaderTypography.load(this)
         quranRepository = QuranRepository(this)

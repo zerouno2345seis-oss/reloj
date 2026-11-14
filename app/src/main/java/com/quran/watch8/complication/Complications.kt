@@ -65,6 +65,23 @@ fun requestComplicationUpdate(context: Context, service: Class<*>) {
         .requestUpdateAll()
 }
 
+/**
+ * Asks the faces to fetch every complication of the app again. A tap on a face
+ * fires a PendingIntent the face was handed earlier, and an update of the app
+ * cancels those: the shortcuts, whose data never changes, then stayed dead on
+ * the face until something else made it ask again.
+ */
+fun refreshAllComplications(context: Context) {
+    val request = Intent("android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST").setPackage(context.packageName)
+    runCatching {
+        context.packageManager.queryIntentServices(request, 0).forEach { found ->
+            ComplicationDataSourceUpdateRequester
+                .create(context, ComponentName(context.packageName, found.serviceInfo.name))
+                .requestUpdateAll()
+        }
+    }
+}
+
 /** Today's times for the saved place and method. */
 private suspend fun Context.todaysPrayers(): PrayerTimesHelper.DayPrayers? {
     val prefs = (applicationContext as QuranWatchApplication).prefsRepository
