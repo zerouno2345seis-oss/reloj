@@ -34,6 +34,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var viewModelRef: MainViewModel
     // A route asked for by a watch-face complication or the tile.
     private var pendingRoute by mutableStateOf<String?>(null)
+    // Turns true once the system permission dialog has been answered (granted or refused).
+    private var permissionsAnswered by mutableStateOf(false)
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
@@ -45,6 +47,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (::viewModelRef.isInitialized) viewModelRef.onPermissionsResult(results)
+        permissionsAnswered = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,8 +67,7 @@ class MainActivity : ComponentActivity() {
 
                     val permissions = mutableListOf(
                         Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                        Manifest.permission.RECORD_AUDIO
+                        Manifest.permission.ACCESS_COARSE_LOCATION
                     )
                     if (Build.VERSION.SDK_INT >= 33) permissions.add(Manifest.permission.POST_NOTIFICATIONS)
 
@@ -81,8 +83,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                LaunchedEffect(viewModel.hasLocationPermission, viewModel.hasAudioPermission) {
-                    if (viewModel.hasLocationPermission || viewModel.hasAudioPermission) {
+                LaunchedEffect(viewModel.hasLocationPermission, permissionsAnswered) {
+                    if (viewModel.hasLocationPermission || permissionsAnswered) {
                         permissionsHandled = true
                         showPermissionScreen = false
                     }
@@ -246,7 +248,6 @@ fun PermissionRationaleScreen(onContinue: () -> Unit) {
             Text(
                 text = "يحتاج التطبيق إلى:\n\n" +
                        "📍 الموقع → أوقات الصلاة وحفظ المواقع\n" +
-                       "🎤 الميكروفون → البحث الصوتي والملاحظات\n" +
                        "🔔 الإشعارات → تنبيهات الصلاة\n\n" +
                        "الافتراضي عند الرفض: بوينس آيرس",
                 style = MaterialTheme.typography.caption1,

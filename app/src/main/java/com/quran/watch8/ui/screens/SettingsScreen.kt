@@ -66,6 +66,7 @@ fun SettingsScreen(
     val method by viewModel.calculationMethod.collectAsState()
     val readerMode by viewModel.readerMode.collectAsState()
     val lineSeconds by viewModel.lineSeconds.collectAsState()
+    val lineSpacing by viewModel.lineSpacing.collectAsState()
     val usageJson by viewModel.readingUsage.collectAsState()
     val mostUsed = remember(usageJson) { ReadingUsage.top(usageJson, java.time.LocalDate.now()) }
 
@@ -117,7 +118,7 @@ fun SettingsScreen(
                         color = pageText,
                         fontFamily = ReaderTypography.fontFamily(fontFamily),
                         fontSize = fontSize.sp,
-                        lineHeight = (fontSize * ReaderTypography.LINE_HEIGHT_FACTOR).sp,
+                        lineHeight = (fontSize * lineSpacing).sp,
                         textAlign = TextAlign.Center,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
@@ -141,6 +142,18 @@ fun SettingsScreen(
                         Text("حجم الخط", color = Color(0xFF9CA3AF), fontSize = 10.sp)
                     }
                     RoundButton("−") { viewModel.setFontSize(ReaderTypography.coerceFontSize(fontSize - 2f)) }
+                }
+            }
+
+            // Space between lines, judged on the sample above; 1.4 was the only one before.
+            item { SectionLabel("تباعد الأسطر") }
+            item {
+                Row(modifier = width, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    LINE_SPACINGS.forEach { (factor, name) ->
+                        ModeButton(name, selected = kotlin.math.abs(lineSpacing - factor) < 0.01f, modifier = Modifier.weight(1f)) {
+                            viewModel.setLineSpacing(factor)
+                        }
+                    }
                 }
             }
 
@@ -280,6 +293,8 @@ fun SettingsScreen(
 }
 
 /** The reader's display styles, as settings names them. */
+private val LINE_SPACINGS = listOf(1.4f to "متقارب", 1.55f to "وسط", 1.7f to "واسع")
+
 private val READER_MODES = listOf(
     "pages" to "صفحات",
     "river" to "نهر",

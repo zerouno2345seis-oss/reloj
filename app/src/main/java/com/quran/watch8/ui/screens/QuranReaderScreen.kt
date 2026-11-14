@@ -57,6 +57,8 @@ import com.quran.watch8.ui.components.LinePace
 import com.quran.watch8.ui.components.ReaderLines
 import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.components.RepeatOnResumed
+import com.quran.watch8.ui.components.VerseCheck
+import com.quran.watch8.data.model.Juz
 import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.viewmodel.MainViewModel
@@ -81,13 +83,29 @@ private class ReaderDoc(
 ) {
     class Page(val lines: List<ReaderLines.Line>, val top: Float)
 
-    /** The line where the verse begins (see [ReaderLines.Line.placeAyah]). */
-    fun lineOf(ayahIndex: Int): Int =
-        lines.indexOfFirst { ayahIndex in it.begins }.takeIf { it >= 0 } ?: lines.indexOfFirst { it.holdsAyah(ayahIndex) }
-    fun pageOf(ayahIndex: Int): Int =
-        pages.indexOfFirst { p -> p.lines.any { ayahIndex in it.begins } }.takeIf { it >= 0 }
+    /**
+     * The line where the verse begins (see [ReaderLines.Line.placeAyah]), or
+     * with [word] > 0 the line holding that word of it.
+     */
+    fun lineOf(ayahIndex: Int, word: Int = 0): Int {
+        if (word > 0) ReaderLines.lineOfWord(lines, ayahIndex, word).let { if (it >= 0) return it }
+        return lines.indexOfFirst { ayahIndex in it.begins }.takeIf { it >= 0 } ?: lines.indexOfFirst { it.holdsAyah(ayahIndex) }
+    }
+    fun pageOf(ayahIndex: Int, word: Int = 0): Int {
+        if (word > 0) {
+            val all = pages.flatMap { it.lines }
+            val line = ReaderLines.lineOfWord(all, ayahIndex, word)
+            if (line >= 0) {
+                var n = line
+                for ((i, p) in pages.withIndex()) { if (n < p.lines.size) return i; n -= p.lines.size }
+            }
+        }
+        return pages.indexOfFirst { p -> p.lines.any { ayahIndex in it.begins } }.takeIf { it >= 0 }
             ?: pages.indexOfFirst { p -> p.lines.any { it.holdsAyah(ayahIndex) } }
+    }
     fun placeOfPage(page: Page): Int = page.lines.firstNotNullOfOrNull { it.begins.firstOrNull() } ?: page.lines.firstOrNull()?.firstAyah ?: -1
+    /** The word of [placeOfPage]'s verse that the page starts it at. */
+    fun placeWordOfPage(page: Page, ayah: Int): Int = page.lines.firstNotNullOfOrNull { l -> l.firstWordOf(ayah).takeIf { it >= 0 } } ?: 0
 }
 
 /** Surahs already laid out, so reopening one at the same settings is instant. */
@@ -150,13 +168,19 @@ fun QuranReaderScreen(
     val customReaderTextColorHex by viewModel.customReaderTextColor.collectAsState()
     val mode by viewModel.readerMode.collectAsState()
     val lineSeconds by viewModel.lineSeconds.collectAsState()
+    val lineSpacing by viewModel.lineSpacing.collectAsState()
 
     // Keyed on the text having loaded: opening the reader before the 1.6 MB
     // text finished parsing used to leave the page empty.
     LaunchedEffect(surahNumber) {
         viewModel.loadSurah(surahNumber)
     }
-    val ayahs = remember(surahNumber, viewModel.isQuranLoaded) { viewModel.surahAyahs(surahNumber) }
+    // The one surah first, from its own small file when the whole text has
+    // not loaded yet: the app opens here, so this is the wait at start-up.
+    var ayahs by remember(surahNumber) { mutableStateOf(viewModel.surahAyahs(surahNumber)) }
+    LaunchedEffect(surahNumber) {
+        if (ayahs.isEmpty()) ayahs = viewModel.surahAyahsFast(surahNumber)
+    }
 
     // The stretching fonts read the simple text, verse for verse.
     val simpleFont = ReaderTypography.usesSimpleText(fontFamilyName)
@@ -186,8 +210,8 @@ fun QuranReaderScreen(
     val markedVerses = remember(bookmarks, surahNumber) {
         bookmarks.filter { it.surah == surahNumber }.associateBy { it.ayah }
     }
-    val checked: (Int) -> Boolean = remember(markedVerses, ayahs) {
-        { index -> ayahs.getOrNull(index)?.verse?.let { it in markedVerses } == true }
+    val checked: VerseCheck = remember(markedVerses, ayahs) {
+        VerseCheck { index -> ayahs.getOrNull(index)?.verse?.let { it in markedVerses } == true }
     }
 
     LaunchedEffect(selectedAyahForAction, menuTouches) {
@@ -232,10 +256,12 @@ fun QuranReaderScreen(
             TextPaint(Paint.ANTI_ALIAS_FLAG).apply { this.typeface = numberTypeface; textSize = fontPx; color = ayahNumberColor.toArgb() }
         }
         val marginPx = with(density) { 6.dp.toPx() }
-        val lineHeight = fontPx * ReaderTypography.LINE_HEIGHT_FACTOR
+        val lineHeight = fontPx * lineSpacing
 
         // ── Laying the surah out, off the main thread ────────────────────────
-        val cacheKey = "$surahNumber|$mode|$fontPx|$diameterPx|$fontFamilyName|$useSimple|${quranTextColor.toArgb()}|${ayahNumberColor.toArgb()}"
+        // No colours here: lines hold none, and the paints passed to the readers
+        // carry a new colour into the next frame without laying anything out again.
+        val cacheKey = "$surahNumber|$mode|$fontPx|$diameterPx|$fontFamilyName|$useSimple|$lineSpacing"
         var doc by remember(cacheKey) { mutableStateOf(DocCache.get(cacheKey)) }
         LaunchedEffect(cacheKey, textReady) {
             if (doc != null || !textReady) return@LaunchedEffect
@@ -286,23 +312,30 @@ fun QuranReaderScreen(
         var anchorIndex by remember(surahNumber, ayahs.size) {
             mutableIntStateOf(if (startAyah > 0) ayahs.indexOfFirst { it.verse == startAyah }.coerceAtLeast(0) else 0)
         }
+        // The word of that verse to open on: "continue where I stopped" only
+        // (see MainViewModel.takeResumeWord); any verse asked for opens at its start.
+        var anchorWord by remember(surahNumber) { mutableIntStateOf(viewModel.takeResumeWord(surahNumber, startAyah)) }
         var readingIndex by remember(surahNumber) { mutableIntStateOf(-1) }
+        var readingWord by remember(surahNumber) { mutableIntStateOf(0) }
 
-        // Remember where reading stopped, once it rests there.
+        // Remember where reading stopped, once it rests there: the verse, and
+        // the word of it at the top, so a long verse reopens mid-way.
         LaunchedEffect(surahNumber) {
-            snapshotFlow { readingIndex }
+            snapshotFlow { readingIndex to readingWord }
                 .distinctUntilChanged()
-                .collectLatest { index ->
+                .collectLatest { (index, word) ->
                     if (index < 0) return@collectLatest
                     delay(600L) // one database write per pause, not per line
                     val ayah = ayahs.getOrNull(index) ?: return@collectLatest
                     anchorIndex = index
+                    anchorWord = word
                     viewModel.saveReadingPosition(
                         surah       = surahNumber,
                         ayahIndex   = ayah.verse - 1,
                         ayahNumber  = ayah.verse,
                         surahNameAr = surahName,
-                        ayahSnippet = ayah.text.take(90)
+                        ayahSnippet = ayah.text.take(90),
+                        word        = word,
                     )
                 }
         }
@@ -340,8 +373,9 @@ fun QuranReaderScreen(
                     sign = !AutoScroll.paused
                 } else {
                     // Plain reading: the surah and verse, two seconds.
+                    // Plain reading: where this is in the mushaf, one short line.
                     val ayah = ayahs.getOrNull(index ?: readingIndex)
-                    if (ayah != null) doubleTapInfoText = "$surahName ${ReaderTypography.arabicDigits(ayah.verse)}"
+                    if (ayah != null) doubleTapInfoText = "$surahName ${ReaderTypography.arabicDigits(ayah.verse)} · الجزء ${ReaderTypography.arabicDigits(Juz.of(surahNumber, ayah.verse))}"
                 }
             },
             // With the menu open, the bezel sets the pace: clockwise is faster.
@@ -359,7 +393,7 @@ fun QuranReaderScreen(
             },
             onLongPress = { index -> selectedAyahForAction = ayahs.getOrNull(index) },
         )
-        val onAt: (Int) -> Unit = { index -> moved++; if (index >= 0) readingIndex = index }
+        val onAt: (Int, Int) -> Unit = { index, word -> moved++; if (index >= 0) { readingIndex = index; readingWord = word } }
 
         Scaffold(
             // No position arc: zaher asked for nothing around the text.
@@ -375,8 +409,8 @@ fun QuranReaderScreen(
             } else {
                 key(cacheKey) {
                     when (mode) {
-                        "pages" -> PagedReader(d, anchorIndex, textPaint, markPaint, quranTextColor, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
-                        else -> FlowReader(d, anchorIndex, diameterPx, fill = mode != "river", tickPerVerse = mode != "river", textPaint, markPaint, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
+                        "pages" -> PagedReader(d, anchorIndex, anchorWord, textPaint, markPaint, quranTextColor, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
+                        else -> FlowReader(d, anchorIndex, anchorWord, diameterPx, fill = mode != "river", tickPerVerse = mode != "river", textPaint, markPaint, nextSurah?.nameAr, surahNumber + 1 != 9, openNext, openPrev, onAt, gestures, checked)
                     }
                 }
             }
@@ -577,6 +611,7 @@ private fun rememberDetentPx(): Float {
 private fun PagedReader(
     doc: ReaderDoc,
     anchorIndex: Int,
+    anchorWord: Int,
     textPaint: TextPaint,
     markPaint: TextPaint,
     textColor: Color,
@@ -584,16 +619,16 @@ private fun PagedReader(
     nextHasBasmala: Boolean,
     openNext: () -> Unit,
     openPrev: (() -> Unit)?,
-    onAt: (Int) -> Unit,
+    onAt: (index: Int, word: Int) -> Unit,
     gestures: ReaderGestures,
-    checked: (Int) -> Boolean,
+    checked: VerseCheck,
 ) {
     val g by rememberUpdatedState(gestures)
     val screenCount = doc.pages.size
     // Past the last screen: a divider with the next surah's name and the
     // basmala; resting on it opens that surah, so reading runs on.
     val pageCount = screenCount + if (nextName != null) 1 else 0
-    val start = doc.pageOf(anchorIndex).coerceAtLeast(0)
+    val start = doc.pageOf(anchorIndex, anchorWord).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = start, pageCount = { pageCount })
     val scope = rememberCoroutineScope()
     var leaving by remember { mutableStateOf(false) }
@@ -622,7 +657,10 @@ private fun PagedReader(
                 delay(700L)
                 openNext()
             } else {
-                doc.pages.getOrNull(page)?.let { onAt(doc.placeOfPage(it)) }
+                doc.pages.getOrNull(page)?.let { p ->
+                    val ayah = doc.placeOfPage(p)
+                    onAt(ayah, doc.placeWordOfPage(p, ayah))
+                }
             }
         }
     }
@@ -716,6 +754,7 @@ private fun PagedReader(
 private fun FlowReader(
     doc: ReaderDoc,
     anchorIndex: Int,
+    anchorWord: Int,
     diameter: Float,
     /** Every line meets the circle's edge (4); otherwise a fixed width that fades (2). */
     fill: Boolean,
@@ -726,9 +765,9 @@ private fun FlowReader(
     nextHasBasmala: Boolean,
     openNext: () -> Unit,
     openPrev: (() -> Unit)?,
-    onAt: (Int) -> Unit,
+    onAt: (index: Int, word: Int) -> Unit,
     gestures: ReaderGestures,
-    checked: (Int) -> Boolean,
+    checked: VerseCheck,
 ) {
     val g by rememberUpdatedState(gestures)
     val lines = doc.lines
@@ -743,7 +782,7 @@ private fun FlowReader(
     val maxOffset = if (nextName != null) max(0f, dividerY - r) else max(0f, textEnd - (diameter - bottomPad))
     val lineWidth = lines.maxOfOrNull { it.width } ?: diameter
 
-    val startLine = doc.lineOf(anchorIndex).coerceAtLeast(0)
+    val startLine = doc.lineOf(anchorIndex, anchorWord).coerceAtLeast(0)
     var offset by remember { mutableFloatStateOf((startLine * lh).coerceIn(0f, maxOffset)) }
     var leaving by remember { mutableStateOf(false) }
     var pulled by remember { mutableFloatStateOf(0f) }
@@ -779,7 +818,11 @@ private fun FlowReader(
     fun topLine(): Int = floor(offset / lh + 0.5f).toInt().coerceIn(0, max(0, lines.size - 1))
 
     LaunchedEffect(doc) {
-        snapshotFlow { lines.getOrNull(topLine())?.placeAyah ?: -1 }.distinctUntilChanged().collect { onAt(it) }
+        snapshotFlow {
+            val line = lines.getOrNull(topLine())
+            val ayah = line?.placeAyah ?: -1
+            ayah to (line?.firstWordOf(ayah)?.coerceAtLeast(0) ?: 0)
+        }.distinctUntilChanged().collect { (ayah, word) -> onAt(ayah, word) }
     }
     // A tick in the wrist as each new verse reaches the middle.
     val view = LocalView.current

@@ -21,14 +21,20 @@ import kotlin.math.sqrt
  * Words are drawn one by one, right to left, so the platform shapes each word
  * whole and the stretch never lands inside a ligature it cannot draw.
  */
-class ReaderLines(
-    private val paint: TextPaint,
-    private val markPaint: TextPaint,
+class ReaderLines internal constructor(
+    private val measureWord: (String) -> Float,
+    private val measureMark: (String) -> Float,
     /** Kashida allowed: the font reads the simple text. */
     private val stretch: Boolean,
 ) {
-    /** A word, or a verse's number mark; [ayahIndex] -1 is the basmala. */
-    class Word(val text: String, val ayahIndex: Int, val isMark: Boolean)
+    constructor(paint: TextPaint, markPaint: TextPaint, stretch: Boolean) :
+        this({ paint.measureText(it) }, { markPaint.measureText(it) }, stretch)
+
+    /**
+     * A word, or a verse's number mark; [ayahIndex] -1 is the basmala.
+     * [ordinal]: the word's place in its verse, from 0 (the saved place inside a verse).
+     */
+    class Word(val text: String, val ayahIndex: Int, val isMark: Boolean, val ordinal: Int = 0)
 
     class Line(
         val texts: Array<String>,
@@ -41,6 +47,8 @@ class ReaderLines(
         val width: Float,
         /** Verses whose first word is on this line. */
         val begins: IntArray,
+        /** Each word's place in its verse ([Word.ordinal]). */
+        val ordinals: IntArray = IntArray(texts.size),
     ) {
         val firstAyah: Int get() = ayahs.firstOrNull { it >= 0 } ?: ayahs.firstOrNull() ?: 0
         fun holdsAyah(index: Int) = ayahs.any { it == index }
@@ -51,6 +59,12 @@ class ReaderLines(
          * where it begins too, so reopening lands on the same line every time.
          */
         val placeAyah: Int get() = begins.firstOrNull() ?: firstAyah
+
+        /** The place in [ayah] of its first word on this line, or -1 when it has none here. */
+        fun firstWordOf(ayah: Int): Int {
+            for (i in texts.indices) if (!marks[i] && ayahs[i] == ayah) return ordinals[i]
+            return -1
+        }
 
         /** The verse under [x], measured from the line's centre, before scaling. */
         fun ayahAt(x: Float): Int {
@@ -87,10 +101,11 @@ class ReaderLines(
          */
         fun draw(
             canvas: Canvas, cx: Float, cy: Float, scale: Float, alpha: Float, paint: Paint, markPaint: Paint,
-            checked: (Int) -> Boolean = NONE_CHECKED,
+            checked: VerseCheck = NONE_CHECKED,
         ) {
-            val fm = paint.fontMetrics
-            val baseline = -(fm.ascent + fm.descent) / 2f
+            // Drawn every frame while the text moves: no new objects in here.
+            paint.getFontMetrics(FONT_METRICS)
+            val baseline = -(FONT_METRICS.ascent + FONT_METRICS.descent) / 2f
             canvas.save()
             canvas.translate(cx, cy)
             canvas.scale(scale, scale)
@@ -103,7 +118,7 @@ class ReaderLines(
                 p.textAlign = Paint.Align.RIGHT
                 canvas.drawText(texts[i], right, baseline, p)
                 p.alpha = old
-                if (marks[i] && checked(ayahs[i])) drawTick(canvas, right - widths[i] / 2f, paint.textSize, a)
+                if (marks[i] && checked.isChecked(ayahs[i])) drawTick(canvas, right - widths[i] / 2f, paint.textSize, a)
                 right -= widths[i] + gap
             }
             canvas.restore()
@@ -114,18 +129,24 @@ class ReaderLines(
             val h = textSize * 0.42f
             TICK_PAINT.strokeWidth = textSize * 0.11f
             TICK_PAINT.alpha = alpha
-            val path = android.graphics.Path().apply {
-                moveTo(x - h * 0.5f, 0f)
-                lineTo(x - h * 0.12f, h * 0.38f)
-                lineTo(x + h * 0.55f, -h * 0.45f)
-            }
+            val path = TICK_PATH
+            path.rewind()
+            path.moveTo(x - h * 0.5f, 0f)
+            path.lineTo(x - h * 0.12f, h * 0.38f)
+            path.lineTo(x + h * 0.55f, -h * 0.45f)
             canvas.drawPath(path, TICK_PAINT)
         }
     }
 
-    private val space = paint.measureText(" ")
+    private val space = measureWord(" ")
 
-    private fun width(w: Word) = (if (w.isMark) markPaint else paint).measureText(w.text)
+    // The Quran repeats its words heavily; each distinct one (and each
+    // stretched form tried) is measured once per engine.
+    private val wordWidths = HashMap<String, Float>()
+    private val markWidths = HashMap<String, Float>()
+    private fun wordWidth(text: String) = wordWidths.getOrPut(text) { measureWord(text) }
+    private fun width(w: Word) =
+        if (w.isMark) markWidths.getOrPut(w.text) { measureMark(w.text) } else wordWidth(w.text)
 
     /**
      * Lays [words] out from [start], line [i] being [widthOf] (i) wide, until
@@ -137,6 +158,7 @@ class ReaderLines(
         while (i < words.size && lines.size < maxLines) {
             val w = widthOf(lines.size)
             val row = ArrayList<Word>()
+            var rowWidths = FloatArray(16)
             val begins = ArrayList<Int>()
             var used = 0f
             var basmala = false
@@ -152,13 +174,15 @@ class ReaderLines(
                 for (k in i until j) {
                     val w0 = words[k]
                     if (!w0.isMark && w0.ayahIndex >= 0 && (k == 0 || words[k - 1].isMark || words[k - 1].ayahIndex != w0.ayahIndex)) begins += w0.ayahIndex
+                    if (row.size == rowWidths.size) rowWidths = rowWidths.copyOf(row.size * 2)
+                    rowWidths[row.size] = width(w0)
                     row += w0
                 }
                 used += add
                 i = j
             }
             // The basmala is not stretched: it sits in the middle at its own width.
-            lines += justify(row, w, last = basmala || i >= words.size, begins.toIntArray())
+            lines += justify(row, rowWidths, w, last = basmala || i >= words.size, begins.toIntArray())
         }
         return lines to i
     }
@@ -166,13 +190,14 @@ class ReaderLines(
     /** All of [words] in lines of one [width]. */
     fun layoutAll(words: List<Word>, width: Float): List<Line> = layout(words, 0, Int.MAX_VALUE) { width }.first
 
-    private fun justify(row: List<Word>, w: Float, last: Boolean, begins: IntArray): Line {
+    private fun justify(row: List<Word>, measured: FloatArray, w: Float, last: Boolean, begins: IntArray): Line {
         val texts = Array(row.size) { row[it].text }
-        val widths = FloatArray(row.size) { width(row[it]) }
+        val widths = measured.copyOf(row.size)
         val marks = BooleanArray(row.size) { row[it].isMark }
         val ayahs = IntArray(row.size) { row[it].ayahIndex }
+        val ordinals = IntArray(row.size) { row[it].ordinal }
         fun natural() = widths.sum() + space * (row.size - 1)
-        if (last) return Line(texts, widths, marks, ayahs, space, natural(), begins)
+        if (last) return Line(texts, widths, marks, ayahs, space, natural(), begins, ordinals)
 
         if (stretch && w > natural()) {
             // Up to three-quarters of the slack goes to kashida, longest words first.
@@ -185,7 +210,7 @@ class ReaderLines(
                 for (k in order) {
                     val word = parts.getOrPut(k) { Kashida.Word(row[k].text) }
                     val next = word.stretchedOnceMore() ?: continue
-                    val nw = paint.measureText(next)
+                    val nw = wordWidth(next)
                     val dw = nw - widths[k]
                     if (dw <= 0f || dw > budget) continue
                     word.accept()
@@ -198,18 +223,22 @@ class ReaderLines(
         }
         val extra = max(0f, w - natural())
         val gap = if (row.size > 1) space + extra / (row.size - 1) else space
-        return Line(texts, widths, marks, ayahs, gap, if (row.size > 1) w else natural(), begins)
+        return Line(texts, widths, marks, ayahs, gap, if (row.size > 1) w else natural(), begins, ordinals)
     }
 
     companion object {
         private val LETTER = Regex("[ء-يٮ-ۓ]")
-        internal val NONE_CHECKED: (Int) -> Boolean = { false }
-        internal val TICK_PAINT = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        internal val NONE_CHECKED = VerseCheck { false }
+        // Shared by every line: drawing happens on the main thread only. Lazy,
+        // so the layout half of this class runs in JVM tests without Android.
+        private val FONT_METRICS by lazy(LazyThreadSafetyMode.NONE) { Paint.FontMetrics() }
+        private val TICK_PATH by lazy(LazyThreadSafetyMode.NONE) { android.graphics.Path() }
+        internal val TICK_PAINT by lazy(LazyThreadSafetyMode.NONE) { Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xFFEF4444.toInt()
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
-        }
+        } }
 
         /**
          * A surah as words: the basmala (unless [basmala] is null), then each
@@ -219,13 +248,14 @@ class ReaderLines(
         fun words(verses: List<String>, verseNumbers: List<Int>, basmala: String?, mark: (Int) -> String): List<Word> {
             val out = ArrayList<Word>()
             fun addText(text: String, ayah: Int) {
+                var ordinal = 0
                 for (token in text.split(' ')) {
                     if (token.isEmpty()) continue
                     val last = out.lastOrNull()
                     if (!LETTER.containsMatchIn(token) && last != null && !last.isMark && last.ayahIndex == ayah) {
-                        out[out.size - 1] = Word(last.text + " " + token, ayah, false)
+                        out[out.size - 1] = Word(last.text + " " + token, ayah, false, last.ordinal)
                     } else {
-                        out += Word(token, ayah, false)
+                        out += Word(token, ayah, false, ordinal++)
                     }
                 }
             }
@@ -235,6 +265,22 @@ class ReaderLines(
                 out += Word(mark(verseNumbers[i]), i, true)
             }
             return out
+        }
+
+        /**
+         * The line holding word [word] of verse [ayah]: the last one where the
+         * verse has a word at or before it. The two texts split a verse into
+         * slightly different words, so a place saved in one font lands on or
+         * near the same words in the other. -1 when no line holds the verse.
+         */
+        fun lineOfWord(lines: List<Line>, ayah: Int, word: Int): Int {
+            var found = -1
+            for (l in lines.indices) {
+                val first = lines[l].firstWordOf(ayah)
+                if (first < 0) { if (found >= 0) break else continue }
+                if (first <= word) found = l else break
+            }
+            return found
         }
 
         /** Width of the round screen at height [y], for a screen [diameter] across. */
@@ -249,6 +295,9 @@ class ReaderLines(
             min(chord(top, diameter), chord(bottom, diameter))
     }
 }
+
+/** Whether verse [index] gets the red tick: a plain int call, no boxing per word per frame. */
+fun interface VerseCheck { fun isChecked(index: Int): Boolean }
 
 /**
  * Kashida: drawing out a joining letter with tatweel (U+0640), as a printed

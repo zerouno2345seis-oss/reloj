@@ -64,6 +64,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val lineSeconds     = prefs.lineSeconds.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 4f)
     val lineSideAlpha   = prefs.lineSideAlpha.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.ui.components.LinePace.DEFAULT_SIDE_ALPHA)
     val lineClarity     = prefs.lineClarity.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.ui.components.LinePace.DEFAULT_CLARITY)
+    val lineSpacing     = prefs.lineSpacing.stateIn(viewModelScope, SharingStarted.Eagerly, com.quran.watch8.data.repository.PreferencesRepository.LINE_SPACINGS[0])
     val readingUsage    = prefs.readingUsageJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val tilesConfig     = prefs.tilesConfigJson.map { com.quran.watch8.data.model.TileConfig.fromJson(it) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.quran.watch8.data.model.TileConfig())
     val tilesDisplayMode= prefs.tilesDisplayMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "icons_only")
@@ -192,11 +193,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** One surah's verses, straight from the loaded text (empty until it has loaded). */
     fun surahAyahs(surahNumber: Int): List<Ayah> = quranRepo.getSurahAyahs(surahNumber)
 
+    /** One surah without waiting for the whole text where it can (see [com.quran.watch8.data.repository.QuranRepository.surahAyahsFast]). */
+    suspend fun surahAyahsFast(surahNumber: Int): List<Ayah> = quranRepo.surahAyahsFast(surahNumber)
+
     /** The simple text, for the fonts that stretch; loaded on first use. */
-    suspend fun surahSimple(surahNumber: Int): List<String> {
-        quranRepo.loadSimple()
-        return quranRepo.getSurahSimple(surahNumber)
-    }
+    suspend fun surahSimple(surahNumber: Int): List<String> = quranRepo.surahSimpleFast(surahNumber)
 
     fun clearSearch() {
         searchJob?.cancel()
@@ -218,6 +219,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setReaderMode(mode: String)    { viewModelScope.launch { prefs.setReaderMode(mode) } }
     fun setLineAuto(on: Boolean)       { viewModelScope.launch { prefs.setLineAuto(on) } }
     fun setLineSeconds(seconds: Float) { viewModelScope.launch { prefs.setLineSeconds(seconds) } }
+    fun setLineSpacing(factor: Float)  { viewModelScope.launch { prefs.setLineSpacing(factor) } }
     fun setLineSideAlpha(alpha: Float) { viewModelScope.launch { prefs.setLineSideAlpha(alpha) } }
     fun setLineClarity(level: Int)     { viewModelScope.launch { prefs.setLineClarity(level) } }
 
@@ -317,17 +319,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun loadLastReadingPosition(): ReadingPositionEntity? = db.lastReadingPosition.first()
 
     /** The reader where reading stopped, or the surah list the first time. */
-    suspend fun resumeRoute(): String =
-        loadLastReadingPosition()?.let { "reader/${it.surah}?startAyah=${it.ayahNumber}" } ?: "quran"
+    suspend fun resumeRoute(): String {
+        resumeWord = null
+        val position = loadLastReadingPosition() ?: return "quran"
+        // Only "continue where I stopped" goes back to the word; a bookmark,
+        // search or the juz list open the same route at the verse's start.
+        val place = prefs.readingPlace.first()
+        resumeWord = place?.takeIf { it.first == position.surah && it.second == position.ayahNumber }
+        return "reader/${position.surah}?startAyah=${position.ayahNumber}"
+    }
+
+    private var resumeWord: Triple<Int, Int, Int>? = null
+
+    /** The word to resume at in [surah]:[verse], once, right after [resumeRoute]; else 0. */
+    fun takeResumeWord(surah: Int, verse: Int): Int {
+        val place = resumeWord ?: return 0
+        resumeWord = null
+        return if (place.first == surah && place.second == verse) place.third else 0
+    }
 
     fun saveReadingPosition(
         surah: Int,
         ayahIndex: Int,
         ayahNumber: Int,
         surahNameAr: String,
-        ayahSnippet: String
+        ayahSnippet: String,
+        /** The word of the verse at the top of the text, from 0. */
+        word: Int = 0,
     ) {
         viewModelScope.launch {
+            prefs.setReadingPlace(surah, ayahNumber, word)
             db.saveReadingPosition(surah, ayahIndex, ayahNumber, surahNameAr, ayahSnippet)
             com.quran.watch8.complication.requestComplicationUpdate(
                 appContext, com.quran.watch8.complication.ContinueReadingComplicationService::class.java

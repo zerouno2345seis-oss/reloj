@@ -1,15 +1,24 @@
 package com.quran.watch8.data.repository
 
 import android.content.Context
-import com.google.gson.Gson
+import com.google.gson.stream.JsonReader
 import com.quran.watch8.data.model.Ayah
-import com.quran.watch8.data.model.QuranResponse
 import com.quran.watch8.data.model.SurahMetadata
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.File
+import java.io.InputStream
 import java.io.InputStreamReader
+import java.io.RandomAccessFile
 
 /**
  * Offline Quran repository.
@@ -25,7 +34,94 @@ class QuranRepository(private val context: Context) {
         // from its word, and a line could even break between them.
         private val OPEN_TANWEEN_SPACE = Regex("([\u08F0-\u08F2]\u0651?) (?=[\u0627\u0649])")
 
-        fun joinOpenTanween(text: String): String = text.replace(OPEN_TANWEEN_SPACE, "$1")
+        // Most verses have no open tanween; the check spares them the regex.
+        fun joinOpenTanween(text: String): String =
+            if (text.none { it in '\u08F0'..'\u08F2' }) text else text.replace(OPEN_TANWEEN_SPACE, "$1")
+
+        /**
+         * The Uthmani text, read as a stream: Gson's reflection over 6,236
+         * objects was most of the wait before the reader could open.
+         */
+        fun parseUthmani(input: InputStream): List<Ayah> {
+            val out = ArrayList<Ayah>(6236)
+            JsonReader(InputStreamReader(input, Charsets.UTF_8)).use { r ->
+                r.beginObject()
+                while (r.hasNext()) {
+                    if (r.nextName() != "quran") { r.skipValue(); continue }
+                    r.beginArray()
+                    while (r.hasNext()) {
+                        var chapter = 0; var verse = 0; var text = ""
+                        r.beginObject()
+                        while (r.hasNext()) when (r.nextName()) {
+                            "chapter" -> chapter = r.nextInt()
+                            "verse" -> verse = r.nextInt()
+                            "text" -> text = r.nextString()
+                            else -> r.skipValue()
+                        }
+                        r.endObject()
+                        out += Ayah(chapter, verse, joinOpenTanween(text))
+                    }
+                    r.endArray()
+                }
+                r.endObject()
+            }
+            return out
+        }
+
+        private const val CACHE_MAGIC = 0x51524331 // "QRC1"
+        private const val SURAHS = 114
+        private const val CACHE_HEADER = 4 + (SURAHS + 1) * 4
+
+        /**
+         * Each surah's verses in one file, with the offsets of all 114 up front,
+         * so the reader can take the one surah it opens on without the rest.
+         */
+        fun writeSurahCache(file: File, bySurah: Map<Int, List<String>>) {
+            val body = ByteArrayOutputStream(2_000_000)
+            val offsets = IntArray(SURAHS + 1)
+            DataOutputStream(body).use { out ->
+                for (n in 1..SURAHS) {
+                    offsets[n - 1] = out.size()
+                    val verses = bySurah[n].orEmpty()
+                    out.writeInt(verses.size)
+                    verses.forEach { out.writeUTF(it) }
+                }
+                offsets[SURAHS] = out.size()
+            }
+            // Written aside and renamed, so a half-written file is never read.
+            val tmp = File(file.path + ".tmp")
+            DataOutputStream(tmp.outputStream().buffered()).use { out ->
+                out.writeInt(CACHE_MAGIC)
+                offsets.forEach { out.writeInt(it) }
+                body.writeTo(out)
+            }
+            if (!tmp.renameTo(file)) tmp.delete()
+        }
+
+        /** One surah from [writeSurahCache]'s file, or null when it is missing or not that file. */
+        fun readSurahCache(file: File, surah: Int): List<String>? {
+            if (surah !in 1..SURAHS || !file.isFile) return null
+            return try {
+                RandomAccessFile(file, "r").use { raf ->
+                    if (raf.readInt() != CACHE_MAGIC) return null
+                    raf.seek(4L + (surah - 1) * 4L)
+                    val start = raf.readInt()
+                    val end = raf.readInt()
+                    if (end < start || CACHE_HEADER + end > raf.length()) return null
+                    val bytes = ByteArray(end - start)
+                    raf.seek((CACHE_HEADER + start).toLong())
+                    raf.readFully(bytes)
+                    DataInputStream(ByteArrayInputStream(bytes)).use { input ->
+                        List(input.readInt()) { input.readUTF() }
+                    }
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private const val UTHMANI_CACHE = "surahs-uthmani"
+        private const val SIMPLE_CACHE = "surahs-simple"
 
         private val SPACES = Regex("\\s+")
 
@@ -120,7 +216,6 @@ class QuranRepository(private val context: Context) {
     @Volatile private var ayahsBySurah: Map<Int, List<Ayah>> = emptyMap()
     /** Search form of each ayah, same order as [allAyahs]; built on first search. */
     @Volatile private var normalizedTexts: List<String>? = null
-    private val gson = Gson()
     // The view model and MainActivity both ask for the text at start-up; without
     // this they parsed the 1.6 MB file twice, side by side.
     private val loadLock = Mutex()
@@ -129,19 +224,65 @@ class QuranRepository(private val context: Context) {
         loadLock.withLock {
             try {
                 if (allAyahs.isNotEmpty()) return@withLock true
-                context.assets.open("quran_uthmani.min.json").use { input ->
-                    val reader = InputStreamReader(input, Charsets.UTF_8)
-                    val response = gson.fromJson(reader, QuranResponse::class.java)
-                    val ayahs = response.quran.map { it.copy(text = joinOpenTanween(it.text)) }
-                    ayahsBySurah = ayahs.groupBy { it.chapter }
-                    allAyahs = ayahs
-                }
+                val ayahs = context.assets.open("quran_uthmani.min.json").use { parseUthmani(it) }
+                val bySurah = ayahs.groupBy { it.chapter }
+                ayahsBySurah = bySurah
+                allAyahs = ayahs
+                saveCache(UTHMANI_CACHE) { bySurah.mapValues { (_, list) -> list.map { it.text } } }
                 true
             } catch (e: Exception) {
                 e.printStackTrace()
                 false
             }
         }
+    }
+
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Named by the app's version, so an update with a corrected text never
+    // reads the old one; older files are removed when a new one is written.
+    private val version: Long by lazy {
+        try {
+            androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            )
+        } catch (e: Exception) { 0L }
+    }
+    private fun cacheFile(name: String) = File(context.filesDir, "$name-v$version.bin")
+
+    private fun saveCache(name: String, data: () -> Map<Int, List<String>>) {
+        val file = cacheFile(name)
+        if (file.isFile) return
+        background.launch {
+            try {
+                context.filesDir.listFiles { f -> f.name.startsWith("$name-v") }?.forEach { it.delete() }
+                writeSurahCache(file, data())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * One surah, as soon as possible: from the loaded text, else from the
+     * per-surah file of an earlier start, else after the whole text loads.
+     * The reader opens with this, so a cold start reads ~10 KB, not 1.6 MB.
+     */
+    suspend fun surahAyahsFast(surahNumber: Int): List<Ayah> {
+        ayahsBySurah[surahNumber]?.let { return it }
+        val cached = withContext(Dispatchers.IO) { readSurahCache(cacheFile(UTHMANI_CACHE), surahNumber) }
+        if (!cached.isNullOrEmpty()) return cached.mapIndexed { i, t -> Ayah(surahNumber, i + 1, t) }
+        loadQuran()
+        return getSurahAyahs(surahNumber)
+    }
+
+    /** As [surahAyahsFast], for the simple text the stretching fonts read. */
+    suspend fun surahSimpleFast(surahNumber: Int): List<String> {
+        simpleBySurah[surahNumber]?.let { return it }
+        val cached = withContext(Dispatchers.IO) { readSurahCache(cacheFile(SIMPLE_CACHE), surahNumber) }
+        if (!cached.isNullOrEmpty()) return cached
+        loadSimple()
+        return getSurahSimple(surahNumber)
     }
 
     fun getSurahAyahs(surahNumber: Int): List<Ayah> {
@@ -169,6 +310,8 @@ class QuranRepository(private val context: Context) {
                 context.assets.open("quran_simple.txt").bufferedReader(Charsets.UTF_8).useLines {
                     simpleBySurah = parseSimple(it)
                 }
+                val bySurah = simpleBySurah
+                saveCache(SIMPLE_CACHE) { bySurah }
                 true
             } catch (e: Exception) {
                 e.printStackTrace()

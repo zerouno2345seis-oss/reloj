@@ -49,6 +49,13 @@ class PreferencesRepository(private val context: Context) {
         private val LINE_SECONDS = floatPreferencesKey("reader_line_seconds")
         private val LINE_SIDE_ALPHA = floatPreferencesKey("reader_line_side_alpha")
         private val LINE_CLARITY = intPreferencesKey("reader_line_clarity") // 1..5, see LinePace.lineCentre
+        private val LINE_SPACING = floatPreferencesKey("reader_line_spacing") // line height ÷ font size
+        // Where reading stopped inside a verse: the word (from 0) of [PLACE_SURAH]:[PLACE_VERSE]
+        // at the top of the text. Beside the Room position, which keeps the verse only.
+        private val PLACE_SURAH = intPreferencesKey("reading_place_surah")
+        private val PLACE_VERSE = intPreferencesKey("reading_place_verse")
+        private val PLACE_WORD = intPreferencesKey("reading_place_word")
+        val LINE_SPACINGS = listOf(1.4f, 1.55f, 1.7f)
         private val READING_USAGE_JSON = stringPreferencesKey("reading_usage_json")
         private val TILES_CONFIG_JSON = stringPreferencesKey("tiles_config_json")
         private val TILES_DISPLAY_MODE = stringPreferencesKey("tiles_display_mode") // "icons_only", "icons_and_text"
@@ -84,6 +91,12 @@ class PreferencesRepository(private val context: Context) {
     }
     val lineSideAlpha: Flow<Float> = context.dataStore.data.map { it[LINE_SIDE_ALPHA] ?: LinePace.DEFAULT_SIDE_ALPHA }
     val lineClarity: Flow<Int> = context.dataStore.data.map { it[LINE_CLARITY] ?: LinePace.DEFAULT_CLARITY }
+    val lineSpacing: Flow<Float> = context.dataStore.data.map { it[LINE_SPACING] ?: LINE_SPACINGS[0] }
+    /** surah, verse, word; null before any place inside a verse was saved. */
+    val readingPlace: Flow<Triple<Int, Int, Int>?> = context.dataStore.data.map {
+        val s = it[PLACE_SURAH] ?: return@map null
+        Triple(s, it[PLACE_VERSE] ?: return@map null, it[PLACE_WORD] ?: 0)
+    }
     val readingUsageJson: Flow<String> = context.dataStore.data.map { it[READING_USAGE_JSON] ?: "" }
     val tilesConfigJson: Flow<String> = context.dataStore.data.map { it[TILES_CONFIG_JSON] ?: "" }
     val tilesDisplayMode: Flow<String> = context.dataStore.data.map { it[TILES_DISPLAY_MODE] ?: "icons_only" }
@@ -163,6 +176,18 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun setLineClarity(level: Int) {
         context.dataStore.edit { it[LINE_CLARITY] = level.coerceIn(1, LinePace.MAX_CLARITY) }
+    }
+
+    suspend fun setLineSpacing(factor: Float) {
+        context.dataStore.edit { it[LINE_SPACING] = LINE_SPACINGS.minByOrNull { s -> kotlin.math.abs(s - factor) }!! }
+    }
+
+    suspend fun setReadingPlace(surah: Int, verse: Int, word: Int) {
+        context.dataStore.edit {
+            it[PLACE_SURAH] = surah
+            it[PLACE_VERSE] = verse
+            it[PLACE_WORD] = word.coerceAtLeast(0)
+        }
     }
 
     /** Read-modify-write in one transaction, so two quick adds never lose one. */

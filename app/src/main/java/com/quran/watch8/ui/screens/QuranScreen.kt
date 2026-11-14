@@ -20,7 +20,9 @@ import androidx.wear.compose.material.*
 import com.quran.watch8.ui.components.WatchSafeInsets
 import com.quran.watch8.ui.components.WatchIcons
 import com.quran.watch8.ui.components.onSwipeLeft
+import com.quran.watch8.data.model.Juz
 import com.quran.watch8.data.model.SurahMetadata
+import com.quran.watch8.ui.components.ReaderTypography
 import com.quran.watch8.ui.theme.AccentGold
 import com.quran.watch8.ui.theme.AyahYellow
 import com.quran.watch8.ui.viewmodel.MainViewModel
@@ -40,6 +42,7 @@ fun QuranScreen(
     val lastReading by viewModel.lastReadingPosition.collectAsState()
     val listState = rememberScalingLazyListState()
     var showSearchResults by remember { mutableStateOf(false) }
+    var showJuz by remember { mutableStateOf(false) }
     val searchResults by remember { derivedStateOf { viewModel.searchResults } }
     val surahResults by remember { derivedStateOf { viewModel.surahSearchResults } }
 
@@ -121,6 +124,18 @@ fun QuranScreen(
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier
                         .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
+                        .padding(bottom = 4.dp)
+                )
+            }
+
+            // Switches the list below between the surahs and the thirty ajza'.
+            item {
+                Chip(
+                    onClick = { showJuz = !showJuz },
+                    label = { Text(if (showJuz) "السور" else "الأجزاء", style = MaterialTheme.typography.button) },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier
+                        .fillMaxWidth(WatchSafeInsets.contentWidthFraction)
                         .padding(bottom = 8.dp)
                 )
             }
@@ -143,7 +158,7 @@ fun QuranScreen(
                         },
                         label = {
                             Text(
-                                "${surah.number}. ${surah.nameAr}",
+                                "${ReaderTypography.arabicDigits(surah.number)}. ${surah.nameAr}",
                                 style = MaterialTheme.typography.caption2
                             )
                         },
@@ -159,7 +174,7 @@ fun QuranScreen(
                         },
                         label = {
                             Text(
-                                "${ayah.chapter}:${ayah.verse} ${ayah.text.take(40)}...",
+                                "${ReaderTypography.arabicDigits(ayah.chapter)}:${ReaderTypography.arabicDigits(ayah.verse)} ${ayah.text.take(40)}...",
                                 style = MaterialTheme.typography.caption3,
                                 maxLines = 2
                             )
@@ -177,6 +192,35 @@ fun QuranScreen(
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
+            } else if (showJuz) {
+                // The thirty ajza', each opening the reader at the verse it starts at.
+                items((1..30).toList()) { juz ->
+                    val (startSurah, startVerse) = Juz.STARTS[juz - 1]
+                    val surahName = SurahMetadata.getSurah(startSurah)?.nameAr ?: ""
+                    Chip(
+                        onClick = { onNavigateToAyah(startSurah, startVerse) },
+                        label = {
+                            Column {
+                                Text(
+                                    text = "الجزء ${ReaderTypography.arabicDigits(juz)}",
+                                    style = MaterialTheme.typography.body1,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "سورة $surahName · آية ${ReaderTypography.arabicDigits(startVerse)}",
+                                    style = MaterialTheme.typography.caption3,
+                                    color = Color.Gray
+                                )
+                            }
+                        },
+                        colors = ChipDefaults.secondaryChipColors(
+                            backgroundColor = Color(0xFF111111)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp)
+                    )
+                }
             } else {
                 // Full surah list
                 items(SurahMetadata.surahs) { surah ->
@@ -185,12 +229,12 @@ fun QuranScreen(
                         label = {
                             Column {
                                 Text(
-                                    text = "${surah.number}. ${surah.nameAr}",
+                                    text = "${ReaderTypography.arabicDigits(surah.number)}. ${surah.nameAr}",
                                     style = MaterialTheme.typography.body1,
                                     color = Color.White
                                 )
                                 Text(
-                                    text = "${surah.nameEn} • ${surah.versesCount} آية",
+                                    text = "${ReaderTypography.arabicDigits(surah.versesCount)} آية",
                                     style = MaterialTheme.typography.caption3,
                                     color = Color.Gray
                                 )
