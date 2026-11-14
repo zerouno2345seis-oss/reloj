@@ -119,6 +119,45 @@ private object DocCache {
 
 private const val UTHMANI_BASMALA = "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ"
 
+/** One surah set in lines for the reading style [mode]; heavy, so off the main thread. */
+private fun layoutDoc(
+    mode: String,
+    verses: List<String>,
+    numbers: List<Int>,
+    surah: Int,
+    useSimple: Boolean,
+    textPaint: TextPaint,
+    markPaint: TextPaint,
+    diameterPx: Float,
+    marginPx: Float,
+    lineHeight: Float,
+): ReaderDoc {
+    val basmala = if (surah == 1 || surah == 9) null else if (useSimple) QuranRepository.SIMPLE_BASMALA else UTHMANI_BASMALA
+    val words = ReaderLines.words(verses, numbers, basmala) { ReaderTypography.ayahEndMark(it) }
+    val engine = ReaderLines(textPaint, markPaint, stretch = useSimple)
+    return when (mode) {
+        "pages" -> {
+            val cap = diameterPx * 0.04f
+            var k = max(1, ((diameterPx - 2 * cap) / lineHeight).toInt())
+            fun top(n: Int) = (diameterPx - n * lineHeight) / 2f
+            fun widthOf(n: Int, i: Int) =
+                ReaderLines.chordBetween(top(n) + i * lineHeight, top(n) + (i + 1) * lineHeight, diameterPx) - 2 * marginPx
+            while (k > 1 && widthOf(k, 0) < diameterPx * 0.26f) k--
+            val pages = ArrayList<ReaderDoc.Page>()
+            var at = 0
+            while (at < words.size) {
+                val (lines, next) = engine.layout(words, at, k) { widthOf(k, it) }
+                // A short last page sits in the middle, where lines are widest.
+                pages += ReaderDoc.Page(lines, top(k) + (k - lines.size) * lineHeight / 2f)
+                at = next
+            }
+            ReaderDoc(pages, emptyList(), lineHeight)
+        }
+        "river" -> ReaderDoc(emptyList(), engine.layoutAll(words, diameterPx * 0.8f), lineHeight)
+        else -> ReaderDoc(emptyList(), engine.layoutAll(words, diameterPx - 2 * marginPx), lineHeight)
+    }
+}
+
 /**
  * The Quran reader, in the display style chosen in settings:
  *
@@ -263,35 +302,29 @@ fun QuranReaderScreen(
         // carry a new colour into the next frame without laying anything out again.
         val cacheKey = "$surahNumber|$mode|$fontPx|$diameterPx|$fontFamilyName|$useSimple|$lineSpacing"
         var doc by remember(cacheKey) { mutableStateOf(DocCache.get(cacheKey)) }
+        fun keyOf(surah: Int) = "$surah|$mode|$fontPx|$diameterPx|$fontFamilyName|$useSimple|$lineSpacing"
         LaunchedEffect(cacheKey, textReady) {
-            if (doc != null || !textReady) return@LaunchedEffect
-            doc = withContext(Dispatchers.Default) {
-                val verses = if (useSimple) simpleVerses!! else ayahs.map { it.text }
-                val basmala = if (!withBasmala) null else if (useSimple) QuranRepository.SIMPLE_BASMALA else UTHMANI_BASMALA
-                val words = ReaderLines.words(verses, ayahs.map { it.verse }, basmala) { ReaderTypography.ayahEndMark(it) }
-                val engine = ReaderLines(textPaint, markPaint, stretch = useSimple)
-                when (mode) {
-                    "pages" -> {
-                        val cap = diameterPx * 0.04f
-                        var k = max(1, ((diameterPx - 2 * cap) / lineHeight).toInt())
-                        fun top(n: Int) = (diameterPx - n * lineHeight) / 2f
-                        fun widthOf(n: Int, i: Int) =
-                            ReaderLines.chordBetween(top(n) + i * lineHeight, top(n) + (i + 1) * lineHeight, diameterPx) - 2 * marginPx
-                        while (k > 1 && widthOf(k, 0) < diameterPx * 0.26f) k--
-                        val pages = ArrayList<ReaderDoc.Page>()
-                        var at = 0
-                        while (at < words.size) {
-                            val (lines, next) = engine.layout(words, at, k) { widthOf(k, it) }
-                            // A short last page sits in the middle, where lines are widest.
-                            pages += ReaderDoc.Page(lines, top(k) + (k - lines.size) * lineHeight / 2f)
-                            at = next
-                        }
-                        ReaderDoc(pages, emptyList(), lineHeight)
-                    }
-                    "river" -> ReaderDoc(emptyList(), engine.layoutAll(words, diameterPx * 0.8f), lineHeight)
-                    else -> ReaderDoc(emptyList(), engine.layoutAll(words, diameterPx - 2 * marginPx), lineHeight)
+            if (!textReady) return@LaunchedEffect
+            if (doc == null) {
+                doc = withContext(Dispatchers.Default) {
+                    val verses = if (useSimple) simpleVerses!! else ayahs.map { it.text }
+                    layoutDoc(mode, verses, ayahs.map { it.verse }, surahNumber, useSimple, textPaint, markPaint, diameterPx, marginPx, lineHeight)
+                }.also { DocCache.put(cacheKey, it) }
+            }
+            // The surahs either side, laid out while this one is read, so that
+            // crossing into them is as quick as moving on a verse.
+            for (near in intArrayOf(surahNumber - 1, surahNumber + 1)) {
+                if (near !in 1..114 || DocCache.get(keyOf(near)) != null) continue
+                val nearAyahs = viewModel.surahAyahsFast(near)
+                val nearSimple = if (useSimple) viewModel.surahSimple(near) else null
+                if (nearAyahs.isEmpty() || (nearSimple != null && nearSimple.size != nearAyahs.size)) continue
+                val text = TextPaint(textPaint)
+                val mark = TextPaint(markPaint)
+                val made = withContext(Dispatchers.Default) {
+                    layoutDoc(mode, nearSimple ?: nearAyahs.map { it.text }, nearAyahs.map { it.verse }, near, useSimple, text, mark, diameterPx, marginPx, lineHeight)
                 }
-            }.also { DocCache.put(cacheKey, it) }
+                DocCache.put(keyOf(near), made)
+            }
         }
 
         val nextSurah = SurahMetadata.getSurah(surahNumber + 1).takeIf { surahNumber < 114 }
@@ -299,7 +332,7 @@ fun QuranReaderScreen(
         // Backing out of the first page opens the surah before, on its last
         // verse, so the Quran reads as one long page in both directions.
         val openPrev: (() -> Unit)? = if (surahNumber > 1) {
-            { onOpenSurahAt(surahNumber - 1, SurahMetadata.getSurah(surahNumber - 1)?.versesCount ?: -1) }
+            { AutoScroll.arriveAtEnd = true; onOpenSurahAt(surahNumber - 1, SurahMetadata.getSurah(surahNumber - 1)?.versesCount ?: -1) }
         } else null
         // One step slower or faster, from the bezel or the buttons of the menu.
         val paceStep: (Boolean) -> Unit = { slower ->
@@ -540,6 +573,8 @@ private object AutoScroll {
     var paused by mutableStateOf(false)
     /** Set just before the next surah opens by itself, so the scroll goes on. */
     var carry = false
+    /** Set just before the surah before opens from a pull back: it opens on its last lines. */
+    var arriveAtEnd = false
     fun end() { on = false; paused = false }
 }
 
@@ -628,7 +663,9 @@ private fun PagedReader(
     // Past the last screen: a divider with the next surah's name and the
     // basmala; resting on it opens that surah, so reading runs on.
     val pageCount = screenCount + if (nextName != null) 1 else 0
-    val start = doc.pageOf(anchorIndex, anchorWord).coerceAtLeast(0)
+    // Come back into from the surah after: its last screen.
+    val fromAfter = remember { AutoScroll.arriveAtEnd.also { AutoScroll.arriveAtEnd = false } }
+    val start = if (fromAfter) max(0, screenCount - 1) else doc.pageOf(anchorIndex, anchorWord).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = start, pageCount = { pageCount })
     val scope = rememberCoroutineScope()
     var leaving by remember { mutableStateOf(false) }
@@ -640,7 +677,7 @@ private fun PagedReader(
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                 if (pagerState.currentPage == 0 && available.y > 0f) {
                     pulled += available.y
-                    if (pulled > 90f) leaveBack()
+                    if (pulled > 45f) leaveBack()
                 }
                 return Offset.Zero
             }
@@ -783,7 +820,11 @@ private fun FlowReader(
     val lineWidth = lines.maxOfOrNull { it.width } ?: diameter
 
     val startLine = doc.lineOf(anchorIndex, anchorWord).coerceAtLeast(0)
-    var offset by remember { mutableFloatStateOf((startLine * lh).coerceIn(0f, maxOffset)) }
+    var offset by remember {
+        // Come back into from the surah after: its last lines, as if the two were one page.
+        val atEnd = AutoScroll.arriveAtEnd.also { AutoScroll.arriveAtEnd = false }
+        mutableFloatStateOf((if (atEnd) textEnd - (diameter - bottomPad) else startLine * lh).coerceIn(0f, maxOffset))
+    }
     var leaving by remember { mutableStateOf(false) }
     var pulled by remember { mutableFloatStateOf(0f) }
     fun leaveBack() { if (!leaving && openPrev != null) { leaving = true; openPrev() } }
@@ -796,7 +837,7 @@ private fun FlowReader(
         // Pulled down past the first line: on into the surah before.
         if (old <= 0f && delta > 0f) {
             pulled += delta
-            if (pulled > diameter * 0.2f) leaveBack()
+            if (pulled > diameter * 0.1f) leaveBack()
         } else if (delta < 0f || offset > 0f) pulled = 0f
         old - offset
     }
